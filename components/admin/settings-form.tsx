@@ -178,7 +178,7 @@ export function SettingsForm({ departments, settings }: SettingsFormProps) {
             <label className="text-sm font-medium">ערכת נושא</label>
             <Select
               value={form.theme}
-              onValueChange={(value) => setForm({ ...form, theme: value })}
+              onValueChange={(value: 'light' | 'dark') => setForm({ ...form, theme: value })}
             >
               <SelectTrigger className="w-full max-w-xs mt-1">
                 <SelectValue />

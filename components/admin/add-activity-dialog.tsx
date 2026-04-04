@@ -40,6 +40,10 @@ export function AddActivityDialog({ departments }: AddActivityDialogProps) {
     end_time: "",
     location: "",
     department_id: "",
+    instructor_name: "",
+    participants: "",
+    image_url: "",
+    activity_date: "",
   })
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -47,7 +51,6 @@ export function AddActivityDialog({ departments }: AddActivityDialogProps) {
     setIsLoading(true)
 
     const supabase = createClient()
-    
     await supabase.from("activities").insert({
       title: form.title,
       description: form.description || null,
@@ -55,18 +58,19 @@ export function AddActivityDialog({ departments }: AddActivityDialogProps) {
       end_time: form.end_time || null,
       location: form.location || null,
       department_id: form.department_id,
+      instructor_name: form.instructor_name || null,
+      participants: form.participants || null,
+      image_url: form.image_url || null,
+      activity_date: form.activity_date || null,
       is_active: true,
     })
 
     setIsLoading(false)
     setOpen(false)
     setForm({
-      title: "",
-      description: "",
-      start_time: "",
-      end_time: "",
-      location: "",
-      department_id: "",
+      title: "", description: "", start_time: "", end_time: "",
+      location: "", department_id: "", instructor_name: "",
+      participants: "", image_url: "", activity_date: "",
     })
     router.refresh()
   }
@@ -79,13 +83,11 @@ export function AddActivityDialog({ departments }: AddActivityDialogProps) {
           הוסף פעילות
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>הוסף פעילות חדשה</DialogTitle>
-            <DialogDescription>
-              צור פעילות חדשה שתוצג במסך המחלקה
-            </DialogDescription>
+            <DialogDescription>צור פעילות חדשה שתוצג במסך המחלקה</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>
@@ -100,7 +102,7 @@ export function AddActivityDialog({ departments }: AddActivityDialogProps) {
             <div>
               <label className="text-sm font-medium">תיאור (אופציונלי)</label>
               <Textarea
-                placeholder="תיאור קצר של הפעילות"
+                placeholder="תיאור קצר"
                 value={form.description}
                 onChange={(e) => setForm({ ...form, description: e.target.value })}
                 rows={2}
@@ -118,12 +120,19 @@ export function AddActivityDialog({ departments }: AddActivityDialogProps) {
                 </SelectTrigger>
                 <SelectContent>
                   {departments.map((dept) => (
-                    <SelectItem key={dept.id} value={dept.id}>
-                      {dept.name}
-                    </SelectItem>
+                    <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium">תאריך</label>
+              <Input
+                type="date"
+                value={form.activity_date}
+                onChange={(e) => setForm({ ...form, activity_date: e.target.value })}
+                required
+              />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -136,7 +145,7 @@ export function AddActivityDialog({ departments }: AddActivityDialogProps) {
                 />
               </div>
               <div>
-                <label className="text-sm font-medium">שעת סיום (אופציונלי)</label>
+                <label className="text-sm font-medium">שעת סיום</label>
                 <Input
                   type="time"
                   value={form.end_time}
@@ -145,18 +154,41 @@ export function AddActivityDialog({ departments }: AddActivityDialogProps) {
               </div>
             </div>
             <div>
-              <label className="text-sm font-medium">מיקום (אופציונלי)</label>
+              <label className="text-sm font-medium">מיקום</label>
               <Input
                 placeholder="לדוגמה: חדר כושר"
                 value={form.location}
                 onChange={(e) => setForm({ ...form, location: e.target.value })}
               />
             </div>
+            <div>
+              <label className="text-sm font-medium">שם המנחה</label>
+              <Input
+                placeholder="לדוגמה: יוסי כהן"
+                value={form.instructor_name}
+                onChange={(e) => setForm({ ...form, instructor_name: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">משתתפים</label>
+              <Textarea
+                placeholder="לדוגמה: דוד לוי, רחל כהן, משה ישראלי"
+                value={form.participants}
+                onChange={(e) => setForm({ ...form, participants: e.target.value })}
+                rows={2}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">קישור לתמונה (אופציונלי)</label>
+              <Input
+                placeholder="https://..."
+                value={form.image_url}
+                onChange={(e) => setForm({ ...form, image_url: e.target.value })}
+              />
+            </div>
           </div>
           <DialogFooter className="gap-2">
-            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-              ביטול
-            </Button>
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>ביטול</Button>
             <Button type="submit" disabled={isLoading || !form.department_id}>
               {isLoading ? "יוצר..." : "צור פעילות"}
             </Button>

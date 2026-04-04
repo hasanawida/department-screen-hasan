@@ -32,6 +32,9 @@ export interface Activity {
   is_recurring: boolean
   activity_date: string | null
   is_active: boolean
+  instructor_name: string | null
+  participants: string | null
+  image_url: string | null
   created_at: string
   updated_at: string
 }

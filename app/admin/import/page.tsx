@@ -97,9 +97,11 @@ export default function ImportSchedulePage() {
         department_id: selectedDept,
         title: a.name,
         description: a.facilitator,
+        day_of_week: a.day_of_week,
         start_time: a.start_time,
         end_time: a.end_time,
         location: a.location,
+        is_active: true,
       }))
       const { error } = await supabase.from("activities").insert(rows)
       if (error) throw error

@@ -104,7 +104,7 @@ async function getDisplayData(code: string) {
       const d = new Date(a.activity_date);
       return d.toDateString() === now.toDateString();
     }
-    return a.day_of_week === now.getDay();
+    return a.day_of_week === hebrewDays[now.getDay()];
   });
 
   const currentActivity = activities.find(a => {

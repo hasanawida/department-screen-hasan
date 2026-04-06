@@ -1,5 +1,4 @@
 "use client"
-
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
@@ -13,7 +12,8 @@ import {
   Settings, 
   LogOut,
   Home,
-  LayoutDashboard
+  LayoutDashboard,
+  Upload
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -25,6 +25,7 @@ const navItems = [
   { href: "/admin", label: "לוח בקרה", icon: LayoutDashboard },
   { href: "/admin/departments", label: "מחלקות", icon: Building2 },
   { href: "/admin/activities", label: "פעילויות", icon: Calendar },
+  { href: "/admin/import", label: "ייבוא מתמונה", icon: Upload },
   { href: "/admin/announcements", label: "הודעות", icon: Bell },
   { href: "/admin/ticker", label: "שורת רצה", icon: MessageSquare },
   { href: "/admin/settings", label: "הגדרות", icon: Settings },
@@ -48,7 +49,6 @@ export function AdminSidebar({ userEmail }: AdminSidebarProps) {
           <span className="font-semibold">מסך המחלקה</span>
         </Link>
       </div>
-
       <nav className="flex-1 p-4">
         <ul className="space-y-1">
           {navItems.map((item) => {
@@ -73,7 +73,6 @@ export function AdminSidebar({ userEmail }: AdminSidebarProps) {
           })}
         </ul>
       </nav>
-
       <div className="p-4 border-t">
         <div className="text-sm text-muted-foreground mb-2 truncate">
           {userEmail}

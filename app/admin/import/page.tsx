@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Upload, Loader2, Check, X } from "lucide-react"
+import { Upload, Loader2, Check, X, FileText, Image } from "lucide-react"
 
 interface Activity {
   title: string
@@ -24,9 +24,11 @@ interface Department {
 
 export default function ImportPage() {
   const router = useRouter()
-  const [image, setImage] = useState<File | null>(null)
-  const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [file, setFile] = useState<File | null>(null)
+  const [filePreview, setFilePreview] = useState<string | null>(null)
+  const [fileType, setFileType] = useState<"image" | "pdf" | "doc" | null>(null)
   const [activities, setActivities] = useState<Activity[]>([])
+  const [weeklyTopic, setWeeklyTopic] = useState<string>("")
   const [departments, setDepartments] = useState<Department[]>([])
   const [selectedDept, setSelectedDept] = useState("")
   const [isAnalyzing, setIsAnalyzing] = useState(false)
@@ -34,47 +36,68 @@ export default function ImportPage() {
   const [isDone, setIsDone] = useState(false)
   const [error, setError] = useState("")
 
-  const loadDepartments = async () => {
-    const supabase = createClient()
-    const { data } = await supabase.from("departments").select("id, name").order("name")
-    if (data) setDepartments(data)
-  }
+  useState(() => {
+    const loadDepartments = async () => {
+      const supabase = createClient()
+      const { data } = await supabase.from("departments").select("id, name").order("name")
+      if (data) setDepartments(data)
+    }
+    loadDepartments()
+  })
 
-  useState(() => { loadDepartments() })
-
-  const handleImage = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    setImage(file)
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0]
+    if (!f) return
+    setFile(f)
     setActivities([])
+    setWeeklyTopic("")
     setIsDone(false)
     setError("")
-    const reader = new FileReader()
-    reader.onload = () => setImagePreview(reader.result as string)
-    reader.readAsDataURL(file)
+
+    const ext = f.name.split(".").pop()?.toLowerCase()
+    if (f.type.startsWith("image/")) {
+      setFileType("image")
+      const reader = new FileReader()
+      reader.onload = () => setFilePreview(reader.result as string)
+      reader.readAsDataURL(f)
+    } else if (ext === "pdf") {
+      setFileType("pdf")
+      setFilePreview(null)
+    } else if (ext === "doc" || ext === "docx") {
+      setFileType("doc")
+      setFilePreview(null)
+    }
   }
 
-  const analyzeImage = async () => {
-    if (!image || !imagePreview) return
+  const analyzeFile = async () => {
+    if (!file) return
     setIsAnalyzing(true)
     setError("")
     try {
-      const base64 = imagePreview.split(",")[1]
-      const mediaType = image.type as "image/jpeg" | "image/png" | "image/webp"
-      const response = await fetch("/api/analyze-schedule", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ base64, mediaType }),
-      })
-      const data = await response.json()
-      if (data.activities) {
-        setActivities(data.activities)
-      } else {
-        setError("לא הצלחתי לקרוא את הלוח. נסה תמונה ברורה יותר.")
+      const reader = new FileReader()
+      reader.onload = async () => {
+        const base64 = (reader.result as string).split(",")[1]
+        const response = await fetch("/api/analyze-schedule", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            base64,
+            mediaType: file.type || "application/octet-stream",
+            fileName: file.name,
+          }),
+        })
+        const data = await response.json()
+        if (data.activities) {
+          setActivities(data.activities)
+          if (data.weekly_topic) setWeeklyTopic(data.weekly_topic)
+        } else {
+          setError("לא הצלחתי לקרוא את הקובץ. נסה קובץ ברור יותר.")
+        }
+        setIsAnalyzing(false)
       }
+      reader.readAsDataURL(file)
     } catch {
       setError("אירעה שגיאה. נסה שוב.")
-    } finally {
       setIsAnalyzing(false)
     }
   }
@@ -83,6 +106,7 @@ export default function ImportPage() {
     if (!selectedDept || activities.length === 0) return
     setIsSaving(true)
     const supabase = createClient()
+
     for (const activity of activities) {
       await supabase.from("activities").insert({
         title: activity.title,
@@ -95,6 +119,17 @@ export default function ImportPage() {
         is_active: true,
       })
     }
+
+    if (weeklyTopic) {
+      const today = new Date().toISOString().split("T")[0]
+      await supabase.from("weekly_topics").insert({
+        title: weeklyTopic,
+        department_id: selectedDept,
+        week_start: today,
+        is_active: true,
+      })
+    }
+
     setIsSaving(false)
     setIsDone(true)
     setTimeout(() => router.push("/admin/activities"), 2000)
@@ -109,11 +144,17 @@ export default function ImportPage() {
     "ד'": "רביעי", "ה'": "חמישי", "ו'": "שישי", "ש'": "שבת"
   }
 
+  const getFileIcon = () => {
+    if (fileType === "image") return <Image className="h-10 w-10 text-blue-500" />
+    if (fileType === "pdf") return <FileText className="h-10 w-10 text-red-500" />
+    return <FileText className="h-10 w-10 text-blue-700" />
+  }
+
   return (
     <div className="p-6 max-w-3xl" dir="rtl">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold">ייבוא לוח פעילויות מתמונה</h1>
-        <p className="text-muted-foreground mt-1">צלם את לוח הפעילויות השבועי ו-AI יזין את הפעילויות אוטומטית</p>
+        <h1 className="text-3xl font-bold">ייבוא לוח פעילויות</h1>
+        <p className="text-muted-foreground mt-1">העלה תמונה, PDF או Word — AI יזין את הפעילויות אוטומטית</p>
       </div>
       <div className="space-y-6">
         <Card>
@@ -131,33 +172,68 @@ export default function ImportPage() {
             </Select>
           </CardContent>
         </Card>
+
         <Card>
           <CardHeader>
-            <CardTitle>2. העלה תמונה של הלוח</CardTitle>
-            <CardDescription>תמונה ברורה של לוח הפעילויות השבועי</CardDescription>
+            <CardTitle>2. העלה קובץ</CardTitle>
+            <CardDescription>תמונה (JPG/PNG), PDF, או Word (DOC/DOCX)</CardDescription>
           </CardHeader>
           <CardContent>
             <label className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
-              {imagePreview ? (
-                <img src={imagePreview} alt="לוח פעילויות" className="max-h-44 object-contain rounded" />
+              {file ? (
+                <div className="flex flex-col items-center gap-2">
+                  {fileType === "image" && filePreview ? (
+                    <img src={filePreview} alt="תצוגה מקדימה" className="max-h-36 object-contain rounded" />
+                  ) : (
+                    <>
+                      {getFileIcon()}
+                      <span className="text-sm font-medium">{file.name}</span>
+                      <span className="text-xs text-muted-foreground">{(file.size / 1024).toFixed(0)} KB</span>
+                    </>
+                  )}
+                </div>
               ) : (
                 <div className="flex flex-col items-center gap-2 text-muted-foreground">
                   <Upload className="h-10 w-10" />
-                  <span>לחץ להעלאת תמונה</span>
-                  <span className="text-sm">JPG, PNG, WEBP</span>
+                  <span>לחץ להעלאת קובץ</span>
+                  <span className="text-sm">JPG, PNG, PDF, DOC, DOCX</span>
                 </div>
               )}
-              <input type="file" accept="image/*" className="hidden" onChange={handleImage} />
+              <input type="file" accept="image/*,.pdf,.doc,.docx" className="hidden" onChange={handleFile} />
             </label>
-            {image && (
-              <Button className="mt-4 w-full gap-2" onClick={analyzeImage} disabled={isAnalyzing || !selectedDept}>
-                {isAnalyzing ? <><Loader2 className="h-4 w-4 animate-spin" /> מנתח...</> : "נתח עם AI"}
+
+            {file && (
+              <Button className="mt-4 w-full gap-2" onClick={analyzeFile} disabled={isAnalyzing || !selectedDept}>
+                {isAnalyzing ? <><Loader2 className="h-4 w-4 animate-spin" /> מנתח עם AI...</> : "נתח עם AI"}
               </Button>
             )}
-            {!selectedDept && image && <p className="text-sm text-amber-600 mt-2">בחר מחלקה תחילה</p>}
+            {!selectedDept && file && <p className="text-sm text-amber-600 mt-2">בחר מחלקה תחילה</p>}
           </CardContent>
         </Card>
+
         {error && <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg p-4">{error}</div>}
+
+        {weeklyTopic && (
+          <Card className="border-blue-200 bg-blue-50">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg text-blue-800">נושא שבועי שזוהה</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-2">
+                <input
+                  className="flex-1 bg-white border rounded px-3 py-2 text-sm"
+                  value={weeklyTopic}
+                  onChange={(e) => setWeeklyTopic(e.target.value)}
+                />
+                <Button variant="ghost" size="sm" onClick={() => setWeeklyTopic("")}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              <p className="text-xs text-blue-600 mt-1">הנושא יישמר אוטומטית עם הפעילויות</p>
+            </CardContent>
+          </Card>
+        )}
+
         {activities.length > 0 && (
           <Card>
             <CardHeader>
@@ -187,7 +263,7 @@ export default function ImportPage() {
                 </div>
               ) : (
                 <Button className="w-full gap-2" onClick={saveActivities} disabled={isSaving}>
-                  {isSaving ? <><Loader2 className="h-4 w-4 animate-spin" /> שומר...</> : `שמור ${activities.length} פעילויות`}
+                  {isSaving ? <><Loader2 className="h-4 w-4 animate-spin" /> שומר...</> : `שמור ${activities.length} פעילויות${weeklyTopic ? " + נושא שבועי" : ""}`}
                 </Button>
               )}
             </CardContent>

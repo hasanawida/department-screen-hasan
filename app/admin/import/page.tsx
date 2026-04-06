@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Upload, Loader2, Check, X, FileText, Image } from "lucide-react"
+import { Upload, Loader2, Check, X, FileText } from "lucide-react"
 
 interface Activity {
   title: string
@@ -26,7 +26,7 @@ export default function ImportPage() {
   const router = useRouter()
   const [file, setFile] = useState<File | null>(null)
   const [filePreview, setFilePreview] = useState<string | null>(null)
-  const [fileType, setFileType] = useState<"image" | "pdf" | "doc" | null>(null)
+  const [fileType, setFileType] = useState<"image" | "pdf" | null>(null)
   const [activities, setActivities] = useState<Activity[]>([])
   const [weeklyTopic, setWeeklyTopic] = useState<string>("")
   const [departments, setDepartments] = useState<Department[]>([])
@@ -48,23 +48,26 @@ export default function ImportPage() {
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0]
     if (!f) return
+
+    const ext = f.name.split(".").pop()?.toLowerCase()
+    if (ext === "doc" || ext === "docx") {
+      setError("קבצי Word אינם נתמכים. אנא המר ל-PDF או צלם תמונה של הלוח.")
+      return
+    }
+
     setFile(f)
     setActivities([])
     setWeeklyTopic("")
     setIsDone(false)
     setError("")
 
-    const ext = f.name.split(".").pop()?.toLowerCase()
     if (f.type.startsWith("image/")) {
       setFileType("image")
       const reader = new FileReader()
       reader.onload = () => setFilePreview(reader.result as string)
       reader.readAsDataURL(f)
-    } else if (ext === "pdf") {
+    } else if (ext === "pdf" || f.type === "application/pdf") {
       setFileType("pdf")
-      setFilePreview(null)
-    } else if (ext === "doc" || ext === "docx") {
-      setFileType("doc")
       setFilePreview(null)
     }
   }
@@ -80,14 +83,12 @@ export default function ImportPage() {
         const response = await fetch("/api/analyze-schedule", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            base64,
-            mediaType: file.type || "application/octet-stream",
-            fileName: file.name,
-          }),
+          body: JSON.stringify({ base64, mediaType: file.type, fileName: file.name }),
         })
         const data = await response.json()
-        if (data.activities) {
+        if (data.error) {
+          setError(data.error)
+        } else if (data.activities) {
           setActivities(data.activities)
           if (data.weekly_topic) setWeeklyTopic(data.weekly_topic)
         } else {
@@ -144,17 +145,11 @@ export default function ImportPage() {
     "ד'": "רביעי", "ה'": "חמישי", "ו'": "שישי", "ש'": "שבת"
   }
 
-  const getFileIcon = () => {
-    if (fileType === "image") return <Image className="h-10 w-10 text-blue-500" />
-    if (fileType === "pdf") return <FileText className="h-10 w-10 text-red-500" />
-    return <FileText className="h-10 w-10 text-blue-700" />
-  }
-
   return (
     <div className="p-6 max-w-3xl" dir="rtl">
       <div className="mb-6">
         <h1 className="text-3xl font-bold">ייבוא לוח פעילויות</h1>
-        <p className="text-muted-foreground mt-1">העלה תמונה, PDF או Word — AI יזין את הפעילויות אוטומטית</p>
+        <p className="text-muted-foreground mt-1">העלה תמונה או PDF — AI יזין את הפעילויות אוטומטית</p>
       </div>
       <div className="space-y-6">
         <Card>
@@ -176,7 +171,7 @@ export default function ImportPage() {
         <Card>
           <CardHeader>
             <CardTitle>2. העלה קובץ</CardTitle>
-            <CardDescription>תמונה (JPG/PNG), PDF, או Word (DOC/DOCX)</CardDescription>
+            <CardDescription>תמונה (JPG/PNG/WEBP) או PDF בלבד</CardDescription>
           </CardHeader>
           <CardContent>
             <label className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
@@ -186,7 +181,7 @@ export default function ImportPage() {
                     <img src={filePreview} alt="תצוגה מקדימה" className="max-h-36 object-contain rounded" />
                   ) : (
                     <>
-                      {getFileIcon()}
+                      <FileText className="h-10 w-10 text-red-500" />
                       <span className="text-sm font-medium">{file.name}</span>
                       <span className="text-xs text-muted-foreground">{(file.size / 1024).toFixed(0)} KB</span>
                     </>
@@ -196,10 +191,10 @@ export default function ImportPage() {
                 <div className="flex flex-col items-center gap-2 text-muted-foreground">
                   <Upload className="h-10 w-10" />
                   <span>לחץ להעלאת קובץ</span>
-                  <span className="text-sm">JPG, PNG, PDF, DOC, DOCX</span>
+                  <span className="text-sm">JPG, PNG, WEBP, PDF</span>
                 </div>
               )}
-              <input type="file" accept="image/*,.pdf,.doc,.docx" className="hidden" onChange={handleFile} />
+              <input type="file" accept="image/*,.pdf" className="hidden" onChange={handleFile} />
             </label>
 
             {file && (

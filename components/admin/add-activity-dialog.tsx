@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Plus } from "lucide-react"
+import { Plus, Music2, Coffee, Dumbbell, Sparkles, Heart, BookOpen, Palette, Users } from "lucide-react"
 import type { Department } from "@/lib/types"
 
 interface AddActivityDialogProps {
@@ -25,6 +25,17 @@ const DAY_OPTIONS = [
   { value: "ש'", label: "שבת" },
 ]
 
+const CATEGORY_OPTIONS = [
+  { value: "default", label: "כללי", icon: Sparkles },
+  { value: "music", label: "מוזיקה", icon: Music2 },
+  { value: "coffee", label: "הפסקה", icon: Coffee },
+  { value: "exercise", label: "התעמלות", icon: Dumbbell },
+  { value: "health", label: "בריאות", icon: Heart },
+  { value: "education", label: "לימודים", icon: BookOpen },
+  { value: "art", label: "אמנות", icon: Palette },
+  { value: "social", label: "חברתי", icon: Users },
+]
+
 export function AddActivityDialog({ departments }: AddActivityDialogProps) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
@@ -32,7 +43,7 @@ export function AddActivityDialog({ departments }: AddActivityDialogProps) {
   const [form, setForm] = useState({
     title: "", description: "", start_time: "", end_time: "",
     location: "", department_id: "", instructor_name: "",
-    participants: "", image_url: "", day_of_week: "",
+    participants: "", image_url: "", day_of_week: "", category: "default",
   })
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -50,11 +61,12 @@ export function AddActivityDialog({ departments }: AddActivityDialogProps) {
       participants: form.participants || null,
       image_url: form.image_url || null,
       day_of_week: form.day_of_week || null,
+      category: form.category || null,
       is_active: true,
     })
     setIsLoading(false)
     setOpen(false)
-    setForm({ title: "", description: "", start_time: "", end_time: "", location: "", department_id: "", instructor_name: "", participants: "", image_url: "", day_of_week: "" })
+    setForm({ title: "", description: "", start_time: "", end_time: "", location: "", department_id: "", instructor_name: "", participants: "", image_url: "", day_of_week: "", category: "default" })
     router.refresh()
   }
 
@@ -80,7 +92,7 @@ export function AddActivityDialog({ departments }: AddActivityDialogProps) {
             </div>
             <div>
               <label className="text-sm font-medium">מחלקה</label>
-              <Select value={form.department_id} onValueChange={(value) => setForm({ ...form, department_id: value })} required>
+              <Select value={form.department_id} onValueChange={(v) => setForm({ ...form, department_id: v })} required>
                 <SelectTrigger><SelectValue placeholder="בחר מחלקה" /></SelectTrigger>
                 <SelectContent>
                   {departments.map((dept) => (
@@ -91,12 +103,31 @@ export function AddActivityDialog({ departments }: AddActivityDialogProps) {
             </div>
             <div>
               <label className="text-sm font-medium">יום בשבוע</label>
-              <Select value={form.day_of_week} onValueChange={(value) => setForm({ ...form, day_of_week: value })} required>
+              <Select value={form.day_of_week} onValueChange={(v) => setForm({ ...form, day_of_week: v })} required>
                 <SelectTrigger><SelectValue placeholder="בחר יום" /></SelectTrigger>
                 <SelectContent>
                   {DAY_OPTIONS.map((day) => (
                     <SelectItem key={day.value} value={day.value}>{day.label}</SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium">קטגוריה ואייקון</label>
+              <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
+                <SelectTrigger><SelectValue placeholder="בחר קטגוריה" /></SelectTrigger>
+                <SelectContent>
+                  {CATEGORY_OPTIONS.map((cat) => {
+                    const Icon = cat.icon
+                    return (
+                      <SelectItem key={cat.value} value={cat.value}>
+                        <div className="flex items-center gap-2">
+                          <Icon className="h-4 w-4" />
+                          <span>{cat.label}</span>
+                        </div>
+                      </SelectItem>
+                    )
+                  })}
                 </SelectContent>
               </Select>
             </div>
@@ -122,12 +153,17 @@ export function AddActivityDialog({ departments }: AddActivityDialogProps) {
               <label className="text-sm font-medium">משתתפים</label>
               <Textarea placeholder="לדוגמה: דוד לוי, רחל כהן" value={form.participants} onChange={(e) => setForm({ ...form, participants: e.target.value })} rows={2} />
             </div>
+            <div>
+              <label className="text-sm font-medium">קישור לתמונה (אופציונלי)</label>
+              <Input placeholder="https://..." value={form.image_url} onChange={(e) => setForm({ ...form, image_url: e.target.value })} />
+              {form.image_url && (
+                <img src={form.image_url} alt="תצוגה מקדימה" className="mt-2 rounded-lg max-h-32 object-cover w-full" onError={(e) => (e.currentTarget.style.display = "none")} />
+              )}
+            </div>
           </div>
           <DialogFooter className="gap-2">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>ביטול</Button>
-            <Button type="submit" disabled={isLoading || !form.department_id}>
-              {isLoading ? "יוצר..." : "צור פעילות"}
-            </Button>
+            <Button type="submit" disabled={isLoading || !form.department_id}>{isLoading ? "יוצר..." : "צור פעילות"}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

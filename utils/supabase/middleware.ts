@@ -28,18 +28,21 @@ export async function updateSession(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
 
-  const isAuthPage = request.nextUrl.pathname.startsWith('/auth')
-  const isPublicPage = request.nextUrl.pathname === '/'
+  const pathname = request.nextUrl.pathname
+  const isAuthPage = pathname.startsWith('/auth')
+  const isAdminPage = pathname.startsWith('/admin')
 
-  if (!user && !isAuthPage && !isPublicPage) {
+  // לא מחובר ומנסה להיכנס לאדמין → לוגין
+  if (!user && isAdminPage) {
     const url = request.nextUrl.clone()
     url.pathname = '/auth/login'
     return NextResponse.redirect(url)
   }
 
+  // מחובר ועל דף auth → אדמין
   if (user && isAuthPage) {
     const url = request.nextUrl.clone()
-    url.pathname = '/admin'  // ✅ תוקן
+    url.pathname = '/admin'
     return NextResponse.redirect(url)
   }
 

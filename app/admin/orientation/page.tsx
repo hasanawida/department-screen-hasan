@@ -10,13 +10,19 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
 );
 
+const langLabels: Record<string, string> = {
+  he: "עב׳",
+  ar: "ערב׳",
+  ru: "רוס׳",
+  en: "אנג׳",
+};
+
 export default async function AdminOrientationPage() {
   const { data: departments } = await supabase
     .from("departments")
     .select("id, name, color, view_token, orientation_settings")
     .order("name", { ascending: true });
 
-  // יצירת view_token אוטומטית לכל מחלקה שאין לה
   if (departments) {
     for (const dept of departments) {
       if (!dept.view_token) {
@@ -34,7 +40,6 @@ export default async function AdminOrientationPage() {
     <div dir="rtl" className="min-h-screen bg-slate-50 p-6 md:p-10">
       <div className="mx-auto max-w-4xl space-y-6">
 
-        {/* Header */}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-black text-slate-900">מסכי התמצאות</h1>
@@ -45,18 +50,19 @@ export default async function AdminOrientationPage() {
           </Badge>
         </div>
 
-        {/* Departments list */}
         <div className="space-y-3">
           {(departments ?? []).map((dept) => {
-            const langs: string[] = dept.orientation_settings?.languages ?? ["he", "ar", "ru", "en"];
+            const langs: string[] = Array.isArray(dept.orientation_settings?.languages)
+              ? dept.orientation_settings.languages
+              : ["he", "ar", "ru", "en"];
             const interval: number = dept.orientation_settings?.lang_interval_seconds ?? 20;
+            const langText = langs.map((l: string) => langLabels[l] ?? l).join(" · ");
 
             return (
               <Card key={dept.id} className="rounded-2xl border-0 shadow-sm hover:shadow-md transition-shadow">
                 <CardContent className="p-5">
                   <div className="flex items-center justify-between gap-4">
 
-                    {/* Department info */}
                     <div className="flex items-center gap-4">
                       <div
                         className="h-10 w-10 rounded-full flex-shrink-0"
@@ -65,16 +71,13 @@ export default async function AdminOrientationPage() {
                       <div>
                         <div className="text-xl font-bold text-slate-900">{dept.name}</div>
                         <div className="mt-1 flex items-center gap-2 text-sm text-slate-500">
-                          <span>שפות: {langs.map(l =>
-                            ({ he: "עב׳", ar: "ערב׳", ru: "רוס׳", en: "אנג׳" }[l] ?? l)
-                          ).join(" · ")}</span>
+                          <span>שפות: {langText}</span>
                           <span>·</span>
                           <span>כל {interval} שנ׳</span>
                         </div>
                       </div>
                     </div>
 
-                    {/* Action buttons */}
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <Link
                         href={`/orientation/${dept.view_token}`}
@@ -101,7 +104,6 @@ export default async function AdminOrientationPage() {
           })}
         </div>
 
-        {/* Empty state */}
         {(departments ?? []).length === 0 && (
           <div className="flex flex-col items-center justify-center py-20 text-slate-400">
             <Plus className="h-12 w-12 mb-4" />

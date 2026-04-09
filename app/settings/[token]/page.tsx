@@ -1,7 +1,7 @@
-// @ts-nocheck
 "use client";
 
 import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
@@ -14,7 +14,7 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
 );
 
-type Settings = {
+type OrientationSettings = {
   languages: string[];
   lang_interval_seconds: number;
   show_activities: boolean;
@@ -27,7 +27,7 @@ type Settings = {
   show_anchors: boolean;
 };
 
-const DEFAULT_SETTINGS: Settings = {
+const DEFAULT_SETTINGS: OrientationSettings = {
   languages: ["he", "ar", "ru", "en"],
   lang_interval_seconds: 20,
   show_activities: true,
@@ -45,7 +45,7 @@ const LANG_LABELS: Record<string, string> = {
 };
 const ALL_LANGS = ["he", "ar", "ru", "en"];
 
-const SECTION_LABELS: { key: keyof Settings; label: string }[] = [
+const SECTION_LABELS: { key: keyof OrientationSettings; label: string }[] = [
   { key: "show_activities",  label: "פעילויות (עכשיו / בהמשך הקרוב)" },
   { key: "show_menu",        label: "תפריט היום" },
   { key: "show_staff",       label: "הצוות היום" },
@@ -56,35 +56,34 @@ const SECTION_LABELS: { key: keyof Settings; label: string }[] = [
   { key: "show_anchors",     label: "עוגנים קבועים" },
 ];
 
-export default function OrientationSettingsPage({
-  params,
-}: {
-  params: { token: string };
-}) {
+export default function OrientationSettingsPage() {
+  const params = useParams();
+  const token = params.token as string;
+
   const [deptName, setDeptName] = useState("");
   const [deptId, setDeptId] = useState("");
-  const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
+  const [settings, setSettings] = useState<OrientationSettings>(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
   const [saved, setSaved] = useState(false);
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
+    if (!token) return;
     async function load() {
       const { data, error } = await supabase
         .from("departments")
         .select("id, name, orientation_settings")
-        .eq("view_token", params.token)
+        .eq("view_token", token)
         .single();
 
       if (error || !data) { setNotFound(true); setLoading(false); return; }
-
       setDeptId(data.id);
       setDeptName(data.name);
       setSettings({ ...DEFAULT_SETTINGS, ...(data.orientation_settings ?? {}) });
       setLoading(false);
     }
     load();
-  }, [params.token]);
+  }, [token]);
 
   async function handleSave() {
     await supabase
@@ -106,7 +105,7 @@ export default function OrientationSettingsPage({
     });
   }
 
-  function toggleShow(key: keyof Settings) {
+  function toggleShow(key: keyof OrientationSettings) {
     setSettings((prev) => ({ ...prev, [key]: !prev[key] }));
   }
 
@@ -126,7 +125,6 @@ export default function OrientationSettingsPage({
     <div dir="rtl" className="min-h-screen bg-slate-50 p-6 md:p-10">
       <div className="mx-auto max-w-2xl space-y-6">
 
-        {/* Header */}
         <div className="flex items-center gap-3">
           <Settings className="h-8 w-8 text-emerald-700" />
           <div>
@@ -135,7 +133,6 @@ export default function OrientationSettingsPage({
           </div>
         </div>
 
-        {/* Languages */}
         <Card className="rounded-2xl border-0 shadow-md">
           <CardContent className="p-6 space-y-4">
             <h2 className="text-2xl font-bold text-slate-900">שפות להצגה</h2>
@@ -159,7 +156,6 @@ export default function OrientationSettingsPage({
           </CardContent>
         </Card>
 
-        {/* Language interval */}
         <Card className="rounded-2xl border-0 shadow-md">
           <CardContent className="p-6 space-y-4">
             <h2 className="text-2xl font-bold text-slate-900">מהירות החלפת שפות</h2>
@@ -178,7 +174,6 @@ export default function OrientationSettingsPage({
           </CardContent>
         </Card>
 
-        {/* Show/hide sections */}
         <Card className="rounded-2xl border-0 shadow-md">
           <CardContent className="p-6 space-y-4">
             <h2 className="text-2xl font-bold text-slate-900">מה להציג במסך</h2>
@@ -196,7 +191,6 @@ export default function OrientationSettingsPage({
           </CardContent>
         </Card>
 
-        {/* Save */}
         <Button
           onClick={handleSave}
           className="w-full rounded-2xl py-6 text-2xl font-bold bg-emerald-600 hover:bg-emerald-700"
@@ -210,8 +204,8 @@ export default function OrientationSettingsPage({
 
         <p className="text-center text-slate-400 text-lg">
           קישור למסך:{" "}
-          <a href={`/orientation/${params.token}`} target="_blank" className="text-emerald-600 underline">
-            /orientation/{params.token.slice(0, 8)}...
+          <a href={`/orientation/${token}`} target="_blank" className="text-emerald-600 underline">
+            /orientation/{token?.slice(0, 8)}...
           </a>
         </p>
 

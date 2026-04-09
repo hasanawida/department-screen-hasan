@@ -7,7 +7,6 @@ import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { CheckCircle, Settings } from "lucide-react";
-import { use } from "react";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -43,9 +42,9 @@ const SECTION_LABELS: { key: keyof DisplaySettings; label: string; desc: string 
 export default function DisplaySettingsPage({
   params,
 }: {
-  params: Promise<{ code: string }>;
+  params: { code: string };
 }) {
-  const { code } = use(params);
+  const code = params.code;
 
   const [deptName, setDeptName] = useState("");
   const [settingsId, setSettingsId] = useState("");
@@ -56,13 +55,27 @@ export default function DisplaySettingsPage({
 
   useEffect(() => {
     async function load() {
-      const { data: dept, error: deptErr } = await supabase
+      // נסה לחפש לפי code, ואם לא מצא - לפי slug
+      let dept = null;
+
+      const { data: byCode } = await supabase
         .from("departments")
         .select("id, name")
         .eq("code", code)
         .single();
 
-      if (deptErr || !dept) { setNotFound(true); setLoading(false); return; }
+      if (byCode) {
+        dept = byCode;
+      } else {
+        const { data: bySlug } = await supabase
+          .from("departments")
+          .select("id, name")
+          .eq("slug", code)
+          .single();
+        dept = bySlug;
+      }
+
+      if (!dept) { setNotFound(true); setLoading(false); return; }
       setDeptName(dept.name);
 
       const { data: ss } = await supabase
@@ -91,7 +104,7 @@ export default function DisplaySettingsPage({
   }
 
   function toggle(key: keyof DisplaySettings) {
-    setSettings(prev => ({ ...prev, [key]: !prev[key] }));
+    setSettings(prev => ({ ...prev, [key]: !prev[key as keyof DisplaySettings] as boolean }));
   }
 
   if (loading) return (

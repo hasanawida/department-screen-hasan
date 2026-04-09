@@ -80,7 +80,7 @@ export default async function OrientationPage({ params }: any) {
 
   const { data: dept, error: deptError } = await supabase
     .from("departments")
-    .select("id, name, name_ar, name_ru, name_en, orientation_settings, emergency_active, emergency_message")
+    .select("id, name, name_ar, name_ru, name_en, orientation_settings, emergency_active, emergency_message, emergency_orientation")
     .eq("view_token", token)
     .single();
 
@@ -120,7 +120,7 @@ export default async function OrientationPage({ params }: any) {
       departmentNameEn={translations.name_en ?? dept.name}
       activities={activities}
       settings={settings}
-      initialEmergencyActive={dept.emergency_active ?? false}
+      initialEmergencyActive={dept.emergency_active && dept.emergency_orientation}
       initialEmergencyMessage={dept.emergency_message ?? ""}
     />
   );

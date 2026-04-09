@@ -35,6 +35,7 @@ export default function OrientationScreenWrapper({
           filter: `id=eq.${departmentId}`,
         },
         (payload: any) => {
+          // רענון מרחוק
           if (payload.new.force_refresh) {
             supabase
               .from("departments")
@@ -42,8 +43,14 @@ export default function OrientationScreenWrapper({
               .eq("id", departmentId)
               .then(() => window.location.reload());
           }
-          setEmergencyActive(payload.new.emergency_active ?? false);
-          setEmergencyMessage(payload.new.emergency_message ?? "");
+          // הודעת חירום — רק אם emergency_orientation פעיל
+          if (payload.new.emergency_active && payload.new.emergency_orientation) {
+            setEmergencyActive(true);
+            setEmergencyMessage(payload.new.emergency_message ?? "");
+          } else {
+            setEmergencyActive(false);
+            setEmergencyMessage("");
+          }
         }
       )
       .subscribe();

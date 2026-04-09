@@ -27,7 +27,6 @@ export default function EmergencyPage() {
       .from("departments")
       .select("id, name, color, emergency_active, emergency_message");
     setDepartments(data ?? []);
-    // ברירת מחדל — כל המחלקות מסומנות
     setSelectedIds(new Set((data ?? []).map((d: any) => d.id)));
     if (data && data[0]) {
       setMessage(data[0].emergency_message ?? "");
@@ -50,19 +49,36 @@ export default function EmergencyPage() {
     setSelectedIds(new Set());
   }
 
-  async function handleEmergency(active: boolean) {
-    if (selectedIds.size === 0) return;
+  // הפעלה — רק על מחלקות נבחרות
+  async function handleActivate() {
+    if (!message || selectedIds.size === 0) return;
     for (const id of selectedIds) {
       await supabase
         .from("departments")
         .update({
-          emergency_active: active,
-          emergency_message: active ? message : "",
-          emergency_orientation: active ? targetOrientation : false,
-          emergency_display: active ? targetDisplay : false,
+          emergency_active: true,
+          emergency_message: message,
+          emergency_orientation: targetOrientation,
+          emergency_display: targetDisplay,
         })
         .eq("id", id);
     }
+    setSaved(true);
+    setTimeout(() => setSaved(false), 3000);
+    loadDepartments();
+  }
+
+  // כיבוי — תמיד על כולם בלי קשר לבחירה
+  async function handleDeactivateAll() {
+    await supabase
+      .from("departments")
+      .update({
+        emergency_active: false,
+        emergency_message: "",
+        emergency_orientation: false,
+        emergency_display: false,
+      })
+      .neq("id", "00000000-0000-0000-0000-000000000000");
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
     loadDepartments();
@@ -80,6 +96,8 @@ export default function EmergencyPage() {
     setTimeout(() => setRefreshed(false), 3000);
   }
 
+  const anyActive = departments.some(d => d.emergency_active);
+
   return (
     <div dir="rtl" className="min-h-screen bg-slate-50 p-6 md:p-10">
       <div className="mx-auto max-w-2xl space-y-6">
@@ -91,6 +109,23 @@ export default function EmergencyPage() {
             <p className="text-slate-500">הודעת חירום ורענון מסכים</p>
           </div>
         </div>
+
+        {/* התראה אם יש חירום פעיל */}
+        {anyActive && (
+          <div className="rounded-2xl bg-red-50 border-2 border-red-300 p-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="h-6 w-6 text-red-600" />
+              <span className="text-red-700 font-bold text-lg">יש הודעת חירום פעילה על מסכים!</span>
+            </div>
+            <button
+              onClick={handleDeactivateAll}
+              className="flex items-center gap-2 rounded-xl bg-red-600 hover:bg-red-700 text-white px-4 py-2 font-bold transition-colors"
+            >
+              <XCircle className="h-5 w-5" />
+              כבה הכל עכשיו
+            </button>
+          </div>
+        )}
 
         {/* בחירת מחלקות */}
         <div className="rounded-2xl bg-white shadow-md p-6 space-y-4">
@@ -111,7 +146,9 @@ export default function EmergencyPage() {
               <label
                 key={dept.id}
                 className={`flex items-center justify-between rounded-xl px-4 py-3 cursor-pointer transition-colors ${
-                  selectedIds.has(dept.id) ? "bg-emerald-50 border border-emerald-200" : "bg-slate-50 border border-transparent"
+                  selectedIds.has(dept.id)
+                    ? "bg-emerald-50 border border-emerald-200"
+                    : "bg-slate-50 border border-transparent"
                 }`}
               >
                 <div className="flex items-center gap-3">
@@ -179,7 +216,7 @@ export default function EmergencyPage() {
 
           <div className="flex gap-3">
             <button
-              onClick={() => handleEmergency(true)}
+              onClick={handleActivate}
               disabled={!message || selectedIds.size === 0}
               className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-red-600 hover:bg-red-700 disabled:bg-slate-300 text-white py-4 text-xl font-bold transition-colors"
             >
@@ -187,12 +224,11 @@ export default function EmergencyPage() {
               הפעל ({selectedIds.size} מחלקות)
             </button>
             <button
-              onClick={() => handleEmergency(false)}
-              disabled={selectedIds.size === 0}
-              className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-slate-600 hover:bg-slate-700 disabled:bg-slate-300 text-white py-4 text-xl font-bold transition-colors"
+              onClick={handleDeactivateAll}
+              className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-slate-600 hover:bg-slate-700 text-white py-4 text-xl font-bold transition-colors"
             >
               <XCircle className="h-5 w-5" />
-              כבה הודעה
+              כבה על כולם
             </button>
           </div>
 
@@ -210,9 +246,7 @@ export default function EmergencyPage() {
             <RefreshCw className="h-6 w-6" />
             רענון מסכים מרחוק
           </h2>
-          <p className="text-slate-500">
-            רענן את המסכים של {selectedIds.size} מחלקות נבחרות
-          </p>
+          <p className="text-slate-500">רענן את המסכים של {selectedIds.size} מחלקות נבחרות</p>
           <button
             onClick={handleRefresh}
             disabled={selectedIds.size === 0}

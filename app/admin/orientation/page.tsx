@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Monitor, Settings, Plus } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { v4 as uuidv4 } from "uuid";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -14,6 +15,20 @@ export default async function AdminOrientationPage() {
     .from("departments")
     .select("id, name, color, view_token, orientation_settings")
     .order("name", { ascending: true });
+
+  // יצירת view_token אוטומטית לכל מחלקה שאין לה
+  if (departments) {
+    for (const dept of departments) {
+      if (!dept.view_token) {
+        const newToken = uuidv4();
+        await supabase
+          .from("departments")
+          .update({ view_token: newToken })
+          .eq("id", dept.id);
+        dept.view_token = newToken;
+      }
+    }
+  }
 
   return (
     <div dir="rtl" className="min-h-screen bg-slate-50 p-6 md:p-10">
@@ -33,7 +48,6 @@ export default async function AdminOrientationPage() {
         {/* Departments list */}
         <div className="space-y-3">
           {(departments ?? []).map((dept) => {
-            const hasToken = !!dept.view_token;
             const langs: string[] = dept.orientation_settings?.languages ?? ["he", "ar", "ru", "en"];
             const interval: number = dept.orientation_settings?.lang_interval_seconds ?? 20;
 
@@ -62,28 +76,22 @@ export default async function AdminOrientationPage() {
 
                     {/* Action buttons */}
                     <div className="flex items-center gap-2 flex-shrink-0">
-                      {hasToken ? (
-                        <>
-                          <Link
-                            href={`/orientation/${dept.view_token}`}
-                            target="_blank"
-                            className="flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-2 text-base font-semibold text-emerald-700 hover:bg-emerald-100 transition-colors"
-                          >
-                            <Monitor className="h-4 w-4" />
-                            מסך
-                          </Link>
-                          <Link
-                            href={`/settings/${dept.view_token}`}
-                            target="_blank"
-                            className="flex items-center gap-2 rounded-xl bg-slate-100 px-4 py-2 text-base font-semibold text-slate-700 hover:bg-slate-200 transition-colors"
-                          >
-                            <Settings className="h-4 w-4" />
-                            הגדרות
-                          </Link>
-                        </>
-                      ) : (
-                        <span className="text-sm text-red-400">חסר view_token</span>
-                      )}
+                      <Link
+                        href={`/orientation/${dept.view_token}`}
+                        target="_blank"
+                        className="flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-2 text-base font-semibold text-emerald-700 hover:bg-emerald-100 transition-colors"
+                      >
+                        <Monitor className="h-4 w-4" />
+                        מסך
+                      </Link>
+                      <Link
+                        href={`/settings/${dept.view_token}`}
+                        target="_blank"
+                        className="flex items-center gap-2 rounded-xl bg-slate-100 px-4 py-2 text-base font-semibold text-slate-700 hover:bg-slate-200 transition-colors"
+                      >
+                        <Settings className="h-4 w-4" />
+                        הגדרות
+                      </Link>
                     </div>
 
                   </div>

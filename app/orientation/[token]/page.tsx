@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createClient } from "@supabase/supabase-js";
 import { notFound } from "next/navigation";
 import OrientationScreen from "@/components/orientation/orientation-screen";
@@ -73,7 +74,6 @@ const DEFAULT_SETTINGS = {
   show_anchors: true,
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export default async function OrientationPage({ params }: any) {
   const { token } = await params;
 

@@ -63,6 +63,7 @@ Hebrew name: "${nameHe}"`,
 const DEFAULT_SETTINGS = {
   languages: ["he", "ar", "ru", "en"],
   lang_interval_seconds: 20,
+  show_activities: true,
   show_menu: true,
   show_staff: true,
   show_announcement: true,
@@ -75,9 +76,9 @@ const DEFAULT_SETTINGS = {
 export default async function OrientationPage({
   params,
 }: {
-  params: { token: string };
+  params: Promise<{ token: string }>;
 }) {
-  const { token } = params;
+  const { token } = await params;
 
   const { data: dept, error: deptError } = await supabase
     .from("departments")
@@ -87,16 +88,13 @@ export default async function OrientationPage({
 
   if (deptError || !dept) notFound();
 
-  // Merge with defaults
   const settings = { ...DEFAULT_SETTINGS, ...(dept.orientation_settings ?? {}) };
 
-  // Auto-translate if needed
   let translations = { name_ar: dept.name_ar, name_ru: dept.name_ru, name_en: dept.name_en };
   if (!dept.name_ar || !dept.name_ru || !dept.name_en) {
     translations = await translateDepartmentName(dept.id, dept.name);
   }
 
-  // Fetch today's activities
   const today = new Date().toISOString().split("T")[0];
   const { data: rawActivities } = await supabase
     .from("activities")

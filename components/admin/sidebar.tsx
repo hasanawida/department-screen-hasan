@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Building2, Calendar, Bell, MessageSquare, Monitor, Settings, LogOut, Home, LayoutDashboard, Upload, Users, UserRound, GraduationCap } from "lucide-react"
+import { Building2, Calendar, Bell, MessageSquare, Monitor, Settings, LogOut, Home, LayoutDashboard, Upload, Users, UserRound, GraduationCap, AlertTriangle } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface AdminSidebarProps {
@@ -22,6 +22,7 @@ const navItems = [
   { href: "/admin/announcements", label: "הודעות", icon: Bell },
   { href: "/admin/ticker", label: "שורת רצה", icon: MessageSquare },
   { href: "/admin/orientation", label: "מסכי התמצאות", icon: Monitor },
+  { href: "/admin/emergency", label: "הודעת חירום", icon: AlertTriangle },
   { href: "/admin/settings", label: "הגדרות", icon: Settings },
 ]
 
@@ -47,9 +48,22 @@ export function AdminSidebar({ userEmail }: AdminSidebarProps) {
         <ul className="space-y-1">
           {navItems.map((item) => {
             const isActive = pathname === item.href || (item.href !== "/admin" && pathname.startsWith(item.href))
+            const isEmergency = item.href === "/admin/emergency"
             return (
               <li key={item.href}>
-                <Link href={item.href} className={cn("flex items-center gap-3 px-3 py-2 rounded-lg transition-colors", isActive ? "bg-primary text-primary-foreground" : "hover:bg-muted text-muted-foreground hover:text-foreground")}>
+                <Link
+                  href={item.href}
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors",
+                    isActive
+                      ? isEmergency
+                        ? "bg-red-600 text-white"
+                        : "bg-primary text-primary-foreground"
+                      : isEmergency
+                        ? "text-red-600 hover:bg-red-50 font-bold"
+                        : "hover:bg-muted text-muted-foreground hover:text-foreground"
+                  )}
+                >
                   <item.icon className="h-5 w-5" />
                   {item.label}
                 </Link>

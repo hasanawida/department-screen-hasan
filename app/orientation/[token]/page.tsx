@@ -1,9 +1,8 @@
 // @ts-nocheck
 /* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createClient } from "@supabase/supabase-js";
 import { notFound } from "next/navigation";
-import OrientationScreen from "@/components/orientation/orientation-screen";
+import OrientationScreenWrapper from "@/components/orientation/orientation-screen-wrapper";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -81,7 +80,7 @@ export default async function OrientationPage({ params }: any) {
 
   const { data: dept, error: deptError } = await supabase
     .from("departments")
-    .select("id, name, name_ar, name_ru, name_en, orientation_settings")
+    .select("id, name, name_ar, name_ru, name_en, orientation_settings, emergency_active, emergency_message")
     .eq("view_token", token)
     .single();
 
@@ -113,13 +112,16 @@ export default async function OrientationPage({ params }: any) {
   }));
 
   return (
-    <OrientationScreen
+    <OrientationScreenWrapper
+      departmentId={dept.id}
       departmentName={dept.name}
       departmentNameAr={translations.name_ar ?? dept.name}
       departmentNameRu={translations.name_ru ?? dept.name}
       departmentNameEn={translations.name_en ?? dept.name}
       activities={activities}
       settings={settings}
+      initialEmergencyActive={dept.emergency_active ?? false}
+      initialEmergencyMessage={dept.emergency_message ?? ""}
     />
   );
 }

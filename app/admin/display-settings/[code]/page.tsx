@@ -7,6 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { CheckCircle, Settings } from "lucide-react";
+import { use } from "react";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -31,19 +32,21 @@ const DEFAULT: DisplaySettings = {
   view_interval_seconds: 20,
 };
 
-const SECTION_LABELS: { key: keyof DisplaySettings; label: string }[] = [
-  { key: "show_daily",         label: "תצוגה יומית (עכשיו / בהמשך)" },
-  { key: "show_weekly",        label: "תצוגה שבועית (לוח שבועי)" },
-  { key: "show_media",         label: "מדיה (תמונות / PDF)" },
-  { key: "show_ticker",        label: "שורת רצה" },
-  { key: "show_announcements", label: "הודעות חשובות" },
+const SECTION_LABELS: { key: keyof DisplaySettings; label: string; desc: string }[] = [
+  { key: "show_daily",         label: "תצוגה יומית",    desc: "עכשיו / בהמשך היום" },
+  { key: "show_weekly",        label: "תצוגה שבועית",   desc: "לוח פעילויות שבועי" },
+  { key: "show_media",         label: "מדיה",           desc: "תמונות ו-PDF" },
+  { key: "show_ticker",        label: "שורת רצה",       desc: "הודעות מתחלפות בתחתית" },
+  { key: "show_announcements", label: "הודעות חשובות",  desc: "הודעות מחלקה" },
 ];
 
 export default function DisplaySettingsPage({
   params,
 }: {
-  params: { code: string };
+  params: Promise<{ code: string }>;
 }) {
+  const { code } = use(params);
+
   const [deptName, setDeptName] = useState("");
   const [settingsId, setSettingsId] = useState("");
   const [settings, setSettings] = useState<DisplaySettings>(DEFAULT);
@@ -53,17 +56,15 @@ export default function DisplaySettingsPage({
 
   useEffect(() => {
     async function load() {
-      // Get department by code
       const { data: dept, error: deptErr } = await supabase
         .from("departments")
         .select("id, name")
-        .eq("code", params.code)
+        .eq("code", code)
         .single();
 
       if (deptErr || !dept) { setNotFound(true); setLoading(false); return; }
       setDeptName(dept.name);
 
-      // Get screen_settings
       const { data: ss } = await supabase
         .from("screen_settings")
         .select("id, display_settings")
@@ -77,7 +78,7 @@ export default function DisplaySettingsPage({
       setLoading(false);
     }
     load();
-  }, [params.code]);
+  }, [code]);
 
   async function handleSave() {
     if (!settingsId) return;
@@ -109,7 +110,6 @@ export default function DisplaySettingsPage({
     <div dir="rtl" className="min-h-screen bg-slate-50 p-6 md:p-10">
       <div className="mx-auto max-w-2xl space-y-6">
 
-        {/* Header */}
         <div className="flex items-center gap-3">
           <Settings className="h-8 w-8 text-emerald-700" />
           <div>
@@ -118,14 +118,16 @@ export default function DisplaySettingsPage({
           </div>
         </div>
 
-        {/* Show/hide sections */}
         <Card className="rounded-2xl border-0 shadow-md">
           <CardContent className="p-6 space-y-4">
             <h2 className="text-2xl font-bold text-slate-900">מה להציג במסך</h2>
             <div className="space-y-3">
-              {SECTION_LABELS.map(({ key, label }) => (
+              {SECTION_LABELS.map(({ key, label, desc }) => (
                 <div key={key} className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3">
-                  <span className="text-xl font-medium text-slate-800">{label}</span>
+                  <div>
+                    <p className="text-sm font-medium">{label}</p>
+                    <p className="text-xs text-slate-500">{desc}</p>
+                  </div>
                   <Switch
                     checked={!!settings[key]}
                     onCheckedChange={() => toggle(key)}
@@ -136,11 +138,10 @@ export default function DisplaySettingsPage({
           </CardContent>
         </Card>
 
-        {/* View interval */}
         <Card className="rounded-2xl border-0 shadow-md">
           <CardContent className="p-6 space-y-4">
             <h2 className="text-2xl font-bold text-slate-900">מהירות החלפת תצוגות</h2>
-            <p className="text-slate-500">כל כמה שניות המסך יעבור לתצוגה הבאה</p>
+            <p className="text-slate-500">כל כמה שניות המסך עובר לתצוגה הבאה</p>
             <div className="flex items-center gap-4">
               <Slider
                 min={5} max={60} step={5}
@@ -155,7 +156,6 @@ export default function DisplaySettingsPage({
           </CardContent>
         </Card>
 
-        {/* Save */}
         <Button
           onClick={handleSave}
           className="w-full rounded-2xl py-6 text-2xl font-bold bg-emerald-600 hover:bg-emerald-700"
@@ -169,8 +169,8 @@ export default function DisplaySettingsPage({
 
         <p className="text-center text-slate-400 text-lg">
           קישור למסך:{" "}
-          <a href={`/display/${params.code}`} target="_blank" className="text-emerald-600 underline">
-            /display/{params.code}
+          <a href={`/display/${code}`} target="_blank" className="text-emerald-600 underline">
+            /display/{code}
           </a>
         </p>
 

@@ -73,11 +73,8 @@ const DEFAULT_SETTINGS = {
   show_anchors: true,
 };
 
-export default async function OrientationPage({
-  params,
-}: {
-  params: Promise<{ token: string }>;
-}) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export default async function OrientationPage({ params }: any) {
   const { token } = await params;
 
   const { data: dept, error: deptError } = await supabase

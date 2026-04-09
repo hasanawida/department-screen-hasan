@@ -26,33 +26,33 @@ export default function OrientationScreenWrapper({
   useEffect(() => {
     const channel = supabase
       .channel("emergency-" + departmentId)
-      .on("postgres_changes", {
-        event: "UPDATE",
-        schema: "public",
-        table: "departments",
-        filter: `id=eq.${departmentId}`,
-      }, (payload) => {
-        // רענון מרחוק
-        if (payload.new.force_refresh) {
-          // איפוס הדגל ואחר כך רענון
-          supabase
-            .from("departments")
-            .update({ force_refresh: false })
-            .eq("id", departmentId)
-            .then(() => window.location.reload());
+      .on(
+        "postgres_changes" as any,
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "departments",
+          filter: `id=eq.${departmentId}`,
+        },
+        (payload: any) => {
+          if (payload.new.force_refresh) {
+            supabase
+              .from("departments")
+              .update({ force_refresh: false })
+              .eq("id", departmentId)
+              .then(() => window.location.reload());
+          }
+          setEmergencyActive(payload.new.emergency_active ?? false);
+          setEmergencyMessage(payload.new.emergency_message ?? "");
         }
-        // הודעת חירום
-        setEmergencyActive(payload.new.emergency_active ?? false);
-        setEmergencyMessage(payload.new.emergency_message ?? "");
-      })
+      )
       .subscribe();
 
-    return () => supabase.removeChannel(channel);
+    return () => { supabase.removeChannel(channel); };
   }, [departmentId]);
 
   return (
     <>
-      {/* הודעת חירום */}
       {emergencyActive && emergencyMessage && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-red-600/95">
           <div className="text-center p-10">
@@ -63,7 +63,6 @@ export default function OrientationScreenWrapper({
           </div>
         </div>
       )}
-
       <OrientationScreen
         departmentName={departmentName}
         departmentNameAr={departmentNameAr}

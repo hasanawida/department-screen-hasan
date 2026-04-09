@@ -26,7 +26,8 @@ function LoginForm() {
         password,
       })
       if (error) throw error
-      window.location.href = redirectTo
+      router.refresh()
+      router.push(redirectTo)
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : 'שגיאה בהתחברות')
     } finally {

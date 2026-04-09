@@ -8,31 +8,23 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
 );
 
+interface Props {
+  departmentId: string;
+  initialEmergencyActive: boolean;
+  initialEmergencyMessage: string;
+  children: React.ReactNode;
+}
+
 export default function DisplayScreenWrapper({
   departmentId,
+  initialEmergencyActive,
+  initialEmergencyMessage,
   children,
-}: {
-  departmentId: string;
-  children: React.ReactNode;
-}) {
-  const [emergencyActive, setEmergencyActive] = useState(false);
-  const [emergencyMessage, setEmergencyMessage] = useState("");
+}: Props) {
+  const [emergencyActive, setEmergencyActive] = useState(initialEmergencyActive);
+  const [emergencyMessage, setEmergencyMessage] = useState(initialEmergencyMessage);
 
   useEffect(() => {
-    // טען מצב חירום נוכחי
-    supabase
-      .from("departments")
-      .select("emergency_active, emergency_message, emergency_display")
-      .eq("id", departmentId)
-      .single()
-      .then(({ data }) => {
-        if (data?.emergency_active && data?.emergency_display) {
-          setEmergencyActive(true);
-          setEmergencyMessage(data.emergency_message ?? "");
-        }
-      });
-
-    // האזן לשינויים בזמן אמת
     const channel = supabase
       .channel("display-emergency-" + departmentId)
       .on(
@@ -44,7 +36,6 @@ export default function DisplayScreenWrapper({
           filter: `id=eq.${departmentId}`,
         },
         (payload: any) => {
-          // רענון מרחוק
           if (payload.new.force_refresh) {
             supabase
               .from("departments")
@@ -52,7 +43,6 @@ export default function DisplayScreenWrapper({
               .eq("id", departmentId)
               .then(() => window.location.reload());
           }
-          // הודעת חירום — רק אם emergency_display פעיל
           if (payload.new.emergency_active && payload.new.emergency_display) {
             setEmergencyActive(true);
             setEmergencyMessage(payload.new.emergency_message ?? "");

@@ -22,7 +22,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Edit, Trash2, Monitor, ExternalLink } from "lucide-react"
+import { Edit, Trash2, Monitor, ExternalLink, Settings } from "lucide-react"
 import type { Department } from "@/lib/types"
 import Link from "next/link"
 
@@ -41,10 +41,8 @@ export function DepartmentsTable({ departments }: DepartmentsTableProps) {
   const handleDelete = async () => {
     if (!deleteId) return
     setIsDeleting(true)
-    
     const supabase = createClient()
     await supabase.from("departments").delete().eq("id", deleteId)
-    
     setDeleteId(null)
     setIsDeleting(false)
     router.refresh()
@@ -58,7 +56,6 @@ export function DepartmentsTable({ departments }: DepartmentsTableProps) {
   const handleSaveEdit = async () => {
     if (!editingDept) return
     setIsSaving(true)
-
     const supabase = createClient()
     await supabase
       .from("departments")
@@ -68,7 +65,6 @@ export function DepartmentsTable({ departments }: DepartmentsTableProps) {
         color: editForm.color,
       })
       .eq("id", editingDept.id)
-
     setEditingDept(null)
     setIsSaving(false)
     router.refresh()
@@ -106,7 +102,7 @@ export function DepartmentsTable({ departments }: DepartmentsTableProps) {
               {departments.map((dept) => (
                 <TableRow key={dept.id}>
                   <TableCell>
-                    <div 
+                    <div
                       className="w-8 h-8 rounded-full border"
                       style={{ backgroundColor: dept.color }}
                     />
@@ -115,21 +111,30 @@ export function DepartmentsTable({ departments }: DepartmentsTableProps) {
                   <TableCell className="text-muted-foreground">{dept.code}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
+                      {/* מסך */}
                       <Link href={`/display/${dept.code}`} target="_blank">
                         <Button variant="outline" size="sm" className="gap-1">
                           <Monitor className="h-4 w-4" />
                           <ExternalLink className="h-3 w-3" />
                         </Button>
                       </Link>
-                      <Button 
-                        variant="outline" 
+                      {/* הגדרות מסך */}
+                      <Link href={`/admin/display-settings/${dept.code}`}>
+                        <Button variant="outline" size="sm" className="gap-1">
+                          <Settings className="h-4 w-4" />
+                        </Button>
+                      </Link>
+                      {/* עריכה */}
+                      <Button
+                        variant="outline"
                         size="sm"
                         onClick={() => handleEdit(dept)}
                       >
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button 
-                        variant="outline" 
+                      {/* מחיקה */}
+                      <Button
+                        variant="outline"
                         size="sm"
                         onClick={() => setDeleteId(dept.id)}
                       >
@@ -157,8 +162,8 @@ export function DepartmentsTable({ departments }: DepartmentsTableProps) {
             <Button variant="outline" onClick={() => setDeleteId(null)}>
               ביטול
             </Button>
-            <Button 
-              variant="destructive" 
+            <Button
+              variant="destructive"
               onClick={handleDelete}
               disabled={isDeleting}
             >

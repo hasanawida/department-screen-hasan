@@ -18,6 +18,10 @@ export function DepartmentScreen({ data: initialData }: DepartmentScreenProps) {
   const [tickerMessages, setTickerMessages] = useState<TickerMessage[]>(initialData.tickerMessages)
   const { department, settings } = initialData
 
+  const displayMode = settings?.display_mode ?? 'daily'
+  const mediaUrl = settings?.media_url
+  const mediaType = settings?.media_type
+
   const fetchActivities = useCallback(async () => {
     const supabase = createClient()
     const { data } = await supabase
@@ -53,30 +57,13 @@ export function DepartmentScreen({ data: initialData }: DepartmentScreenProps) {
 
   useEffect(() => {
     const supabase = createClient()
-
-    // Subscribe to realtime changes
     const channel = supabase
       .channel(`dept-${department.id}`)
-      .on("postgres_changes", {
-        event: "*",
-        schema: "public",
-        table: "activities",
-        filter: `department_id=eq.${department.id}`,
-      }, () => fetchActivities())
-      .on("postgres_changes", {
-        event: "*",
-        schema: "public",
-        table: "announcements",
-        filter: `department_id=eq.${department.id}`,
-      }, () => fetchAnnouncements())
-      .on("postgres_changes", {
-        event: "*",
-        schema: "public",
-        table: "ticker_messages",
-      }, () => fetchTicker())
+      .on("postgres_changes", { event: "*", schema: "public", table: "activities", filter: `department_id=eq.${department.id}` }, () => fetchActivities())
+      .on("postgres_changes", { event: "*", schema: "public", table: "announcements", filter: `department_id=eq.${department.id}` }, () => fetchAnnouncements())
+      .on("postgres_changes", { event: "*", schema: "public", table: "ticker_messages" }, () => fetchTicker())
       .subscribe()
 
-    // Also poll every 60 seconds as a fallback
     const interval = setInterval(() => {
       fetchActivities()
       fetchAnnouncements()
@@ -92,10 +79,7 @@ export function DepartmentScreen({ data: initialData }: DepartmentScreenProps) {
   return (
     <div className="min-h-screen flex flex-col bg-background" dir="rtl">
       {/* Header */}
-      <header
-        className="px-8 py-6 text-white"
-        style={{ backgroundColor: department.color }}
-      >
+      <header className="px-8 py-6 text-white" style={{ backgroundColor: department.color }}>
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-4xl font-bold">{department.name}</h1>
@@ -111,21 +95,43 @@ export function DepartmentScreen({ data: initialData }: DepartmentScreenProps) {
       </header>
 
       {/* Main content */}
-      <main className="flex-1 p-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
-          <div className="lg:col-span-2">
-            <ActivitiesList
-              activities={activities}
-              departmentColor={department.color}
-            />
+      <main className="flex-1 p-6 overflow-hidden">
+        {displayMode === 'media' && mediaUrl ? (
+          // ✅ מצב תמונה / PDF - מסך מלא
+          <div className="w-full h-full flex items-center justify-center" style={{ minHeight: 'calc(100vh - 180px)' }}>
+            {mediaType === 'pdf' ? (
+              <iframe
+                src={mediaUrl}
+                className="w-full rounded-xl shadow-lg"
+                style={{ height: 'calc(100vh - 200px)' }}
+                title="תצוגת PDF"
+              />
+            ) : (
+              <img
+                src={mediaUrl}
+                alt="תצוגת מחלקה"
+                className="max-w-full max-h-full object-contain rounded-xl shadow-lg"
+                style={{ maxHeight: 'calc(100vh - 200px)' }}
+              />
+            )}
           </div>
-          <div>
-            <AnnouncementsPanel announcements={announcements} />
+        ) : (
+          // ✅ מצב פעילויות (יומי / שבועי)
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
+            <div className="lg:col-span-2">
+              <ActivitiesList
+                activities={activities}
+                departmentColor={department.color}
+              />
+            </div>
+            <div>
+              <AnnouncementsPanel announcements={announcements} />
+            </div>
           </div>
-        </div>
+        )}
       </main>
 
-      {/* Ticker at bottom */}
+      {/* Ticker */}
       <Ticker messages={tickerMessages} />
     </div>
   )

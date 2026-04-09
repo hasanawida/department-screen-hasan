@@ -15,6 +15,8 @@ interface Activity {
   end_time: string
   location: string
   instructor_name: string
+  activity_date?: string | null
+  is_recurring?: boolean
 }
 
 interface Department {
@@ -48,19 +50,16 @@ export default function ImportPage() {
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0]
     if (!f) return
-
     const ext = f.name.split(".").pop()?.toLowerCase()
     if (ext === "doc" || ext === "docx") {
       setError("קבצי Word אינם נתמכים. אנא המר ל-PDF או צלם תמונה של הלוח.")
       return
     }
-
     setFile(f)
     setActivities([])
     setWeeklyTopic("")
     setIsDone(false)
     setError("")
-
     if (f.type.startsWith("image/")) {
       setFileType("image")
       const reader = new FileReader()
@@ -107,7 +106,6 @@ export default function ImportPage() {
     if (!selectedDept || activities.length === 0) return
     setIsSaving(true)
     const supabase = createClient()
-
     for (const activity of activities) {
       await supabase.from("activities").insert({
         title: activity.title,
@@ -116,11 +114,12 @@ export default function ImportPage() {
         location: activity.location || null,
         instructor_name: activity.instructor_name || null,
         day_of_week: activity.day_of_week || null,
+        activity_date: activity.activity_date || null,
+        is_recurring: activity.is_recurring !== false,
         department_id: selectedDept,
         is_active: true,
       })
     }
-
     if (weeklyTopic) {
       const today = new Date().toISOString().split("T")[0]
       await supabase.from("weekly_topics").insert({
@@ -130,7 +129,6 @@ export default function ImportPage() {
         is_active: true,
       })
     }
-
     setIsSaving(false)
     setIsDone(true)
     setTimeout(() => router.push("/admin/activities"), 2000)
@@ -156,13 +154,9 @@ export default function ImportPage() {
           <CardHeader><CardTitle>1. בחר מחלקה</CardTitle></CardHeader>
           <CardContent>
             <Select value={selectedDept} onValueChange={setSelectedDept}>
-              <SelectTrigger className="max-w-xs">
-                <SelectValue placeholder="בחר מחלקה" />
-              </SelectTrigger>
+              <SelectTrigger className="max-w-xs"><SelectValue placeholder="בחר מחלקה" /></SelectTrigger>
               <SelectContent>
-                {departments.map(d => (
-                  <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
-                ))}
+                {departments.map(d => (<SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>))}
               </SelectContent>
             </Select>
           </CardContent>
@@ -196,7 +190,6 @@ export default function ImportPage() {
               )}
               <input type="file" accept="image/*,.pdf" className="hidden" onChange={handleFile} />
             </label>
-
             {file && (
               <Button className="mt-4 w-full gap-2" onClick={analyzeFile} disabled={isAnalyzing || !selectedDept}>
                 {isAnalyzing ? <><Loader2 className="h-4 w-4 animate-spin" /> מנתח עם AI...</> : "נתח עם AI"}
@@ -210,19 +203,11 @@ export default function ImportPage() {
 
         {weeklyTopic && (
           <Card className="border-blue-200 bg-blue-50">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg text-blue-800">נושא שבועי שזוהה</CardTitle>
-            </CardHeader>
+            <CardHeader className="pb-2"><CardTitle className="text-lg text-blue-800">נושא שבועי שזוהה</CardTitle></CardHeader>
             <CardContent>
               <div className="flex items-center gap-2">
-                <input
-                  className="flex-1 bg-white border rounded px-3 py-2 text-sm"
-                  value={weeklyTopic}
-                  onChange={(e) => setWeeklyTopic(e.target.value)}
-                />
-                <Button variant="ghost" size="sm" onClick={() => setWeeklyTopic("")}>
-                  <X className="h-4 w-4" />
-                </Button>
+                <input className="flex-1 bg-white border rounded px-3 py-2 text-sm" value={weeklyTopic} onChange={(e) => setWeeklyTopic(e.target.value)} />
+                <Button variant="ghost" size="sm" onClick={() => setWeeklyTopic("")}><X className="h-4 w-4" /></Button>
               </div>
               <p className="text-xs text-blue-600 mt-1">הנושא יישמר אוטומטית עם הפעילויות</p>
             </CardContent>
@@ -245,17 +230,14 @@ export default function ImportPage() {
                       <span dir="ltr">{activity.start_time}{activity.end_time && ` - ${activity.end_time}`}</span>
                       {activity.location && <span> · {activity.location}</span>}
                       {activity.instructor_name && <span> · {activity.instructor_name}</span>}
+                      {activity.activity_date && <span className="text-blue-600"> · {new Date(activity.activity_date).toLocaleDateString("he-IL")}</span>}
                     </div>
                   </div>
-                  <Button variant="ghost" size="sm" onClick={() => removeActivity(i)}>
-                    <X className="h-4 w-4 text-destructive" />
-                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => removeActivity(i)}><X className="h-4 w-4 text-destructive" /></Button>
                 </div>
               ))}
               {isDone ? (
-                <div className="flex items-center gap-2 text-green-600 font-medium">
-                  <Check className="h-5 w-5" /> נשמר בהצלחה!
-                </div>
+                <div className="flex items-center gap-2 text-green-600 font-medium"><Check className="h-5 w-5" /> נשמר בהצלחה!</div>
               ) : (
                 <Button className="w-full gap-2" onClick={saveActivities} disabled={isSaving}>
                   {isSaving ? <><Loader2 className="h-4 w-4 animate-spin" /> שומר...</> : `שמור ${activities.length} פעילויות${weeklyTopic ? " + נושא שבועי" : ""}`}

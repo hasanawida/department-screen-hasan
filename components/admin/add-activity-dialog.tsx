@@ -44,6 +44,7 @@ export function AddActivityDialog({ departments }: AddActivityDialogProps) {
     title: "", description: "", start_time: "", end_time: "",
     location: "", department_id: "", instructor_name: "",
     participants: "", image_url: "", day_of_week: "", category: "default",
+    activity_date: "", is_recurring: true,
   })
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -62,11 +63,13 @@ export function AddActivityDialog({ departments }: AddActivityDialogProps) {
       image_url: form.image_url || null,
       day_of_week: form.day_of_week || null,
       category: form.category || null,
+      activity_date: form.activity_date || null,
+      is_recurring: form.is_recurring,
       is_active: true,
     })
     setIsLoading(false)
     setOpen(false)
-    setForm({ title: "", description: "", start_time: "", end_time: "", location: "", department_id: "", instructor_name: "", participants: "", image_url: "", day_of_week: "", category: "default" })
+    setForm({ title: "", description: "", start_time: "", end_time: "", location: "", department_id: "", instructor_name: "", participants: "", image_url: "", day_of_week: "", category: "default", activity_date: "", is_recurring: true })
     router.refresh()
   }
 
@@ -101,6 +104,16 @@ export function AddActivityDialog({ departments }: AddActivityDialogProps) {
                 </SelectContent>
               </Select>
             </div>
+            <div className="flex items-center gap-3 p-3 rounded-lg border bg-gray-50">
+              <input
+                type="checkbox"
+                id="is_recurring"
+                checked={form.is_recurring}
+                onChange={(e) => setForm({ ...form, is_recurring: e.target.checked, activity_date: e.target.checked ? "" : form.activity_date })}
+                className="w-4 h-4"
+              />
+              <label htmlFor="is_recurring" className="text-sm font-medium cursor-pointer">פעילות קבועה (חוזרת כל שבוע)</label>
+            </div>
             <div>
               <label className="text-sm font-medium">יום בשבוע</label>
               <Select value={form.day_of_week} onValueChange={(v) => setForm({ ...form, day_of_week: v })} required>
@@ -112,6 +125,12 @@ export function AddActivityDialog({ departments }: AddActivityDialogProps) {
                 </SelectContent>
               </Select>
             </div>
+            {!form.is_recurring && (
+              <div>
+                <label className="text-sm font-medium">תאריך ספציפי</label>
+                <Input type="date" value={form.activity_date} onChange={(e) => setForm({ ...form, activity_date: e.target.value })} required={!form.is_recurring} />
+              </div>
+            )}
             <div>
               <label className="text-sm font-medium">קטגוריה ואייקון</label>
               <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>

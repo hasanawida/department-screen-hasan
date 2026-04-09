@@ -4,17 +4,7 @@ import { usePathname } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { 
-  Building2, 
-  Calendar, 
-  Bell, 
-  MessageSquare, 
-  Settings, 
-  LogOut,
-  Home,
-  LayoutDashboard,
-  Upload
-} from "lucide-react"
+import { Building2, Calendar, Bell, MessageSquare, Monitor, Settings, LogOut, Home, LayoutDashboard, Upload, Users, UserRound, GraduationCap } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface AdminSidebarProps {
@@ -26,8 +16,12 @@ const navItems = [
   { href: "/admin/departments", label: "מחלקות", icon: Building2 },
   { href: "/admin/activities", label: "פעילויות", icon: Calendar },
   { href: "/admin/import", label: "ייבוא מתמונה", icon: Upload },
+  { href: "/admin/instructors", label: "מפעילים", icon: Users },
+  { href: "/admin/occupation", label: "מדריכות תעסוקה", icon: GraduationCap },
+  { href: "/admin/residents", label: "דיירים", icon: UserRound },
   { href: "/admin/announcements", label: "הודעות", icon: Bell },
   { href: "/admin/ticker", label: "שורת רצה", icon: MessageSquare },
+  { href: "/admin/orientation", label: "מסכי התמצאות", icon: Monitor },
   { href: "/admin/settings", label: "הגדרות", icon: Settings },
 ]
 
@@ -52,19 +46,10 @@ export function AdminSidebar({ userEmail }: AdminSidebarProps) {
       <nav className="flex-1 p-4">
         <ul className="space-y-1">
           {navItems.map((item) => {
-            const isActive = pathname === item.href || 
-              (item.href !== "/admin" && pathname.startsWith(item.href))
+            const isActive = pathname === item.href || (item.href !== "/admin" && pathname.startsWith(item.href))
             return (
               <li key={item.href}>
-                <Link
-                  href={item.href}
-                  className={cn(
-                    "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors",
-                    isActive 
-                      ? "bg-primary text-primary-foreground" 
-                      : "hover:bg-muted text-muted-foreground hover:text-foreground"
-                  )}
-                >
+                <Link href={item.href} className={cn("flex items-center gap-3 px-3 py-2 rounded-lg transition-colors", isActive ? "bg-primary text-primary-foreground" : "hover:bg-muted text-muted-foreground hover:text-foreground")}>
                   <item.icon className="h-5 w-5" />
                   {item.label}
                 </Link>
@@ -74,14 +59,8 @@ export function AdminSidebar({ userEmail }: AdminSidebarProps) {
         </ul>
       </nav>
       <div className="p-4 border-t">
-        <div className="text-sm text-muted-foreground mb-2 truncate">
-          {userEmail}
-        </div>
-        <Button 
-          variant="outline" 
-          className="w-full gap-2" 
-          onClick={handleSignOut}
-        >
+        <div className="text-sm text-muted-foreground mb-2 truncate">{userEmail}</div>
+        <Button variant="outline" className="w-full gap-2" onClick={handleSignOut}>
           <LogOut className="h-4 w-4" />
           התנתק
         </Button>

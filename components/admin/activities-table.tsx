@@ -53,14 +53,12 @@ export function ActivitiesTable({ activities, departments }: ActivitiesTableProp
     title: "", description: "", start_time: "", end_time: "",
     location: "", department_id: "", instructor_name: "",
     participants: "", day_of_week: "", category: "default",
-    image_url: "", is_active: true,
+    image_url: "", is_active: true, activity_date: "", is_recurring: true,
   })
   const [isDeleting, setIsDeleting] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
 
-  const filteredActivities = filterDept === "all"
-    ? activities
-    : activities.filter(a => a.department_id === filterDept)
+  const filteredActivities = filterDept === "all" ? activities : activities.filter(a => a.department_id === filterDept)
 
   const groupedByDept: Record<string, typeof activities> = {}
   filteredActivities.forEach(a => {
@@ -121,6 +119,8 @@ export function ActivitiesTable({ activities, departments }: ActivitiesTableProp
       category: (activity as any).category || "default",
       image_url: activity.image_url || "",
       is_active: activity.is_active,
+      activity_date: (activity as any).activity_date || "",
+      is_recurring: (activity as any).is_recurring !== false,
     })
   }
 
@@ -141,6 +141,8 @@ export function ActivitiesTable({ activities, departments }: ActivitiesTableProp
       category: editForm.category || null,
       image_url: editForm.image_url || null,
       is_active: editForm.is_active,
+      activity_date: editForm.activity_date || null,
+      is_recurring: editForm.is_recurring,
     }).eq("id", editingActivity.id)
     setEditingActivity(null)
     setIsSaving(false)
@@ -174,9 +176,7 @@ export function ActivitiesTable({ activities, departments }: ActivitiesTableProp
       <div className="mb-4 flex items-center gap-3 flex-wrap">
         <label className="text-sm font-medium">סינון לפי מחלקה:</label>
         <Select value={filterDept} onValueChange={setFilterDept}>
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder="כל המחלקות" />
-          </SelectTrigger>
+          <SelectTrigger className="w-48"><SelectValue placeholder="כל המחלקות" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">כל המחלקות</SelectItem>
             {departments.map(d => (
@@ -185,11 +185,9 @@ export function ActivitiesTable({ activities, departments }: ActivitiesTableProp
           </SelectContent>
         </Select>
         <Badge variant="secondary">{filteredActivities.length} פעילויות</Badge>
-
         {selectedIds.size > 0 && (
           <Button variant="destructive" size="sm" className="gap-2 mr-auto" onClick={() => setShowBulkDelete(true)}>
-            <Trash2 className="h-4 w-4" />
-            מחק {selectedIds.size} פעילויות
+            <Trash2 className="h-4 w-4" />מחק {selectedIds.size} פעילויות
           </Button>
         )}
       </div>
@@ -200,10 +198,7 @@ export function ActivitiesTable({ activities, departments }: ActivitiesTableProp
           <Card key={deptName} className="mb-4">
             <CardHeader className="pb-2">
               <div className="flex items-center gap-3">
-                <Checkbox
-                  checked={allSelected}
-                  onCheckedChange={() => toggleSelectAll(deptActivities)}
-                />
+                <Checkbox checked={allSelected} onCheckedChange={() => toggleSelectAll(deptActivities)} />
                 <CardTitle className="text-lg">{deptName} ({deptActivities.length})</CardTitle>
               </div>
             </CardHeader>
@@ -216,6 +211,7 @@ export function ActivitiesTable({ activities, departments }: ActivitiesTableProp
                     <TableHead>קטגוריה</TableHead>
                     <TableHead>שם</TableHead>
                     <TableHead>יום</TableHead>
+                    <TableHead>תאריך</TableHead>
                     <TableHead>שעה</TableHead>
                     <TableHead>מיקום</TableHead>
                     <TableHead>מנחה</TableHead>
@@ -225,32 +221,19 @@ export function ActivitiesTable({ activities, departments }: ActivitiesTableProp
                 <TableBody>
                   {deptActivities.map((activity) => (
                     <TableRow key={activity.id} className={selectedIds.has(activity.id) ? "bg-red-50" : ""}>
-                      <TableCell>
-                        <Checkbox
-                          checked={selectedIds.has(activity.id)}
-                          onCheckedChange={() => toggleSelect(activity.id)}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Switch checked={activity.is_active} onCheckedChange={() => toggleActive(activity.id, activity.is_active)} />
-                      </TableCell>
+                      <TableCell><Checkbox checked={selectedIds.has(activity.id)} onCheckedChange={() => toggleSelect(activity.id)} /></TableCell>
+                      <TableCell><Switch checked={activity.is_active} onCheckedChange={() => toggleActive(activity.id, activity.is_active)} /></TableCell>
                       <TableCell>{getCategoryIcon((activity as any).category)}</TableCell>
                       <TableCell className="font-medium">{activity.title}</TableCell>
                       <TableCell className="text-muted-foreground">{(activity as any).day_of_week || "-"}</TableCell>
-                      <TableCell dir="ltr" className="text-right">
-                        {activity.start_time?.slice(0, 5)}
-                        {activity.end_time && ` - ${activity.end_time.slice(0, 5)}`}
-                      </TableCell>
+                      <TableCell className="text-muted-foreground text-xs">{(activity as any).activity_date ? new Date((activity as any).activity_date).toLocaleDateString("he-IL") : "-"}</TableCell>
+                      <TableCell dir="ltr" className="text-right">{activity.start_time?.slice(0, 5)}{activity.end_time && ` - ${activity.end_time.slice(0, 5)}`}</TableCell>
                       <TableCell className="text-muted-foreground">{activity.location || "-"}</TableCell>
                       <TableCell className="text-muted-foreground">{activity.instructor_name || "-"}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          <Button variant="outline" size="sm" onClick={() => handleEdit(activity)}>
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button variant="outline" size="sm" onClick={() => setDeleteId(activity.id)}>
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
+                          <Button variant="outline" size="sm" onClick={() => handleEdit(activity)}><Edit className="h-4 w-4" /></Button>
+                          <Button variant="outline" size="sm" onClick={() => setDeleteId(activity.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -270,9 +253,7 @@ export function ActivitiesTable({ activities, departments }: ActivitiesTableProp
           </DialogHeader>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setDeleteId(null)}>ביטול</Button>
-            <Button variant="destructive" onClick={handleDelete} disabled={isDeleting}>
-              {isDeleting ? "מוחק..." : "מחק"}
-            </Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={isDeleting}>{isDeleting ? "מוחק..." : "מחק"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -281,22 +262,18 @@ export function ActivitiesTable({ activities, departments }: ActivitiesTableProp
         <DialogContent>
           <DialogHeader>
             <DialogTitle>מחיקת {selectedIds.size} פעילויות</DialogTitle>
-            <DialogDescription>האם אתה בטוח שברצונך למחוק {selectedIds.size} פעילויות? פעולה זו לא ניתנת לביטול.</DialogDescription>
+            <DialogDescription>האם אתה בטוח שברצונך למחוק {selectedIds.size} פעילויות?</DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setShowBulkDelete(false)}>ביטול</Button>
-            <Button variant="destructive" onClick={handleBulkDelete} disabled={isDeleting}>
-              {isDeleting ? "מוחק..." : `מחק ${selectedIds.size} פעילויות`}
-            </Button>
+            <Button variant="destructive" onClick={handleBulkDelete} disabled={isDeleting}>{isDeleting ? "מוחק..." : `מחק ${selectedIds.size} פעילויות`}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <Dialog open={!!editingActivity} onOpenChange={() => setEditingActivity(null)}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>עריכת פעילות</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>עריכת פעילות</DialogTitle></DialogHeader>
           <div className="space-y-4 py-4">
             <div>
               <label className="text-sm font-medium">שם הפעילות</label>
@@ -310,40 +287,31 @@ export function ActivitiesTable({ activities, departments }: ActivitiesTableProp
               <label className="text-sm font-medium">מחלקה</label>
               <Select value={editForm.department_id} onValueChange={(v) => setEditForm({ ...editForm, department_id: v })}>
                 <SelectTrigger><SelectValue placeholder="בחר מחלקה" /></SelectTrigger>
-                <SelectContent>
-                  {departments.map((dept) => (
-                    <SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>
-                  ))}
-                </SelectContent>
+                <SelectContent>{departments.map((dept) => (<SelectItem key={dept.id} value={dept.id}>{dept.name}</SelectItem>))}</SelectContent>
               </Select>
+            </div>
+            <div className="flex items-center gap-3 p-3 rounded-lg border bg-gray-50">
+              <input type="checkbox" id="edit_is_recurring" checked={editForm.is_recurring} onChange={(e) => setEditForm({ ...editForm, is_recurring: e.target.checked })} className="w-4 h-4" />
+              <label htmlFor="edit_is_recurring" className="text-sm font-medium cursor-pointer">פעילות קבועה (חוזרת כל שבוע)</label>
             </div>
             <div>
               <label className="text-sm font-medium">יום בשבוע</label>
               <Select value={editForm.day_of_week} onValueChange={(v) => setEditForm({ ...editForm, day_of_week: v })}>
                 <SelectTrigger><SelectValue placeholder="בחר יום" /></SelectTrigger>
-                <SelectContent>
-                  {DAY_OPTIONS.map((day) => (
-                    <SelectItem key={day.value} value={day.value}>{day.label}</SelectItem>
-                  ))}
-                </SelectContent>
+                <SelectContent>{DAY_OPTIONS.map((day) => (<SelectItem key={day.value} value={day.value}>{day.label}</SelectItem>))}</SelectContent>
               </Select>
             </div>
+            {!editForm.is_recurring && (
+              <div>
+                <label className="text-sm font-medium">תאריך ספציפי</label>
+                <Input type="date" value={editForm.activity_date} onChange={(e) => setEditForm({ ...editForm, activity_date: e.target.value })} />
+              </div>
+            )}
             <div>
               <label className="text-sm font-medium">קטגוריה ואייקון</label>
               <Select value={editForm.category} onValueChange={(v) => setEditForm({ ...editForm, category: v })}>
                 <SelectTrigger><SelectValue placeholder="בחר קטגוריה" /></SelectTrigger>
-                <SelectContent>
-                  {CATEGORY_OPTIONS.map((cat) => {
-                    const Icon = cat.icon
-                    return (
-                      <SelectItem key={cat.value} value={cat.value}>
-                        <div className="flex items-center gap-2">
-                          <Icon className="h-4 w-4" /><span>{cat.label}</span>
-                        </div>
-                      </SelectItem>
-                    )
-                  })}
-                </SelectContent>
+                <SelectContent>{CATEGORY_OPTIONS.map((cat) => { const Icon = cat.icon; return (<SelectItem key={cat.value} value={cat.value}><div className="flex items-center gap-2"><Icon className="h-4 w-4" /><span>{cat.label}</span></div></SelectItem>) })}</SelectContent>
               </Select>
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -371,9 +339,7 @@ export function ActivitiesTable({ activities, departments }: ActivitiesTableProp
             <div>
               <label className="text-sm font-medium">קישור לתמונה</label>
               <Input placeholder="https://..." value={editForm.image_url} onChange={(e) => setEditForm({ ...editForm, image_url: e.target.value })} />
-              {editForm.image_url && (
-                <img src={editForm.image_url} alt="תצוגה מקדימה" className="mt-2 rounded-lg max-h-32 object-cover w-full" onError={(e) => (e.currentTarget.style.display = "none")} />
-              )}
+              {editForm.image_url && (<img src={editForm.image_url} alt="תצוגה מקדימה" className="mt-2 rounded-lg max-h-32 object-cover w-full" onError={(e) => (e.currentTarget.style.display = "none")} />)}
             </div>
             <div className="flex items-center gap-2">
               <Switch id="is_active_edit" checked={editForm.is_active} onCheckedChange={(checked) => setEditForm({ ...editForm, is_active: checked })} />

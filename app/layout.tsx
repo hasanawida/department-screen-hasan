@@ -1,31 +1,17 @@
 import type { Metadata } from 'next'
-import { Geist, Geist_Mono } from 'next/font/google'
+import { Inter } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
-const _geist = Geist({ subsets: ["latin"] });
-const _geistMono = Geist_Mono({ subsets: ["latin"] });
+
+const inter = Inter({ subsets: ['latin'] })
+
 export const metadata: Metadata = {
-  title: 'מסך המחלקה - מערכת תצוגת מידע',
-  description: 'מערכת תצוגת מידע למחלקות בית האבות - פעילויות, הודעות ועדכונים',
+  title: 'מערכת המחלקה',
+  description: 'מערכת ניהול מחלקה',
   generator: 'v0.app',
-  icons: {
-    icon: [
-      {
-        url: '/icon-light-32x32.png',
-        media: '(prefers-color-scheme: light)',
-      },
-      {
-        url: '/icon-dark-32x32.png',
-        media: '(prefers-color-scheme: dark)',
-      },
-      {
-        url: '/icon.svg',
-        type: 'image/svg+xml',
-      },
-    ],
-    apple: '/apple-icon.png',
-  },
+  icons: {},
 }
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -33,7 +19,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="he" dir="rtl">
-      <body suppressHydrationWarning={true} className="font-sans antialiased">
+      <body suppressHydrationWarning={true} className={`${inter.className} antialiased`}>
         {children}
         <Analytics />
       </body>

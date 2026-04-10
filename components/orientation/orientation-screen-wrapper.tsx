@@ -17,11 +17,9 @@ export default function OrientationScreenWrapper({
   departmentNameEn,
   activities,
   settings,
-  initialEmergencyActive,
-  initialEmergencyMessage,
 }: any) {
-  const [emergencyActive, setEmergencyActive] = useState(initialEmergencyActive);
-  const [emergencyMessage, setEmergencyMessage] = useState(initialEmergencyMessage);
+  const [emergencyActive, setEmergencyActive] = useState(false);
+  const [emergencyMessage, setEmergencyMessage] = useState("");
 
   useEffect(() => {
     async function checkEmergency() {

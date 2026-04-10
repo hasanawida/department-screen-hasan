@@ -25,6 +25,26 @@ export default function DisplayScreenWrapper({
   const [emergencyMessage, setEmergencyMessage] = useState(initialEmergencyMessage);
 
   useEffect(() => {
+    async function checkEmergency() {
+      const { data } = await supabase
+        .from("departments")
+        .select("emergency_active, emergency_message, emergency_display")
+        .eq("id", departmentId)
+        .single();
+      if (data) {
+        if (data.emergency_active && data.emergency_display) {
+          setEmergencyActive(true);
+          setEmergencyMessage(data.emergency_message ?? "");
+        } else {
+          setEmergencyActive(false);
+          setEmergencyMessage("");
+        }
+      }
+    }
+
+    checkEmergency();
+    const interval = setInterval(checkEmergency, 5000);
+
     const channel = supabase
       .channel("display-emergency-" + departmentId)
       .on(
@@ -37,11 +57,7 @@ export default function DisplayScreenWrapper({
         },
         (payload: any) => {
           if (payload.new.force_refresh) {
-            supabase
-              .from("departments")
-              .update({ force_refresh: false })
-              .eq("id", departmentId)
-              .then(() => window.location.reload());
+            window.location.reload();
           }
           if (payload.new.emergency_active && payload.new.emergency_display) {
             setEmergencyActive(true);
@@ -54,7 +70,10 @@ export default function DisplayScreenWrapper({
       )
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      clearInterval(interval);
+      supabase.removeChannel(channel);
+    };
   }, [departmentId]);
 
   return (

@@ -67,53 +67,45 @@ export default function OrientationSettingsPage() {
   const token = params.token as string;
 
   const [deptName, setDeptName] = useState("");
-  const [deptId, setDeptId] = useState("");
   const [color, setColor] = useState("#10B981");
   const [settings, setSettings] = useState<OrientationSettings>(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
   const [saved, setSaved] = useState(false);
   const [notFound, setNotFound] = useState(false);
 
-  useEffect(() => {
-    if (!token) return;
-    async function load() {
-      const { data, error } = await supabase
-        .from("departments")
-        .select("id, name, color, orientation_settings")
-        .eq("view_token", token)
-        .single();
-
-      if (error || !data) { setNotFound(true); setLoading(false); return; }
-      setDeptId(data.id);
-      setDeptName(data.name);
-      setColor(data.color ?? "#10B981");
-      // מיזוג הגדרות קיימות עם ברירת מחדל
-      setSettings({ ...DEFAULT_SETTINGS, ...(data.orientation_settings ?? {}) });
-      setLoading(false);
-    }
-    load();
-  }, [token]);
-
-  async function handleSave() {
-    const { data } = await supabase
+  async function loadData() {
+    const { data, error } = await supabase
       .from("departments")
-      .select("id")
+      .select("id, name, color, orientation_settings")
       .eq("view_token", token)
       .single();
 
-    if (!data) return;
+    if (error || !data) { setNotFound(true); setLoading(false); return; }
+    setDeptName(data.name);
+    setColor(data.color ?? "#10B981");
+    setSettings({ ...DEFAULT_SETTINGS, ...(data.orientation_settings ?? {}) });
+    setLoading(false);
+  }
 
+  useEffect(() => {
+    if (!token) return;
+    loadData();
+  }, [token]);
+
+  async function handleSave() {
     const { error } = await supabase
       .from("departments")
       .update({
         color,
         orientation_settings: settings,
       })
-      .eq("id", data.id);
+      .eq("view_token", token);
 
     if (!error) {
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
+      // טען מחדש לוודא שהנתונים נשמרו
+      await loadData();
     }
   }
 

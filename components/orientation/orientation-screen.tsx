@@ -282,14 +282,14 @@ export default function OrientationScreen({
   );
 
   const hasRightColumn = s.show_weather || s.show_staff || s.show_menu || s.show_announcement || s.show_anchors;
-
-  // צבעים דינמיים מהצבע של המחלקה
   const colorLight = departmentColor + "20";
-  const colorMedium = departmentColor + "40";
 
   return (
-    <div dir={t.dir} className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50 p-6 md:p-10 transition-all duration-700">
-
+    <div
+      dir={t.dir}
+      className="min-h-screen p-6 md:p-10 transition-all duration-700"
+      style={{ background: `linear-gradient(to bottom, ${departmentColor}15, white, #f8fafc)` }}
+    >
       {langs.length > 1 && (
         <div className="mb-4 flex justify-center gap-2">
           {langs.map((l, i) => (
@@ -322,7 +322,10 @@ export default function OrientationScreen({
                     <p className="mt-3 text-4xl font-bold text-slate-700 md:text-5xl">{dayName}</p>
                     <p className="mt-6 text-2xl text-slate-600 md:text-3xl">{deptNameByLang[lang]}</p>
                   </div>
-                  <div className="rounded-[2rem] px-6 py-5 text-center shadow-inner" style={{ backgroundColor: colorLight }}>
+                  <div
+                    className="rounded-[2rem] px-6 py-5 text-center shadow-inner"
+                    style={{ backgroundColor: colorLight }}
+                  >
                     <div className="text-2xl font-semibold text-slate-600">{t.timeNow}</div>
                     <div className="mt-2 text-6xl font-black md:text-7xl" style={{ color: departmentColor }}>{currentTime}</div>
                   </div>
@@ -360,7 +363,7 @@ export default function OrientationScreen({
 
                 <Card className="rounded-[2rem] border-0 shadow-xl">
                   <CardContent className="p-8">
-                    <div className="mb-5 flex items-center gap-3 text-sky-700">
+                    <div className="mb-5 flex items-center gap-3" style={{ color: departmentColor }}>
                       <Clock3 className="h-8 w-8" />
                       <div className="text-3xl font-bold">{t.next}</div>
                     </div>

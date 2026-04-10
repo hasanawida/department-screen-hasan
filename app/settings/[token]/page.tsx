@@ -68,7 +68,7 @@ export default function OrientationSettingsPage() {
 
   const [deptName, setDeptName] = useState("");
   const [deptId, setDeptId] = useState("");
-  const [color, setColor] = useState("#3B82F6");
+  const [color, setColor] = useState("#10B981");
   const [settings, setSettings] = useState<OrientationSettings>(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
   const [saved, setSaved] = useState(false);
@@ -86,7 +86,8 @@ export default function OrientationSettingsPage() {
       if (error || !data) { setNotFound(true); setLoading(false); return; }
       setDeptId(data.id);
       setDeptName(data.name);
-      setColor(data.color ?? "#3B82F6");
+      setColor(data.color ?? "#10B981");
+      // מיזוג הגדרות קיימות עם ברירת מחדל
       setSettings({ ...DEFAULT_SETTINGS, ...(data.orientation_settings ?? {}) });
       setLoading(false);
     }
@@ -186,7 +187,6 @@ export default function OrientationSettingsPage() {
                 </div>
               </div>
             </div>
-            {/* תצוגה מקדימה */}
             <div
               className="rounded-2xl p-4 text-white text-center text-2xl font-bold"
               style={{ backgroundColor: color }}
@@ -250,7 +250,7 @@ export default function OrientationSettingsPage() {
                 <div key={key} className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3">
                   <span className="text-xl font-medium text-slate-800">{label}</span>
                   <Switch
-                    checked={!!settings[key]}
+                    checked={settings[key] as boolean}
                     onCheckedChange={() => toggleShow(key)}
                   />
                 </div>

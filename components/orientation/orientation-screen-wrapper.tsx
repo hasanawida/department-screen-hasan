@@ -24,6 +24,29 @@ export default function OrientationScreenWrapper({
   const [emergencyMessage, setEmergencyMessage] = useState(initialEmergencyMessage);
 
   useEffect(() => {
+    // בדיקה ראשונית מהמסד
+    async function checkEmergency() {
+      const { data } = await supabase
+        .from("departments")
+        .select("emergency_active, emergency_message, emergency_orientation")
+        .eq("id", departmentId)
+        .single();
+      if (data) {
+        if (data.emergency_active && data.emergency_orientation) {
+          setEmergencyActive(true);
+          setEmergencyMessage(data.emergency_message ?? "");
+        } else {
+          setEmergencyActive(false);
+          setEmergencyMessage("");
+        }
+      }
+    }
+    checkEmergency();
+
+    // polling כל 5 שניות כגיבוי ל-Realtime
+    const interval = setInterval(checkEmergency, 5000);
+
+    // Realtime
     const channel = supabase
       .channel("emergency-" + departmentId)
       .on(
@@ -35,7 +58,6 @@ export default function OrientationScreenWrapper({
           filter: `id=eq.${departmentId}`,
         },
         (payload: any) => {
-          // רענון מרחוק
           if (payload.new.force_refresh) {
             supabase
               .from("departments")
@@ -43,7 +65,6 @@ export default function OrientationScreenWrapper({
               .eq("id", departmentId)
               .then(() => window.location.reload());
           }
-          // הודעת חירום — רק אם emergency_orientation פעיל
           if (payload.new.emergency_active && payload.new.emergency_orientation) {
             setEmergencyActive(true);
             setEmergencyMessage(payload.new.emergency_message ?? "");
@@ -55,7 +76,10 @@ export default function OrientationScreenWrapper({
       )
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      clearInterval(interval);
+      supabase.removeChannel(channel);
+    };
   }, [departmentId]);
 
   return (

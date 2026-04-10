@@ -28,17 +28,19 @@ export default function OrientationScreenWrapper({
     async function checkState() {
       const { data } = await supabase
         .from("departments")
-        .select("emergency_active, emergency_message, emergency_orientation, color")
+        .select("*")
         .eq("id", departmentId)
         .single();
+
       if (data) {
-        if (data.orientation_color) setColor(data.orientation_color);
-        if (data.orientation_settings) {
-          setCurrentSettings((prev: any) => ({ ...prev, ...data.orientation_settings }));
+        const d = data as any;
+        if (d.orientation_color) setColor(d.orientation_color);
+        if (d.orientation_settings) {
+          setCurrentSettings((prev: any) => ({ ...prev, ...d.orientation_settings }));
         }
-        if (data.emergency_active && data.emergency_orientation) {
+        if (d.emergency_active && d.emergency_orientation) {
           setEmergencyActive(true);
-          setEmergencyMessage(data.emergency_message ?? "");
+          setEmergencyMessage(d.emergency_message ?? "");
         } else {
           setEmergencyActive(false);
           setEmergencyMessage("");
@@ -60,16 +62,17 @@ export default function OrientationScreenWrapper({
           filter: `id=eq.${departmentId}`,
         },
         (payload: any) => {
-          if (payload.new.force_refresh) {
+          const n = payload.new;
+          if (n.force_refresh) {
             window.location.reload();
           }
-          if (payload.new.orientation_color) setColor(payload.new.orientation_color);
-          if (payload.new.orientation_settings) {
-            setCurrentSettings((prev: any) => ({ ...prev, ...payload.new.orientation_settings }));
+          if (n.orientation_color) setColor(n.orientation_color);
+          if (n.orientation_settings) {
+            setCurrentSettings((prev: any) => ({ ...prev, ...n.orientation_settings }));
           }
-          if (payload.new.emergency_active && payload.new.emergency_orientation) {
+          if (n.emergency_active && n.emergency_orientation) {
             setEmergencyActive(true);
-            setEmergencyMessage(payload.new.emergency_message ?? "");
+            setEmergencyMessage(n.emergency_message ?? "");
           } else {
             setEmergencyActive(false);
             setEmergencyMessage("");

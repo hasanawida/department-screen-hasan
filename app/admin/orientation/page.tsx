@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import Link from "next/link";
 import { Monitor, Settings, Plus } from "lucide-react";
@@ -11,31 +14,56 @@ const supabase = createClient(
 );
 
 const langLabels: Record<string, string> = {
-  he: "עב׳",
-  ar: "ערב׳",
-  ru: "רוס׳",
-  en: "אנג׳",
+  he: "עב׳", ar: "ערב׳", ru: "רוס׳", en: "אנג׳",
 };
 
-export default async function AdminOrientationPage() {
-  const { data: departments } = await supabase
-    .from("departments")
-    .select("id, name, color, view_token, orientation_settings, created_at")
-    .order("created_at", { ascending: true });
+export default function AdminOrientationPage() {
+  const [departments, setDepartments] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // יצירת view_token אוטומטית לכל מחלקה שאין לה
-  if (departments) {
-    for (const dept of departments) {
-      if (!dept.view_token) {
-        const newToken = uuidv4();
-        await supabase
-          .from("departments")
-          .update({ view_token: newToken })
-          .eq("id", dept.id);
-        dept.view_token = newToken;
+  async function loadDepartments() {
+    const { data } = await supabase
+      .from("departments")
+      .select("id, name, color, view_token, orientation_settings, created_at")
+      .order("created_at", { ascending: true });
+
+    if (data) {
+      for (const dept of data) {
+        if (!dept.view_token) {
+          const newToken = uuidv4();
+          await supabase
+            .from("departments")
+            .update({ view_token: newToken })
+            .eq("id", dept.id);
+          dept.view_token = newToken;
+        }
       }
+      setDepartments(data);
     }
+    setLoading(false);
   }
+
+  useEffect(() => {
+    loadDepartments();
+
+    // Realtime — מחלקה חדשה מופיעה מיד
+    const channel = supabase
+      .channel("departments-orientation")
+      .on(
+        "postgres_changes" as any,
+        { event: "*", schema: "public", table: "departments" },
+        () => loadDepartments()
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
+  if (loading) return (
+    <div dir="rtl" className="flex min-h-screen items-center justify-center">
+      <p className="text-2xl text-slate-500">טוען...</p>
+    </div>
+  );
 
   return (
     <div dir="rtl" className="min-h-screen bg-slate-50 p-6 md:p-10">
@@ -47,12 +75,12 @@ export default async function AdminOrientationPage() {
             <p className="mt-1 text-lg text-slate-500">ניהול מסכי ההתמצאות לכל המחלקות</p>
           </div>
           <Badge className="rounded-full px-4 py-2 text-lg bg-emerald-100 text-emerald-800">
-            {departments?.length ?? 0} מחלקות
+            {departments.length} מחלקות
           </Badge>
         </div>
 
         <div className="space-y-3">
-          {(departments ?? []).map((dept) => {
+          {departments.map((dept) => {
             const langs: string[] = Array.isArray(dept.orientation_settings?.languages)
               ? dept.orientation_settings.languages
               : ["he", "ar", "ru", "en"];
@@ -105,7 +133,7 @@ export default async function AdminOrientationPage() {
           })}
         </div>
 
-        {(departments ?? []).length === 0 && (
+        {departments.length === 0 && (
           <div className="flex flex-col items-center justify-center py-20 text-slate-400">
             <Plus className="h-12 w-12 mb-4" />
             <p className="text-xl">אין מחלקות עדיין</p>
@@ -116,5 +144,3 @@ export default async function AdminOrientationPage() {
     </div>
   );
 }
-
-export const dynamic = "force-dynamic";

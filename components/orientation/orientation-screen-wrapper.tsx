@@ -28,7 +28,7 @@ export default function OrientationScreenWrapper({
     async function checkState() {
       const { data } = await supabase
         .from("departments")
-        .select("emergency_active, emergency_message, emergency_orientation, orientation_color, orientation_settings")
+        .select("emergency_active, emergency_message, emergency_orientation, color")
         .eq("id", departmentId)
         .single();
       if (data) {

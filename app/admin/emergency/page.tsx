@@ -103,7 +103,6 @@ export default function EmergencyPage() {
         .update({ force_refresh: true })
         .eq("id", id);
     }
-    // איפוס אחרי 10 שניות
     setTimeout(async () => {
       for (const id of selectedIds) {
         await supabase
@@ -181,15 +180,18 @@ export default function EmergencyPage() {
                   <span className={`text-sm font-bold ${dept.emergency_active ? "text-red-600" : "text-green-600"}`}>
                     {dept.emergency_active ? "🔴 פעיל" : "🟢 תקין"}
                   </span>
-                  {dept.emergency_active && (
-                    <button
-                      onClick={() => handleDeactivateDept(dept.id)}
-                      className="flex items-center gap-1 rounded-lg bg-red-100 hover:bg-red-200 text-red-700 px-2 py-1 text-sm font-bold transition-colors"
-                    >
-                      <XCircle className="h-4 w-4" />
-                      כבה
-                    </button>
-                  )}
+                  <button
+                    onClick={() => handleDeactivateDept(dept.id)}
+                    disabled={!dept.emergency_active}
+                    className={`flex items-center gap-1 rounded-lg px-2 py-1 text-sm font-bold transition-colors ${
+                      dept.emergency_active
+                        ? "bg-red-100 hover:bg-red-200 text-red-700 cursor-pointer"
+                        : "bg-slate-100 text-slate-300 cursor-not-allowed"
+                    }`}
+                  >
+                    <XCircle className="h-4 w-4" />
+                    כבה
+                  </button>
                 </div>
               </div>
             ))}

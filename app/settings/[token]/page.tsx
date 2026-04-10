@@ -46,14 +46,20 @@ const LANG_LABELS: Record<string, string> = {
 const ALL_LANGS = ["he", "ar", "ru", "en"];
 
 const SECTION_LABELS: { key: keyof OrientationSettings; label: string }[] = [
-  { key: "show_activities",  label: "פעילויות (עכשיו / בהמשך הקרוב)" },
-  { key: "show_menu",        label: "תפריט היום" },
-  { key: "show_staff",       label: "הצוות היום" },
-  { key: "show_announcement",label: "הודעה חשובה" },
-  { key: "show_calming",     label: "מסר מרגיע" },
-  { key: "show_hebrew_date", label: "תאריך עברי" },
-  { key: "show_weather",     label: "מזג אוויר" },
-  { key: "show_anchors",     label: "עוגנים קבועים" },
+  { key: "show_activities",   label: "פעילויות (עכשיו / בהמשך הקרוב)" },
+  { key: "show_menu",         label: "תפריט היום" },
+  { key: "show_staff",        label: "הצוות היום" },
+  { key: "show_announcement", label: "הודעה חשובה" },
+  { key: "show_calming",      label: "מסר מרגיע" },
+  { key: "show_hebrew_date",  label: "תאריך עברי" },
+  { key: "show_weather",      label: "מזג אוויר" },
+  { key: "show_anchors",      label: "עוגנים קבועים" },
+];
+
+const QUICK_COLORS = [
+  "#3B82F6", "#10B981", "#F59E0B", "#EF4444",
+  "#8B5CF6", "#EC4899", "#06B6D4", "#84CC16",
+  "#F97316", "#6366F1", "#14B8A6", "#F43F5E",
 ];
 
 export default function OrientationSettingsPage() {
@@ -62,6 +68,7 @@ export default function OrientationSettingsPage() {
 
   const [deptName, setDeptName] = useState("");
   const [deptId, setDeptId] = useState("");
+  const [color, setColor] = useState("#3B82F6");
   const [settings, setSettings] = useState<OrientationSettings>(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
   const [saved, setSaved] = useState(false);
@@ -72,13 +79,14 @@ export default function OrientationSettingsPage() {
     async function load() {
       const { data, error } = await supabase
         .from("departments")
-        .select("id, name, orientation_settings")
+        .select("id, name, color, orientation_settings")
         .eq("view_token", token)
         .single();
 
       if (error || !data) { setNotFound(true); setLoading(false); return; }
       setDeptId(data.id);
       setDeptName(data.name);
+      setColor(data.color ?? "#3B82F6");
       setSettings({ ...DEFAULT_SETTINGS, ...(data.orientation_settings ?? {}) });
       setLoading(false);
     }
@@ -88,7 +96,10 @@ export default function OrientationSettingsPage() {
   async function handleSave() {
     await supabase
       .from("departments")
-      .update({ orientation_settings: settings })
+      .update({
+        color,
+        orientation_settings: settings,
+      })
       .eq("id", deptId);
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
@@ -100,7 +111,9 @@ export default function OrientationSettingsPage() {
       if (has && prev.languages.length === 1) return prev;
       return {
         ...prev,
-        languages: has ? prev.languages.filter(l => l !== lang) : [...prev.languages, lang],
+        languages: has
+          ? prev.languages.filter(l => l !== lang)
+          : [...prev.languages, lang],
       };
     });
   }
@@ -133,6 +146,57 @@ export default function OrientationSettingsPage() {
           </div>
         </div>
 
+        {/* בחירת צבע */}
+        <Card className="rounded-2xl border-0 shadow-md">
+          <CardContent className="p-6 space-y-4">
+            <h2 className="text-2xl font-bold text-slate-900">צבע המחלקה</h2>
+            <p className="text-slate-500">הצבע משפיע על מסך ההתמצאות ומסך המחלקה</p>
+            <div className="flex items-center gap-4">
+              <div
+                className="h-16 w-16 rounded-2xl border-4 border-white shadow-lg flex-shrink-0"
+                style={{ backgroundColor: color }}
+              />
+              <div className="flex-1 space-y-3">
+                <div className="flex gap-3">
+                  <input
+                    type="color"
+                    value={color}
+                    onChange={(e) => setColor(e.target.value)}
+                    className="h-12 w-16 rounded-xl border border-slate-200 p-1 cursor-pointer"
+                  />
+                  <input
+                    type="text"
+                    value={color}
+                    onChange={(e) => setColor(e.target.value)}
+                    className="flex-1 rounded-xl border border-slate-200 px-4 text-lg font-mono focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                    dir="ltr"
+                  />
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  {QUICK_COLORS.map((c) => (
+                    <button
+                      key={c}
+                      onClick={() => setColor(c)}
+                      className={`h-8 w-8 rounded-full border-4 transition-transform hover:scale-110 ${
+                        color === c ? "border-slate-800 scale-110" : "border-white shadow"
+                      }`}
+                      style={{ backgroundColor: c }}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+            {/* תצוגה מקדימה */}
+            <div
+              className="rounded-2xl p-4 text-white text-center text-2xl font-bold"
+              style={{ backgroundColor: color }}
+            >
+              {deptName}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* שפות */}
         <Card className="rounded-2xl border-0 shadow-md">
           <CardContent className="p-6 space-y-4">
             <h2 className="text-2xl font-bold text-slate-900">שפות להצגה</h2>
@@ -149,13 +213,16 @@ export default function OrientationSettingsPage() {
                   }`}
                 >
                   <span>{LANG_LABELS[lang]}</span>
-                  <span className="text-2xl">{lang === "he" ? "🇮🇱" : lang === "ar" ? "🌙" : lang === "ru" ? "🇷🇺" : "🇬🇧"}</span>
+                  <span className="text-2xl">
+                    {lang === "he" ? "🇮🇱" : lang === "ar" ? "🌙" : lang === "ru" ? "🇷🇺" : "🇬🇧"}
+                  </span>
                 </button>
               ))}
             </div>
           </CardContent>
         </Card>
 
+        {/* מהירות */}
         <Card className="rounded-2xl border-0 shadow-md">
           <CardContent className="p-6 space-y-4">
             <h2 className="text-2xl font-bold text-slate-900">מהירות החלפת שפות</h2>
@@ -174,6 +241,7 @@ export default function OrientationSettingsPage() {
           </CardContent>
         </Card>
 
+        {/* מה להציג */}
         <Card className="rounded-2xl border-0 shadow-md">
           <CardContent className="p-6 space-y-4">
             <h2 className="text-2xl font-bold text-slate-900">מה להציג במסך</h2>

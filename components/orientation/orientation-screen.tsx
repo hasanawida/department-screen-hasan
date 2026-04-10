@@ -38,6 +38,7 @@ type OrientationProps = {
   departmentNameAr?: string;
   departmentNameRu?: string;
   departmentNameEn?: string;
+  departmentColor?: string;
   activities: Activity[];
   staffToday?: string[];
   menuToday?: string;
@@ -216,10 +217,10 @@ function ActivityIcon({ category }: { category?: ActivityCategory }) {
   return <Clock3 className={cls} />;
 }
 
-function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+function InfoRow({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: string; color: string }) {
   return (
     <div className="flex items-start gap-4 rounded-2xl border bg-white/70 p-4 shadow-sm">
-      <div className="mt-1 text-emerald-700">{icon}</div>
+      <div className="mt-1" style={{ color }}>{icon}</div>
       <div className="flex-1">
         <div className="text-2xl font-semibold text-slate-700">{label}</div>
         <div className="mt-1 text-3xl font-bold text-slate-900">{value}</div>
@@ -230,6 +231,7 @@ function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string;
 
 export default function OrientationScreen({
   departmentName, departmentNameAr, departmentNameRu, departmentNameEn,
+  departmentColor = "#10B981",
   activities, staffToday = [], menuToday, announcementText = "",
   weatherText = "נעים", settings: settingsProp,
 }: OrientationProps) {
@@ -281,13 +283,21 @@ export default function OrientationScreen({
 
   const hasRightColumn = s.show_weather || s.show_staff || s.show_menu || s.show_announcement || s.show_anchors;
 
+  // צבעים דינמיים מהצבע של המחלקה
+  const colorLight = departmentColor + "20";
+  const colorMedium = departmentColor + "40";
+
   return (
-    <div dir={t.dir} className="min-h-screen bg-gradient-to-b from-emerald-50 via-white to-slate-50 p-6 md:p-10 transition-all duration-700">
+    <div dir={t.dir} className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50 p-6 md:p-10 transition-all duration-700">
 
       {langs.length > 1 && (
         <div className="mb-4 flex justify-center gap-2">
           {langs.map((l, i) => (
-            <div key={l} className={`h-2 rounded-full transition-all duration-500 ${i === langIndex ? "w-6 bg-emerald-600" : "w-2 bg-slate-300"}`} />
+            <div
+              key={l}
+              className={`h-2 rounded-full transition-all duration-500 ${i === langIndex ? "w-6" : "w-2 bg-slate-300"}`}
+              style={i === langIndex ? { backgroundColor: departmentColor } : {}}
+            />
           ))}
         </div>
       )}
@@ -301,7 +311,10 @@ export default function OrientationScreen({
               <CardContent className="p-8 md:p-10">
                 <div className="flex items-start justify-between gap-6">
                   <div>
-                    <div className="mb-3 inline-flex items-center gap-3 rounded-full bg-emerald-100 px-5 py-2 text-2xl font-semibold text-emerald-800">
+                    <div
+                      className="mb-3 inline-flex items-center gap-3 rounded-full px-5 py-2 text-2xl font-semibold"
+                      style={{ backgroundColor: colorLight, color: departmentColor }}
+                    >
                       <TimeIcon tod={tod} />
                       <span>{t.phases[tod]}</span>
                     </div>
@@ -309,30 +322,30 @@ export default function OrientationScreen({
                     <p className="mt-3 text-4xl font-bold text-slate-700 md:text-5xl">{dayName}</p>
                     <p className="mt-6 text-2xl text-slate-600 md:text-3xl">{deptNameByLang[lang]}</p>
                   </div>
-                  <div className="rounded-[2rem] bg-slate-50 px-6 py-5 text-center shadow-inner">
+                  <div className="rounded-[2rem] px-6 py-5 text-center shadow-inner" style={{ backgroundColor: colorLight }}>
                     <div className="text-2xl font-semibold text-slate-600">{t.timeNow}</div>
-                    <div className="mt-2 text-6xl font-black text-emerald-700 md:text-7xl">{currentTime}</div>
+                    <div className="mt-2 text-6xl font-black md:text-7xl" style={{ color: departmentColor }}>{currentTime}</div>
                   </div>
                 </div>
 
                 <Separator className="my-8" />
 
                 <div className={`grid gap-4 ${s.show_hebrew_date ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
-                  <InfoRow icon={<CalendarDays className="h-8 w-8" />} label={t.date} value={gregorianTxt} />
+                  <InfoRow icon={<CalendarDays className="h-8 w-8" />} label={t.date} value={gregorianTxt} color={departmentColor} />
                   {s.show_hebrew_date && (
-                    <InfoRow icon={<Flower2 className="h-8 w-8" />} label={t.hebrewDate} value={hebrewDateTxt} />
+                    <InfoRow icon={<Flower2 className="h-8 w-8" />} label={t.hebrewDate} value={hebrewDateTxt} color={departmentColor} />
                   )}
-                  <InfoRow icon={<CloudSun className="h-8 w-8" />} label={t.season} value={season} />
+                  <InfoRow icon={<CloudSun className="h-8 w-8" />} label={t.season} value={season} color={departmentColor} />
                 </div>
               </CardContent>
             </Card>
 
-            {/* Activities — Now / Next */}
+            {/* Activities */}
             {s.show_activities && (
               <div className="grid gap-6 lg:grid-cols-2">
                 <Card className="rounded-[2rem] border-0 shadow-xl">
                   <CardContent className="p-8">
-                    <div className="mb-5 flex items-center gap-3 text-emerald-700">
+                    <div className="mb-5 flex items-center gap-3" style={{ color: departmentColor }}>
                       <ActivityIcon category={currentActivity?.category} />
                       <div className="text-3xl font-bold">{t.now}</div>
                     </div>
@@ -364,7 +377,7 @@ export default function OrientationScreen({
 
             {/* Calming */}
             {s.show_calming && (
-              <Card className="rounded-[2rem] border-0 bg-emerald-700 text-white shadow-xl">
+              <Card className="rounded-[2rem] border-0 text-white shadow-xl" style={{ backgroundColor: departmentColor }}>
                 <CardContent className="p-8 md:p-10">
                   <div className="flex items-start gap-4">
                     <ShieldCheck className="mt-1 h-10 w-10 shrink-0" />
@@ -386,9 +399,9 @@ export default function OrientationScreen({
                   <CardContent className="p-8">
                     <div className="mb-6 text-3xl font-black text-slate-900">{t.dailyInfo}</div>
                     <div className="space-y-4">
-                      {s.show_weather && <InfoRow icon={<CloudSun className="h-7 w-7" />} label={t.weather} value={weatherDisplay} />}
-                      {s.show_staff && staffToday.length > 0 && <InfoRow icon={<Users className="h-7 w-7" />} label={t.staff} value={staffToday.join(", ")} />}
-                      {s.show_menu && <InfoRow icon={<Utensils className="h-7 w-7" />} label={t.menu} value={menuToday || t.noMenu} />}
+                      {s.show_weather && <InfoRow icon={<CloudSun className="h-7 w-7" />} label={t.weather} value={weatherDisplay} color={departmentColor} />}
+                      {s.show_staff && staffToday.length > 0 && <InfoRow icon={<Users className="h-7 w-7" />} label={t.staff} value={staffToday.join(", ")} color={departmentColor} />}
+                      {s.show_menu && <InfoRow icon={<Utensils className="h-7 w-7" />} label={t.menu} value={menuToday || t.noMenu} color={departmentColor} />}
                     </div>
                   </CardContent>
                 </Card>
@@ -413,9 +426,9 @@ export default function OrientationScreen({
                   <CardContent className="p-8">
                     <div className="mb-4 text-3xl font-black text-slate-900">{t.anchors}</div>
                     <div className="flex flex-wrap gap-3">
-                      <Badge className="rounded-full px-5 py-3 text-2xl">{dayName}</Badge>
-                      <Badge className="rounded-full px-5 py-3 text-2xl">{season}</Badge>
-                      <Badge className="rounded-full px-5 py-3 text-2xl">{currentTime}</Badge>
+                      <Badge className="rounded-full px-5 py-3 text-2xl text-white" style={{ backgroundColor: departmentColor }}>{dayName}</Badge>
+                      <Badge className="rounded-full px-5 py-3 text-2xl text-white" style={{ backgroundColor: departmentColor }}>{season}</Badge>
+                      <Badge className="rounded-full px-5 py-3 text-2xl text-white" style={{ backgroundColor: departmentColor }}>{currentTime}</Badge>
                     </div>
                     <p className="mt-5 text-2xl leading-relaxed text-slate-600">{t.anchorsDesc}</p>
                   </CardContent>

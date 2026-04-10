@@ -95,15 +95,26 @@ export default function OrientationSettingsPage() {
   }, [token]);
 
   async function handleSave() {
-    await supabase
+    const { data } = await supabase
+      .from("departments")
+      .select("id")
+      .eq("view_token", token)
+      .single();
+
+    if (!data) return;
+
+    const { error } = await supabase
       .from("departments")
       .update({
         color,
         orientation_settings: settings,
       })
-      .eq("id", deptId);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+      .eq("id", data.id);
+
+    if (!error) {
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    }
   }
 
   function toggleLang(lang: string) {

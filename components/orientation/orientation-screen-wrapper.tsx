@@ -22,16 +22,20 @@ export default function OrientationScreenWrapper({
   const [emergencyActive, setEmergencyActive] = useState(false);
   const [emergencyMessage, setEmergencyMessage] = useState("");
   const [color, setColor] = useState(departmentColor ?? "#10B981");
+  const [currentSettings, setCurrentSettings] = useState(settings);
 
   useEffect(() => {
-    async function checkEmergency() {
+    async function checkState() {
       const { data } = await supabase
         .from("departments")
-        .select("emergency_active, emergency_message, emergency_orientation, color")
+        .select("emergency_active, emergency_message, emergency_orientation, orientation_color, orientation_settings")
         .eq("id", departmentId)
         .single();
       if (data) {
-        if (data.color) setColor(data.color);
+        if (data.orientation_color) setColor(data.orientation_color);
+        if (data.orientation_settings) {
+          setCurrentSettings((prev: any) => ({ ...prev, ...data.orientation_settings }));
+        }
         if (data.emergency_active && data.emergency_orientation) {
           setEmergencyActive(true);
           setEmergencyMessage(data.emergency_message ?? "");
@@ -42,8 +46,8 @@ export default function OrientationScreenWrapper({
       }
     }
 
-    checkEmergency();
-    const interval = setInterval(checkEmergency, 5000);
+    checkState();
+    const interval = setInterval(checkState, 5000);
 
     const channel = supabase
       .channel("emergency-" + departmentId)
@@ -59,7 +63,10 @@ export default function OrientationScreenWrapper({
           if (payload.new.force_refresh) {
             window.location.reload();
           }
-          if (payload.new.color) setColor(payload.new.color);
+          if (payload.new.orientation_color) setColor(payload.new.orientation_color);
+          if (payload.new.orientation_settings) {
+            setCurrentSettings((prev: any) => ({ ...prev, ...payload.new.orientation_settings }));
+          }
           if (payload.new.emergency_active && payload.new.emergency_orientation) {
             setEmergencyActive(true);
             setEmergencyMessage(payload.new.emergency_message ?? "");
@@ -96,7 +103,7 @@ export default function OrientationScreenWrapper({
         departmentNameEn={departmentNameEn}
         departmentColor={color}
         activities={activities}
-        settings={settings}
+        settings={currentSettings}
       />
     </>
   );

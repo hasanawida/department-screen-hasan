@@ -49,7 +49,6 @@ export default function EmergencyPage() {
     setSelectedIds(new Set());
   }
 
-  // הפעלה — רק על מחלקות נבחרות
   async function handleActivate() {
     if (!message || selectedIds.size === 0) return;
     for (const id of selectedIds) {
@@ -68,7 +67,19 @@ export default function EmergencyPage() {
     loadDepartments();
   }
 
-  // כיבוי — תמיד על כולם בלי קשר לבחירה
+  async function handleDeactivateDept(id: string) {
+    await supabase
+      .from("departments")
+      .update({
+        emergency_active: false,
+        emergency_message: "",
+        emergency_orientation: false,
+        emergency_display: false,
+      })
+      .eq("id", id);
+    loadDepartments();
+  }
+
   async function handleDeactivateAll() {
     await supabase
       .from("departments")
@@ -92,6 +103,15 @@ export default function EmergencyPage() {
         .update({ force_refresh: true })
         .eq("id", id);
     }
+    // איפוס אחרי 10 שניות
+    setTimeout(async () => {
+      for (const id of selectedIds) {
+        await supabase
+          .from("departments")
+          .update({ force_refresh: false })
+          .eq("id", id);
+      }
+    }, 10000);
     setRefreshed(true);
     setTimeout(() => setRefreshed(false), 3000);
   }
@@ -115,7 +135,7 @@ export default function EmergencyPage() {
           <div className="rounded-2xl bg-red-50 border-2 border-red-300 p-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <AlertTriangle className="h-6 w-6 text-red-600" />
-              <span className="text-red-700 font-bold text-lg">יש הודעת חירום פעילה על מסכים!</span>
+              <span className="text-red-700 font-bold text-lg">יש הודעת חירום פעילה!</span>
             </div>
             <button
               onClick={handleDeactivateAll}
@@ -132,26 +152,22 @@ export default function EmergencyPage() {
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-bold text-slate-900">בחר מחלקות</h2>
             <div className="flex gap-2">
-              <button onClick={selectAll} className="text-sm text-emerald-600 font-bold hover:underline">
-                בחר הכל
-              </button>
+              <button onClick={selectAll} className="text-sm text-emerald-600 font-bold hover:underline">בחר הכל</button>
               <span className="text-slate-300">|</span>
-              <button onClick={deselectAll} className="text-sm text-slate-500 font-bold hover:underline">
-                נקה הכל
-              </button>
+              <button onClick={deselectAll} className="text-sm text-slate-500 font-bold hover:underline">נקה הכל</button>
             </div>
           </div>
           <div className="space-y-2">
             {departments.map((dept) => (
-              <label
+              <div
                 key={dept.id}
-                className={`flex items-center justify-between rounded-xl px-4 py-3 cursor-pointer transition-colors ${
+                className={`flex items-center justify-between rounded-xl px-4 py-3 transition-colors ${
                   selectedIds.has(dept.id)
                     ? "bg-emerald-50 border border-emerald-200"
                     : "bg-slate-50 border border-transparent"
                 }`}
               >
-                <div className="flex items-center gap-3">
+                <label className="flex items-center gap-3 cursor-pointer flex-1">
                   <input
                     type="checkbox"
                     checked={selectedIds.has(dept.id)}
@@ -160,11 +176,22 @@ export default function EmergencyPage() {
                   />
                   <div className="h-4 w-4 rounded-full" style={{ backgroundColor: dept.color }} />
                   <span className="font-medium">{dept.name}</span>
+                </label>
+                <div className="flex items-center gap-2">
+                  <span className={`text-sm font-bold ${dept.emergency_active ? "text-red-600" : "text-green-600"}`}>
+                    {dept.emergency_active ? "🔴 פעיל" : "🟢 תקין"}
+                  </span>
+                  {dept.emergency_active && (
+                    <button
+                      onClick={() => handleDeactivateDept(dept.id)}
+                      className="flex items-center gap-1 rounded-lg bg-red-100 hover:bg-red-200 text-red-700 px-2 py-1 text-sm font-bold transition-colors"
+                    >
+                      <XCircle className="h-4 w-4" />
+                      כבה
+                    </button>
+                  )}
                 </div>
-                <span className={`text-sm font-bold ${dept.emergency_active ? "text-red-600" : "text-green-600"}`}>
-                  {dept.emergency_active ? "🔴 חירום פעיל" : "🟢 תקין"}
-                </span>
-              </label>
+              </div>
             ))}
           </div>
         </div>
@@ -206,14 +233,12 @@ export default function EmergencyPage() {
             <AlertTriangle className="h-6 w-6" />
             הודעת חירום
           </h2>
-
           <textarea
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             placeholder="כתוב כאן את הודעת החירום..."
             className="w-full rounded-xl border border-slate-200 p-4 text-xl text-right resize-none h-32 focus:outline-none focus:ring-2 focus:ring-red-400"
           />
-
           <div className="flex gap-3">
             <button
               onClick={handleActivate}
@@ -231,7 +256,6 @@ export default function EmergencyPage() {
               כבה על כולם
             </button>
           </div>
-
           {saved && (
             <div className="flex items-center gap-2 text-green-600 font-bold text-lg">
               <CheckCircle className="h-5 w-5" />

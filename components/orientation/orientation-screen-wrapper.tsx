@@ -24,7 +24,6 @@ export default function OrientationScreenWrapper({
   const [emergencyMessage, setEmergencyMessage] = useState(initialEmergencyMessage);
 
   useEffect(() => {
-    // בדיקה ראשונית מהמסד
     async function checkEmergency() {
       const { data } = await supabase
         .from("departments")
@@ -41,12 +40,10 @@ export default function OrientationScreenWrapper({
         }
       }
     }
-    checkEmergency();
 
-    // polling כל 5 שניות כגיבוי ל-Realtime
+    checkEmergency();
     const interval = setInterval(checkEmergency, 5000);
 
-    // Realtime
     const channel = supabase
       .channel("emergency-" + departmentId)
       .on(
@@ -59,11 +56,7 @@ export default function OrientationScreenWrapper({
         },
         (payload: any) => {
           if (payload.new.force_refresh) {
-            supabase
-              .from("departments")
-              .update({ force_refresh: false })
-              .eq("id", departmentId)
-              .then(() => window.location.reload());
+            window.location.reload();
           }
           if (payload.new.emergency_active && payload.new.emergency_orientation) {
             setEmergencyActive(true);

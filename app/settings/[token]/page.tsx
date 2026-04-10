@@ -76,13 +76,13 @@ export default function OrientationSettingsPage() {
   async function loadData() {
     const { data, error } = await supabase
       .from("departments")
-      .select("id, name, color, orientation_settings")
+      .select("id, name, orientation_color, orientation_settings")
       .eq("view_token", token)
       .single();
 
     if (error || !data) { setNotFound(true); setLoading(false); return; }
     setDeptName(data.name);
-    setColor(data.color ?? "#10B981");
+    setColor(data.orientation_color ?? "#10B981");
     setSettings({ ...DEFAULT_SETTINGS, ...(data.orientation_settings ?? {}) });
     setLoading(false);
   }
@@ -96,7 +96,7 @@ export default function OrientationSettingsPage() {
     const { error } = await supabase
       .from("departments")
       .update({
-        color,
+        orientation_color: color,
         orientation_settings: settings,
       })
       .eq("view_token", token);
@@ -104,7 +104,6 @@ export default function OrientationSettingsPage() {
     if (!error) {
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
-      // טען מחדש לוודא שהנתונים נשמרו
       await loadData();
     }
   }
@@ -150,11 +149,11 @@ export default function OrientationSettingsPage() {
           </div>
         </div>
 
-        {/* בחירת צבע */}
+        {/* צבע מסך התמצאות */}
         <Card className="rounded-2xl border-0 shadow-md">
           <CardContent className="p-6 space-y-4">
-            <h2 className="text-2xl font-bold text-slate-900">צבע המחלקה</h2>
-            <p className="text-slate-500">הצבע משפיע על מסך ההתמצאות ומסך המחלקה</p>
+            <h2 className="text-2xl font-bold text-slate-900">צבע מסך התמצאות</h2>
+            <p className="text-slate-500">צבע ייעודי למסך ההתמצאות בלבד</p>
             <div className="flex items-center gap-4">
               <div
                 className="h-16 w-16 rounded-2xl border-4 border-white shadow-lg flex-shrink-0"

@@ -80,7 +80,7 @@ export default async function OrientationPage({ params }: any) {
 
   const { data: dept, error: deptError } = await supabase
     .from("departments")
-    .select("id, name, name_ar, name_ru, name_en, color, orientation_settings, emergency_active, emergency_message, emergency_orientation")
+    .select("id, name, name_ar, name_ru, name_en, color, orientation_color, orientation_settings")
     .eq("view_token", token)
     .single();
 
@@ -118,7 +118,7 @@ export default async function OrientationPage({ params }: any) {
       departmentNameAr={translations.name_ar ?? dept.name}
       departmentNameRu={translations.name_ru ?? dept.name}
       departmentNameEn={translations.name_en ?? dept.name}
-      departmentColor={dept.color ?? "#10B981"}
+      departmentColor={dept.orientation_color ?? dept.color ?? "#10B981"}
       activities={activities}
       settings={settings}
     />

@@ -17,7 +17,7 @@ export default async function OccupationPage() {
     supabase.from("departments").select("id, name, view_token").order("name"),
     supabase.from("activities").select("id, title, day_of_week, start_time, activity_date, instructor_name, department_id").eq("is_active", true).is("instructor_name", null),
     supabase.from("activity_participants").select("activity_id, residents(id, name, room_number, personal_activity)"),
-    supabase.from("residents").select("id, name, room_number, personal_activity, department_id").eq("is_active", true).order("name"),
+    supabase.from("residents").select("id, name, room_number, personal_activity, group_activity, department_id").eq("is_active", true).order("name"),
   ])
 
   const deptList = (departments || []).map(dept => ({

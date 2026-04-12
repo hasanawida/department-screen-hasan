@@ -79,7 +79,6 @@ export function OccupationList({ departments }: { departments: Department[] }) {
 
   const supabase = createClient()
 
-  // האזנה לשינויים בדיירים בזמן אמת
   useEffect(() => {
     const channel = supabase
       .channel("residents-changes")
@@ -131,13 +130,13 @@ export function OccupationList({ departments }: { departments: Department[] }) {
           if (matchingResidents.length > 0) {
             participantsList = "\n    " + matchingResidents.map(r => {
               if (isPersonal && r.personal_activity) {
-                return `${r.name} — ${r.personal_activity}${r.room_number ? ` (חדר ${r.room_number})` : ""}`
+                return r.name + " - " + r.personal_activity + (r.room_number ? " (חדר " + r.room_number + ")" : "")
               }
-              return `${r.name}${r.room_number ? ` (חדר ${r.room_number})` : ""}`
+              return r.name + (r.room_number ? " (חדר " + r.room_number + ")" : "")
             }).join("\n    ")
           }
 
-          return "• " + a.title + " | יום " + a.day_of_week + " " + t + participantsList
+          return "* " + a.title + " | יום " + a.day_of_week + " " + t + participantsList
         }).join("\n")
 
         const waText = encodeURIComponent(
@@ -180,9 +179,10 @@ export function OccupationList({ departments }: { departments: Department[] }) {
                           {count > 0 ? (
                             <button
                               onClick={() => setExpandedActivity(isExp ? null : a.id)}
-                              className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-full hover:opacity-80 ${
-                                isPersonal ? "bg-purple-50 text-purple-600" : "bg-blue-50 text-blue-600"
-                              }`}
+                              className={
+                                "flex items-center gap-1 text-xs px-2 py-0.5 rounded-full hover:opacity-80 " +
+                                (isPersonal ? "bg-purple-50 text-purple-600" : "bg-blue-50 text-blue-600")
+                              }
                             >
                               <Users className="h-3 w-3" />
                               {count}
@@ -195,19 +195,19 @@ export function OccupationList({ departments }: { departments: Department[] }) {
                       </div>
 
                       {isExp && count > 0 && (
-                        <div className={`px-3 py-2 space-y-1.5 ${isPersonal ? "bg-purple-50" : "bg-blue-50"}`}>
+                        <div className={"px-3 py-2 space-y-1.5 " + (isPersonal ? "bg-purple-50" : "bg-blue-50")}>
                           {matchingResidents.map((r) => (
                             <div key={r.id} className="flex items-start gap-2 text-xs">
-                              <span className={`w-1.5 h-1.5 rounded-full shrink-0 mt-1 ${isPersonal ? "bg-purple-400" : "bg-blue-400"}`} />
+                              <span className={"w-1.5 h-1.5 rounded-full shrink-0 mt-1 " + (isPersonal ? "bg-purple-400" : "bg-blue-400")} />
                               <div className="flex-1">
-                                <span className={`font-semibold ${isPersonal ? "text-purple-800" : "text-blue-800"}`}>
+                                <span className={"font-semibold " + (isPersonal ? "text-purple-800" : "text-blue-800")}>
                                   {r.name}
                                 </span>
                                 {isPersonal && r.personal_activity && (
                                   <span className="text-purple-600 font-medium"> — {r.personal_activity}</span>
                                 )}
                                 {r.room_number && (
-                                  <span className={`mr-1 ${isPersonal ? "text-purple-400" : "text-blue-400"}`}>
+                                  <span className={"mr-1 " + (isPersonal ? "text-purple-400" : "text-blue-400")}>
                                     חדר {r.room_number}
                                   </span>
                                 )}
@@ -230,7 +230,7 @@ export function OccupationList({ departments }: { departments: Department[] }) {
                 className="flex items-center justify-center gap-2 w-full border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 text-xs font-medium py-2 rounded-xl transition-colors"
               >
                 <Copy className="h-3 w-3" />
-                {copiedToken === dept.view_token ? "✅ הקישור הועתק!" : "העתק קישור צפייה"}
+                {copiedToken === dept.view_token ? "הקישור הועתק!" : "העתק קישור צפייה"}
               </button>
             ) : (
               <button

@@ -243,7 +243,7 @@ export function OccupationList({ departments }: { departments: Department[] }) {
             )}
 
             <div className="flex gap-2 pt-1">
-              
+              <a
                 href={"https://wa.me/?text=" + waText}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -252,7 +252,7 @@ export function OccupationList({ departments }: { departments: Department[] }) {
                 <Phone className="h-4 w-4" />
                 WhatsApp
               </a>
-              
+              <a
                 href={"mailto:?subject=" + mailSubject + "&body=" + waText}
                 className="flex-1 flex items-center justify-center gap-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium py-2.5 rounded-xl transition-colors"
               >

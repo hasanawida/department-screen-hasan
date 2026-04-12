@@ -9,26 +9,17 @@ interface Activity { id: string; title: string; day_of_week: string; start_time:
 interface Resident { id: string; name: string; room_number?: string | null; leisure_activity?: string | null }
 interface Instructor { name: string; acts: Activity[]; phone: string; email: string; id: string | null; view_token?: string | null; residents: Resident[] }
 
-const LEISURE_KEYWORDS = ["פנאי", "leisure", "חופשי", "בידור"]
-
-function isLeisureActivity(title: string) {
-  return LEISURE_KEYWORDS.some(k => title.toLowerCase().includes(k))
-}
-
 function getLeisureResidents(activity: Activity, residents: Resident[]): Resident[] {
-  const titleLower = activity.title.toLowerCase()
-
-  if (isLeisureActivity(activity.title)) {
-    return residents.filter(r => r.leisure_activity)
-  }
+  const titleLower = activity.title.toLowerCase().trim()
 
   return residents.filter(r => {
     if (!r.leisure_activity) return false
-    const activities = r.leisure_activity.split(/[,،\n]/).map(a => a.trim().toLowerCase())
-    return activities.some(a => {
-      if (!a) return false
-      const words = a.split(" ").filter(w => w.length > 2)
-      return words.some(w => titleLower.includes(w)) || titleLower.includes(a)
+    const items = r.leisure_activity.split(/[,،\n]/).map(a => a.trim().toLowerCase()).filter(Boolean)
+    return items.some(item => {
+      const itemWords = item.split(" ").filter(w => w.length > 1)
+      const titleWords = titleLower.split(" ").filter(w => w.length > 1)
+      return titleLower.includes(item) || item.includes(titleLower) ||
+        itemWords.some(w => titleWords.some(tw => tw.includes(w) || w.includes(tw)))
     })
   })
 }
@@ -121,7 +112,7 @@ export function InstructorsList({ instructors }: { instructors: Instructor[] }) 
           let pl = ""
           if (leisureRes.length > 0) {
             pl = "\n    " + leisureRes.map(r =>
-              r.name + (r.leisure_activity ? " - " + r.leisure_activity : "") + (r.room_number ? " (חדר " + r.room_number + ")" : "")
+              r.name + (r.room_number ? " (חדר " + r.room_number + ")" : "")
             ).join("\n    ")
           } else if (a.participants.length > 0) {
             pl = "\n    משתתפים: " + a.participants.map(p =>
@@ -225,9 +216,6 @@ export function InstructorsList({ instructors }: { instructors: Instructor[] }) 
                                 <div key={p.id} className="flex items-center gap-2 text-xs">
                                   <span className={"w-1.5 h-1.5 rounded-full shrink-0 " + (showLeisure ? "bg-orange-400" : "bg-blue-400")} />
                                   <span className={"font-medium " + (showLeisure ? "text-orange-800" : "text-blue-800")}>{p.name}</span>
-                                  {showLeisure && (p as Resident).leisure_activity && (
-                                    <span className="text-orange-600"> — {(p as Resident).leisure_activity}</span>
-                                  )}
                                   {p.room_number && (
                                     <span className={showLeisure ? "text-orange-400" : "text-blue-400"}>חדר {p.room_number}</span>
                                   )}

@@ -12,6 +12,13 @@ export const metadata: Metadata = {
   icons: {},
 }
 
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  minimumScale: 1,
+  maximumScale: 1,
+}
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -19,6 +26,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="he" dir="rtl">
+      <head>
+        <meta name="viewport" content="width=1920, initial-scale=1, minimum-scale=1" />
+      </head>
       <body suppressHydrationWarning={true} className={`${inter.className} antialiased`}>
         {children}
         <Analytics />

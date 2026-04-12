@@ -19,10 +19,18 @@ interface Activity {
   participants: Participant[]
 }
 
+interface Resident {
+  id: string
+  name: string
+  room_number?: string | null
+  personal_activity?: string | null
+}
+
 interface Department {
   id: string
   name: string
   acts: Activity[]
+  residents: Resident[]
   view_token?: string | null
 }
 
@@ -37,8 +45,9 @@ export function OccupationList({ departments }: { departments: Department[] }) {
   const [deptData, setDeptData] = useState(departments)
   const [copiedToken, setCopiedToken] = useState<string | null>(null)
 
+  const supabase = createClient()
+
   const generateToken = async (dept: Department) => {
-    const supabase = createClient()
     const token = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)
     await supabase.from("departments").update({ view_token: token }).eq("id", dept.id)
     setDeptData(deptData.map(d => d.id === dept.id ? { ...d, view_token: token } : d))
@@ -54,20 +63,36 @@ export function OccupationList({ departments }: { departments: Department[] }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
       {deptData.map((dept) => {
-        const totalP = new Set(dept.acts.flatMap((a) => a.participants.map((p) => p.id))).size
+        // דיירים עם פעילות פרטנית
+        const residentsWithPersonal = dept.residents.filter(r => r.personal_activity)
+
+        const totalP = new Set(dept.acts.flatMap((a) => {
+          if (isPersonalActivity(a.title)) {
+            return residentsWithPersonal.map(r => r.id)
+          }
+          return a.participants.map((p) => p.id)
+        })).size
+
         const waLines = dept.acts
           .map((a) => {
             const t = String(a.start_time || "").slice(0, 5)
             const isPersonal = isPersonalActivity(a.title)
-            const pl = a.participants.length > 0
-              ? "\n    משתתפים: " + a.participants.map((p) => {
-                  const info = isPersonal && p.personal_activity ? " — " + p.personal_activity : ""
-                  return p.name + info + (p.room_number ? " (חדר " + p.room_number + ")" : "")
-                }).join(", ")
-              : ""
-            return "• " + a.title + " | יום " + a.day_of_week + " " + t + pl
+
+            let participantsList = ""
+            if (isPersonal && residentsWithPersonal.length > 0) {
+              participantsList = "\n    " + residentsWithPersonal
+                .map(r => `${r.name} — ${r.personal_activity}${r.room_number ? ` (חדר ${r.room_number})` : ""}`)
+                .join("\n    ")
+            } else if (!isPersonal && a.participants.length > 0) {
+              participantsList = "\n    משתתפים: " + a.participants
+                .map(p => p.name + (p.room_number ? ` (חדר ${p.room_number})` : ""))
+                .join(", ")
+            }
+
+            return "• " + a.title + " | יום " + a.day_of_week + " " + t + participantsList
           })
           .join("\n")
+
         const waText = encodeURIComponent(
           "שלום,\n\nלוח פעילויות מחלקת " + dept.name + ":\n" + waLines + "\n\nתודה!"
         )
@@ -94,6 +119,9 @@ export function OccupationList({ departments }: { departments: Department[] }) {
                 {dept.acts.map((a) => {
                   const isExp = expandedActivity === a.id
                   const isPersonal = isPersonalActivity(a.title)
+                  const displayParticipants = isPersonal ? residentsWithPersonal : a.participants
+                  const count = displayParticipants.length
+
                   return (
                     <div key={a.id}>
                       <div className="flex justify-between items-center text-sm px-3 py-2 bg-gray-50 hover:bg-gray-100">
@@ -102,13 +130,13 @@ export function OccupationList({ departments }: { departments: Department[] }) {
                           <span className="text-xs text-gray-400">
                             יום {a.day_of_week} | {String(a.start_time || "").slice(0, 5)}
                           </span>
-                          {a.participants.length > 0 ? (
+                          {count > 0 ? (
                             <button
                               onClick={() => setExpandedActivity(isExp ? null : a.id)}
                               className="flex items-center gap-1 text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full hover:bg-blue-100"
                             >
                               <Users className="h-3 w-3" />
-                              {a.participants.length}
+                              {count}
                               {isExp ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                             </button>
                           ) : (
@@ -116,18 +144,23 @@ export function OccupationList({ departments }: { departments: Department[] }) {
                           )}
                         </div>
                       </div>
+
                       {isExp && (
-                        <div className="bg-blue-50 px-3 py-2 space-y-1">
-                          {a.participants.map((p) => (
+                        <div className={`px-3 py-2 space-y-1 ${isPersonal ? "bg-purple-50" : "bg-blue-50"}`}>
+                          {displayParticipants.map((p) => (
                             <div key={p.id} className="flex items-start gap-2 text-xs">
-                              <span className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0 mt-1"></span>
+                              <span className={`w-1.5 h-1.5 rounded-full shrink-0 mt-1 ${isPersonal ? "bg-purple-400" : "bg-blue-400"}`}></span>
                               <div className="flex-1">
-                                <span className="font-medium text-blue-800">{p.name}</span>
-                                {isPersonal && p.personal_activity && (
-                                  <span className="text-purple-700"> — {p.personal_activity}</span>
+                                <span className={`font-medium ${isPersonal ? "text-purple-800" : "text-blue-800"}`}>
+                                  {p.name}
+                                </span>
+                                {isPersonal && (p as Resident).personal_activity && (
+                                  <span className="text-purple-600 font-semibold"> — {(p as Resident).personal_activity}</span>
                                 )}
                                 {p.room_number && (
-                                  <span className="text-blue-400 mr-1"> חדר {p.room_number}</span>
+                                  <span className={`mr-1 ${isPersonal ? "text-purple-400" : "text-blue-400"}`}>
+                                    חדר {p.room_number}
+                                  </span>
                                 )}
                               </div>
                             </div>
@@ -142,7 +175,6 @@ export function OccupationList({ departments }: { departments: Department[] }) {
               <div className="text-center py-4 text-gray-300 text-sm">אין פעילויות במחלקה זו</div>
             )}
 
-            {/* קישור צפייה */}
             {dept.view_token ? (
               <button
                 onClick={() => copyLink(dept.view_token!)}
@@ -162,7 +194,7 @@ export function OccupationList({ departments }: { departments: Department[] }) {
             )}
 
             <div className="flex gap-2 pt-1">
-              <a
+              
                 href={"https://wa.me/?text=" + waText}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -171,7 +203,7 @@ export function OccupationList({ departments }: { departments: Department[] }) {
                 <Phone className="h-4 w-4" />
                 WhatsApp
               </a>
-              <a
+              
                 href={"mailto:?subject=" + mailSubject + "&body=" + waText}
                 className="flex-1 flex items-center justify-center gap-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium py-2.5 rounded-xl transition-colors"
               >

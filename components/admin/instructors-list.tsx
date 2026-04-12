@@ -45,7 +45,6 @@ export function InstructorsList({ instructors }: { instructors: Instructor[] }) 
 
   const supabase = createClient()
 
-  // האזנה לשינויים בדיירים בזמן אמת
   useEffect(() => {
     const channel = supabase
       .channel("residents-leisure-changes")
@@ -107,7 +106,7 @@ export function InstructorsList({ instructors }: { instructors: Instructor[] }) 
         const depts = Array.from(new Set(inst.acts.map(a => a.departments?.name).filter(Boolean)))
         const days = Array.from(new Set(inst.acts.map(a => a.day_of_week).filter(Boolean)))
 
-        const totalRegular = new Set(inst.acts.flatMap(a => {
+        const totalP = new Set(inst.acts.flatMap(a => {
           const leisureRes = getLeisureResidents(a, inst.residents)
           if (leisureRes.length > 0) return leisureRes.map(r => r.id)
           return a.participants.map(p => p.id)
@@ -147,7 +146,7 @@ export function InstructorsList({ instructors }: { instructors: Instructor[] }) 
                 </div>
                 <div>
                   <h2 className="text-base font-bold text-gray-800">{inst.name}</h2>
-                  <p className="text-xs text-gray-400">{inst.acts.length} פעילויות · {totalRegular} משתתפים</p>
+                  <p className="text-xs text-gray-400">{inst.acts.length} פעילויות · {totalP} משתתפים</p>
                 </div>
               </div>
               <div className="flex gap-1">
@@ -183,7 +182,7 @@ export function InstructorsList({ instructors }: { instructors: Instructor[] }) 
                 </div>
               </div>
             ) : (
-              <>
+              <div className="flex flex-col gap-3">
                 {(inst.phone || inst.email) && (
                   <div className="text-xs text-gray-500 space-y-0.5">
                     {inst.phone && <div dir="ltr">{inst.phone}</div>}
@@ -230,7 +229,7 @@ export function InstructorsList({ instructors }: { instructors: Instructor[] }) 
                                     <span className="text-orange-600"> — {(p as Resident).leisure_activity}</span>
                                   )}
                                   {p.room_number && (
-                                    <span className={"" + (showLeisure ? "text-orange-400" : "text-blue-400")}>חדר {p.room_number}</span>
+                                    <span className={showLeisure ? "text-orange-400" : "text-blue-400"}>חדר {p.room_number}</span>
                                   )}
                                 </div>
                               ))}
@@ -262,7 +261,7 @@ export function InstructorsList({ instructors }: { instructors: Instructor[] }) 
                 )}
 
                 <div className="flex gap-2 pt-1">
-                  
+                  <a
                     href={inst.phone ? "https://wa.me/972" + inst.phone.replace(/^0/, "").replace(/\D/g, "") + "?text=" + waText : "https://wa.me/?text=" + waText}
                     target="_blank"
                     rel="noopener noreferrer"
@@ -270,14 +269,14 @@ export function InstructorsList({ instructors }: { instructors: Instructor[] }) 
                   >
                     <Phone className="h-4 w-4" />WhatsApp
                   </a>
-                  
+                  <a
                     href={"mailto:" + (inst.email || "") + "?subject=" + ms + "&body=" + waText}
                     className="flex-1 flex items-center justify-center gap-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium py-2.5 rounded-xl transition-colors"
                   >
                     <Mail className="h-4 w-4" />מייל
                   </a>
                 </div>
-              </>
+              </div>
             )}
           </div>
         )

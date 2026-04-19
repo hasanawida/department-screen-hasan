@@ -156,7 +156,6 @@ export default function OrientationScreenWrapper({
           departmentColor={color}
           activities={activities}
           settings={currentSettings}
-          isPortrait={isPortrait}
         />
       </div>
     </div>

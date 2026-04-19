@@ -313,65 +313,62 @@ export default async function DisplayPage({ params }: { params: Promise<{ code: 
 
               {/* תצוגה שבועית */}
               {displaySettings.show_weekly && (
-                <div className="weekly-view h-full" style={{ display: "none", flexDirection: "column" }}>
+                <div className="weekly-view h-full overflow-hidden" style={{ display: "none", flexDirection: "column" }}>
+                  <div className="mb-2 flex items-center justify-between gap-4 px-2">
+                    <h1 className="text-4xl font-bold text-slate-900 xl:text-5xl">לוח פעילויות שבועי</h1>
+                    <div className="text-2xl font-semibold text-slate-600 xl:text-3xl">{department.name}</div>
+                  </div>
                   {weeklyTopic && (
-                    <Card className="rounded-[2rem] border-0 bg-white shadow-xl mb-3">
-                      <CardContent className="p-4 flex items-center gap-4">
+                    <Card className="mb-3 rounded-2xl border-0 bg-white shadow-lg">
+                      <CardContent className="flex items-center gap-3 p-3">
                         {weeklyTopic.image_url && (
                           <img
                             src={weeklyTopic.image_url}
                             alt={weeklyTopic.title}
-                            className="h-20 w-20 rounded-2xl object-cover shadow-sm"
+                            className="h-14 w-14 rounded-xl object-cover shadow-sm"
                           />
                         )}
-                        <Badge className="rounded-full px-4 py-1 text-lg font-semibold text-white whitespace-nowrap" style={{ backgroundColor: department.color }}>נושא השבוע</Badge>
-                        <div>
-                          <h2 className="text-2xl font-bold text-slate-800">{weeklyTopic.title}</h2>
-                          {weeklyTopic.description && <p className="text-lg text-slate-600 mt-0.5">{weeklyTopic.description}</p>}
+                        <Badge className="rounded-full px-3 py-0.5 text-base font-semibold text-white whitespace-nowrap" style={{ backgroundColor: department.color }}>נושא השבוע</Badge>
+                        <div className="flex-1 min-w-0">
+                          <h2 className="truncate text-xl font-bold text-slate-800">{weeklyTopic.title}</h2>
+                          {weeklyTopic.description && <p className="truncate text-base text-slate-600">{weeklyTopic.description}</p>}
                         </div>
                       </CardContent>
                     </Card>
                   )}
-                  <Card className="flex flex-1 min-h-0 flex-col rounded-[2rem] border-0 bg-white shadow-2xl">
-                    <CardHeader className="pb-3 pt-6 px-8">
-                      <CardTitle className="text-4xl font-bold xl:text-5xl">לוח פעילויות שבועי</CardTitle>
-                    </CardHeader>
-                    <CardContent className="flex-1 min-h-0 overflow-auto p-5">
-                      <div className="grid h-full grid-cols-7 gap-3">
-                        {dayOrder.map((dayCode) => {
-                          const isToday = dayCode === todayCode;
-                          const acts = weeklyActivities[dayCode] || [];
-                          return (
-                            <div key={dayCode} className="flex flex-col rounded-2xl p-3 transition-all" style={{ backgroundColor: isToday ? department.color + "20" : "#f8fafc", border: isToday ? `3px solid ${department.color}` : "3px solid transparent" }}>
-                              <div className="text-center mb-3">
-                                <div className="text-2xl font-bold" style={{ color: isToday ? department.color : "#334155" }}>{dayNames[dayCode]}</div>
-                                <div className="text-sm font-medium text-slate-500 mt-0.5" dir="ltr">{weekDates[dayCode]}</div>
-                                {isToday && <Badge className="mt-1 text-sm" style={{ backgroundColor: department.color }}>היום</Badge>}
-                              </div>
-                              <div className="flex-1 space-y-2 overflow-auto">
-                                {acts.length > 0 ? acts.map((act) => {
-                                  const Icon = getActivityIcon(act.category);
-                                  return (
-                                    <div key={act.id} className="rounded-xl p-2.5 bg-white shadow-sm">
-                                      <div className="flex items-center gap-1.5 mb-1">
-                                        <Icon className="h-4 w-4 text-slate-500" />
-                                        <span className="text-sm font-semibold text-slate-500">{getActivityLabel(act.category)}</span>
-                                      </div>
-                                      <div className="text-base font-bold leading-tight text-slate-800">{act.title}</div>
-                                      <div className="text-sm text-slate-500 mt-1" dir="ltr">{act.start_time?.slice(0,5)}{act.end_time && ` - ${act.end_time?.slice(0,5)}`}</div>
-                                      {act.location && <div className="text-sm text-slate-400 flex items-center gap-1 mt-0.5"><MapPin className="h-3 w-3" />{act.location}</div>}
-                                    </div>
-                                  );
-                                }) : (
-                                  <div className="text-center text-slate-400 text-sm py-3">אין פעילויות</div>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </CardContent>
-                  </Card>
+                  <div className="grid flex-1 min-h-0 grid-cols-7 gap-2">
+                    {dayOrder.map((dayCode) => {
+                      const isToday = dayCode === todayCode;
+                      const acts = weeklyActivities[dayCode] || [];
+                      return (
+                        <div key={dayCode} className="flex flex-col overflow-hidden rounded-2xl p-2 shadow-sm" style={{ backgroundColor: isToday ? department.color + "20" : "#ffffff", border: isToday ? `3px solid ${department.color}` : "2px solid #e2e8f0" }}>
+                          <div className="text-center mb-2 shrink-0">
+                            <div className="text-xl font-bold xl:text-2xl" style={{ color: isToday ? department.color : "#334155" }}>{dayNames[dayCode]}</div>
+                            <div className="text-xs font-medium text-slate-500 mt-0.5 xl:text-sm" dir="ltr">{weekDates[dayCode]}</div>
+                            {isToday && <Badge className="mt-0.5 text-xs" style={{ backgroundColor: department.color }}>היום</Badge>}
+                          </div>
+                          <div className="flex-1 min-h-0 space-y-1.5 overflow-hidden">
+                            {acts.length > 0 ? acts.map((act) => {
+                              const Icon = getActivityIcon(act.category);
+                              return (
+                                <div key={act.id} className="rounded-lg p-1.5 bg-slate-50 shadow-sm">
+                                  <div className="flex items-center gap-1 mb-0.5">
+                                    <Icon className="h-3 w-3 text-slate-500 shrink-0" />
+                                    <span className="truncate text-xs font-semibold text-slate-500">{getActivityLabel(act.category)}</span>
+                                  </div>
+                                  <div className="truncate text-sm font-bold leading-tight text-slate-800">{act.title}</div>
+                                  <div className="text-xs text-slate-500 mt-0.5" dir="ltr">{act.start_time?.slice(0,5)}{act.end_time && ` - ${act.end_time?.slice(0,5)}`}</div>
+                                  {act.location && <div className="truncate text-xs text-slate-400 flex items-center gap-1 mt-0.5"><MapPin className="h-3 w-3 shrink-0" />{act.location}</div>}
+                                </div>
+                              );
+                            }) : (
+                              <div className="text-center text-slate-400 text-xs py-2">אין פעילויות</div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
 

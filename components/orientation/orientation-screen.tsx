@@ -223,11 +223,11 @@ function ActivityIcon({ category }: { category?: ActivityCategory }) {
 
 function InfoRow({ icon, label, value, color, small }: { icon: React.ReactNode; label: string; value: string; color: string; small?: boolean }) {
   return (
-    <div className="flex items-start gap-4 rounded-2xl border bg-white/70 p-4 shadow-sm">
+    <div className="flex items-start gap-3 rounded-2xl border bg-white/70 p-3 shadow-sm">
       <div className="mt-1" style={{ color }}>{icon}</div>
-      <div className="flex-1">
-        <div className={small ? "text-xl font-semibold text-slate-700" : "text-2xl font-semibold text-slate-700"}>{label}</div>
-        <div className={small ? "mt-1 text-2xl font-bold text-slate-900" : "mt-1 text-3xl font-bold text-slate-900"}>{value}</div>
+      <div className="flex-1 min-w-0">
+        <div className={small ? "text-lg font-semibold text-slate-700" : "text-xl font-semibold text-slate-700"}>{label}</div>
+        <div className={small ? "mt-0.5 text-xl font-bold text-slate-900" : "mt-0.5 text-2xl font-bold text-slate-900"}>{value}</div>
       </div>
     </div>
   );
@@ -306,22 +306,22 @@ export default function OrientationScreen({
     pad: "p-5",
     badge: "px-4 py-2 text-xl",
   } : {
-    greeting: "text-6xl md:text-7xl",
-    day: "text-4xl md:text-5xl",
-    dept: "text-2xl md:text-3xl",
-    time: "text-6xl md:text-7xl",
-    timeLabel: "text-2xl",
-    actMain: "text-5xl md:text-6xl",
-    actSub: "text-2xl",
-    phase: "text-2xl",
-    info: "text-3xl",
-    calming: "text-3xl md:text-4xl",
-    pad: "p-8 md:p-10",
-    badge: "px-5 py-3 text-2xl",
+    greeting: "text-5xl xl:text-6xl",
+    day: "text-3xl xl:text-4xl",
+    dept: "text-xl xl:text-2xl",
+    time: "text-5xl xl:text-6xl",
+    timeLabel: "text-xl",
+    actMain: "text-4xl xl:text-5xl",
+    actSub: "text-xl",
+    phase: "text-xl",
+    info: "text-2xl",
+    calming: "text-2xl xl:text-3xl",
+    pad: "p-5 xl:p-6",
+    badge: "px-4 py-2 text-xl",
   };
 
   const sideInfo = (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {(s.show_weather || s.show_staff || s.show_menu) && (
         <Card className="rounded-[2rem] border-0 shadow-xl">
           <CardContent className={G.pad}>
@@ -385,10 +385,10 @@ export default function OrientationScreen({
       )}
 
       <div className="mx-auto w-full max-w-none">
-        <div className={isPortrait ? "flex flex-col gap-4" : "grid gap-6 " + (hasRightColumn ? "xl:grid-cols-[1.35fr_0.85fr]" : "")}>
+        <div className={isPortrait ? "flex flex-col gap-3" : "grid gap-4 " + (hasRightColumn ? "xl:grid-cols-[1.35fr_0.85fr]" : "")}>
 
           {/* עמודה ראשית */}
-          <div className="space-y-4">
+          <div className="space-y-3">
 
             {/* Header */}
             <Card className="rounded-[2rem] border-0 shadow-xl">
@@ -415,9 +415,9 @@ export default function OrientationScreen({
                   </div>
                 </div>
 
-                <Separator className="my-5" />
+                <Separator className="my-3" />
 
-                <div className={"grid gap-3 " + (s.show_hebrew_date ? "grid-cols-3" : "grid-cols-2")}>
+                <div className={"grid gap-2 " + (s.show_hebrew_date ? "grid-cols-3" : "grid-cols-2")}>
                   <InfoRow icon={<CalendarDays className="h-6 w-6" />} label={t.date} value={gregorianTxt} color={departmentColor} small={isPortrait} />
                   {s.show_hebrew_date && (
                     <InfoRow icon={<Flower2 className="h-6 w-6" />} label={t.hebrewDate} value={hebrewDateTxt} color={departmentColor} small={isPortrait} />

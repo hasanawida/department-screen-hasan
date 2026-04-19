@@ -213,11 +213,11 @@ export default async function DisplayPage({ params }: { params: Promise<{ code: 
             </header>
 
             {/* תוכן */}
-            <div className="view-container flex-1 min-h-0">
+            <div className="view-container flex-1 min-h-0 overflow-hidden">
 
               {/* תצוגה יומית */}
-              <div className="daily-view h-full" style={{ display: displaySettings.show_daily ? "flex" : "none", flexDirection: "column" }}>
-                <main className="grid flex-1 min-h-0 grid-cols-1 gap-4 xl:grid-cols-[1.6fr_0.95fr]">
+              <div className="daily-view h-full overflow-hidden" style={{ display: displaySettings.show_daily ? "flex" : "none", flexDirection: "column" }}>
+                <main className="grid flex-1 min-h-0 grid-cols-1 gap-4 overflow-hidden xl:grid-cols-[1.6fr_0.95fr]">
                   <section>
                     <Card className="h-full rounded-[2rem] border-0 bg-white shadow-2xl">
                       <CardHeader className="pb-2 pt-8">

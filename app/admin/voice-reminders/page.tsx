@@ -62,13 +62,14 @@ export default function VoiceRemindersPage() {
   const [form, setForm] = useState({
     department_id: "all",
     title: "",
-    messages: { he: "", ar: "", ru: "", en: "" } as Record<LangKey, string>,
+    message_he: "",
     scheduled_time: "10:00",
     days_of_week: [...DAY_CODES],
     repetitions: 1,
     languages: ["he"] as LangKey[],
     is_active: true,
   });
+  const [isSaving, setIsSaving] = useState(false);
 
   async function loadAll() {
     const supabase = createClient();
@@ -110,12 +111,26 @@ export default function VoiceRemindersPage() {
 
   async function handleAdd() {
     if (form.languages.length === 0) { alert("בחר לפחות שפה אחת"); return; }
-    const anyMessage = form.languages.some((l) => form.messages[l].trim().length > 0);
-    if (!anyMessage) { alert("הקלד הודעה באחת השפות הנבחרות"); return; }
+    if (!form.message_he.trim()) { alert("הקלד הודעה בעברית"); return; }
+
+    setIsSaving(true);
+    let translated: Record<string, string> = { he: form.message_he };
+    try {
+      const res = await fetch("/api/translate-reminder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: form.message_he, targetLangs: form.languages }),
+      });
+      const data = await res.json();
+      if (res.ok && data.messages) translated = data.messages;
+      else console.warn("Translation failed:", data.error);
+    } catch (e) {
+      console.warn("Translation fetch error:", e);
+    }
 
     const supabase = createClient();
     const cleanedMessages: Record<string, string> = {};
-    for (const l of form.languages) if (form.messages[l]) cleanedMessages[l] = form.messages[l];
+    for (const l of form.languages) cleanedMessages[l] = translated[l] || translated.he || form.message_he;
 
     const { error } = await supabase.from("voice_reminders").insert({
       department_id: form.department_id === "all" ? null : form.department_id,
@@ -128,6 +143,7 @@ export default function VoiceRemindersPage() {
       is_active: form.is_active,
     });
 
+    setIsSaving(false);
     if (error) {
       alert("שגיאה בשמירה: " + error.message + "\n\nאם הטבלה לא קיימת — ראה הוראה בחלק העליון של הדף.");
       setTableMissing(true);
@@ -136,7 +152,7 @@ export default function VoiceRemindersPage() {
 
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
-    setForm((f) => ({ ...f, title: "", messages: { he: "", ar: "", ru: "", en: "" } }));
+    setForm((f) => ({ ...f, title: "", message_he: "" }));
     loadAll();
   }
 
@@ -247,24 +263,27 @@ CREATE POLICY "auth write voice_reminders" ON voice_reminders FOR ALL USING (aut
             </div>
           </div>
 
-          {form.languages.map((l) => (
-            <div key={l}>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-sm font-medium">הודעה ב{LANG_LABELS[l]}</label>
-                <Button
-                  type="button" variant="outline" size="sm"
-                  onClick={() => testSpeak(form.messages[l] || form.title, l)}
-                  disabled={!form.messages[l] && !form.title}
-                ><Play className="h-3 w-3 me-1" /> נגן</Button>
-              </div>
-              <Textarea
-                rows={2}
-                value={form.messages[l]}
-                onChange={(e) => setForm({ ...form, messages: { ...form.messages, [l]: e.target.value } })}
-                placeholder={`הקלד כאן בשפה ה${LANG_LABELS[l]}...`}
-              />
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-sm font-medium">הודעה בעברית</label>
+              <Button
+                type="button" variant="outline" size="sm"
+                onClick={() => testSpeak(form.message_he || form.title, "he")}
+                disabled={!form.message_he && !form.title}
+              ><Play className="h-3 w-3 me-1" /> נגן בעברית</Button>
             </div>
-          ))}
+            <Textarea
+              rows={3}
+              value={form.message_he}
+              onChange={(e) => setForm({ ...form, message_he: e.target.value })}
+              placeholder="לדוגמה: שלום, בעוד 10 דקות ארוחת הצהריים"
+            />
+            {form.languages.filter((l) => l !== "he").length > 0 && (
+              <p className="text-xs text-slate-500 mt-1">
+                תתורגם אוטומטית (Claude AI) ל: {form.languages.filter((l) => l !== "he").map((l) => LANG_LABELS[l]).join(", ")}
+              </p>
+            )}
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -277,8 +296,8 @@ CREATE POLICY "auth write voice_reminders" ON voice_reminders FOR ALL USING (aut
             </div>
           </div>
 
-          <Button onClick={handleAdd} className="w-full gap-2">
-            {saved ? <><Check className="h-4 w-4" /> נשמר!</> : <><Plus className="h-4 w-4" /> הוסף תזכורת</>}
+          <Button onClick={handleAdd} disabled={isSaving} className="w-full gap-2">
+            {saved ? <><Check className="h-4 w-4" /> נשמר!</> : isSaving ? "מתרגם ושומר..." : <><Plus className="h-4 w-4" /> הוסף תזכורת</>}
           </Button>
         </CardContent>
       </Card>

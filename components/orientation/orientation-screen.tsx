@@ -366,7 +366,7 @@ export default function OrientationScreen({
   return (
     <div
       dir={t.dir}
-      className="min-h-screen transition-all duration-700"
+      className="min-h-full w-full transition-all duration-700"
       style={{
         background: "linear-gradient(to bottom, " + departmentColor + "15, white, #f8fafc)",
         padding: isPortrait ? "16px" : "24px 32px",
@@ -384,7 +384,7 @@ export default function OrientationScreen({
         </div>
       )}
 
-      <div className="mx-auto max-w-7xl">
+      <div className={isPortrait ? "mx-auto w-full max-w-full" : "mx-auto w-full max-w-[1800px]"}>
         <div className={isPortrait ? "flex flex-col gap-4" : "grid gap-6 " + (hasRightColumn ? "xl:grid-cols-[1.35fr_0.85fr]" : "")}>
 
           {/* עמודה ראשית */}

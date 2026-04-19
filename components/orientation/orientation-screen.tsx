@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
@@ -31,6 +32,7 @@ type OrientationSettings = {
   show_hebrew_date: boolean;
   show_weather: boolean;
   show_anchors: boolean;
+  display_orientation?: "landscape" | "portrait";
 };
 
 type OrientationProps = {
@@ -45,6 +47,7 @@ type OrientationProps = {
   announcementText?: string;
   weatherText?: string;
   settings?: Partial<OrientationSettings>;
+  isPortrait?: boolean;
 };
 
 type Lang = "he" | "ar" | "ru" | "en";
@@ -161,6 +164,7 @@ const DEFAULT_SETTINGS: OrientationSettings = {
   show_hebrew_date: true,
   show_weather: true,
   show_anchors: true,
+  display_orientation: "landscape",
 };
 
 function toMinutes(time: string) {
@@ -197,8 +201,8 @@ function getHebrewDateText(date: Date, lang: Lang): string {
   const heYear     = new Intl.DateTimeFormat("en-u-ca-hebrew", { year: "numeric" }).format(date);
   const monthIndex = HEBREW_MONTHS.he.findIndex(m => monthName.includes(m));
   const translated = monthIndex >= 0 ? HEBREW_MONTHS[lang][monthIndex] : monthName;
-  if (lang === "he") return `${numericDay} ב${monthName} ${heYear}`;
-  return `${numericDay} ${translated} ${heYear}`;
+  if (lang === "he") return numericDay + " ב" + monthName + " " + heYear;
+  return numericDay + " " + translated + " " + heYear;
 }
 
 function TimeIcon({ tod }: { tod: TimeOfDay }) {
@@ -217,13 +221,13 @@ function ActivityIcon({ category }: { category?: ActivityCategory }) {
   return <Clock3 className={cls} />;
 }
 
-function InfoRow({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: string; color: string }) {
+function InfoRow({ icon, label, value, color, small }: { icon: React.ReactNode; label: string; value: string; color: string; small?: boolean }) {
   return (
     <div className="flex items-start gap-4 rounded-2xl border bg-white/70 p-4 shadow-sm">
       <div className="mt-1" style={{ color }}>{icon}</div>
       <div className="flex-1">
-        <div className="text-2xl font-semibold text-slate-700">{label}</div>
-        <div className="mt-1 text-3xl font-bold text-slate-900">{value}</div>
+        <div className={small ? "text-xl font-semibold text-slate-700" : "text-2xl font-semibold text-slate-700"}>{label}</div>
+        <div className={small ? "mt-1 text-2xl font-bold text-slate-900" : "mt-1 text-3xl font-bold text-slate-900"}>{value}</div>
       </div>
     </div>
   );
@@ -234,8 +238,11 @@ export default function OrientationScreen({
   departmentColor = "#10B981",
   activities, staffToday = [], menuToday, announcementText = "",
   weatherText = "נעים", settings: settingsProp,
+  isPortrait: isPortraitProp,
 }: OrientationProps) {
   const s = { ...DEFAULT_SETTINGS, ...settingsProp };
+  const isPortrait = isPortraitProp ?? s.display_orientation === "portrait";
+
   const activeLangs = (s.languages.filter(l => ["he","ar","ru","en"].includes(l)) as Lang[]);
   const langs = activeLangs.length > 0 ? activeLangs : ["he" as Lang];
 
@@ -281,21 +288,96 @@ export default function OrientationScreen({
     [activities, nowMinutes],
   );
 
-  const hasRightColumn = s.show_weather || s.show_staff || s.show_menu || s.show_announcement || s.show_anchors;
+  const hasRightColumn = !isPortrait && (s.show_weather || s.show_staff || s.show_menu || s.show_announcement || s.show_anchors);
   const colorLight = departmentColor + "20";
+
+  // גדלי טקסט — portrait קטן יותר
+  const G = isPortrait ? {
+    greeting: "text-5xl",
+    day: "text-3xl",
+    dept: "text-xl",
+    time: "text-5xl",
+    timeLabel: "text-lg",
+    actMain: "text-4xl",
+    actSub: "text-xl",
+    phase: "text-xl",
+    info: "text-2xl",
+    calming: "text-2xl",
+    pad: "p-5",
+    badge: "px-4 py-2 text-xl",
+  } : {
+    greeting: "text-6xl md:text-7xl",
+    day: "text-4xl md:text-5xl",
+    dept: "text-2xl md:text-3xl",
+    time: "text-6xl md:text-7xl",
+    timeLabel: "text-2xl",
+    actMain: "text-5xl md:text-6xl",
+    actSub: "text-2xl",
+    phase: "text-2xl",
+    info: "text-3xl",
+    calming: "text-3xl md:text-4xl",
+    pad: "p-8 md:p-10",
+    badge: "px-5 py-3 text-2xl",
+  };
+
+  const sideInfo = (
+    <div className="space-y-4">
+      {(s.show_weather || s.show_staff || s.show_menu) && (
+        <Card className="rounded-[2rem] border-0 shadow-xl">
+          <CardContent className={G.pad}>
+            <div className={"mb-4 font-black text-slate-900 " + G.info}>{t.dailyInfo}</div>
+            <div className="space-y-3">
+              {s.show_weather && <InfoRow icon={<CloudSun className="h-6 w-6" />} label={t.weather} value={weatherDisplay} color={departmentColor} small={isPortrait} />}
+              {s.show_staff && staffToday.length > 0 && <InfoRow icon={<Users className="h-6 w-6" />} label={t.staff} value={staffToday.join(", ")} color={departmentColor} small={isPortrait} />}
+              {s.show_menu && <InfoRow icon={<Utensils className="h-6 w-6" />} label={t.menu} value={menuToday || t.noMenu} color={departmentColor} small={isPortrait} />}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+      {s.show_announcement && (
+        <Card className="rounded-[2rem] border-0 shadow-xl">
+          <CardContent className={G.pad}>
+            <div className={"mb-4 flex items-center gap-3 text-amber-700"}>
+              <Bell className="h-6 w-6" />
+              <div className={"font-bold " + G.info}>{t.announcement}</div>
+            </div>
+            <div className={"rounded-2xl bg-amber-50 p-4 font-bold leading-relaxed text-slate-900 " + (isPortrait ? "text-xl" : "text-2xl")}>
+              {announcementText || t.noAnnouncement}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+      {s.show_anchors && (
+        <Card className="rounded-[2rem] border-0 shadow-xl">
+          <CardContent className={G.pad}>
+            <div className={"mb-3 font-black text-slate-900 " + G.info}>{t.anchors}</div>
+            <div className="flex flex-wrap gap-2">
+              <Badge className={"rounded-full text-white " + G.badge} style={{ backgroundColor: departmentColor }}>{dayName}</Badge>
+              <Badge className={"rounded-full text-white " + G.badge} style={{ backgroundColor: departmentColor }}>{season}</Badge>
+              <Badge className={"rounded-full text-white " + G.badge} style={{ backgroundColor: departmentColor }}>{currentTime}</Badge>
+            </div>
+            {!isPortrait && <p className={"mt-4 leading-relaxed text-slate-600 " + G.actSub}>{t.anchorsDesc}</p>}
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
 
   return (
     <div
       dir={t.dir}
-      className="min-h-screen p-6 md:p-10 transition-all duration-700"
-      style={{ background: `linear-gradient(to bottom, ${departmentColor}15, white, #f8fafc)` }}
+      className="min-h-screen transition-all duration-700"
+      style={{
+        background: "linear-gradient(to bottom, " + departmentColor + "15, white, #f8fafc)",
+        padding: isPortrait ? "16px" : "24px 32px",
+      }}
     >
       {langs.length > 1 && (
-        <div className="mb-4 flex justify-center gap-2">
+        <div className="mb-3 flex justify-center gap-2">
           {langs.map((l, i) => (
             <div
               key={l}
-              className={`h-2 rounded-full transition-all duration-500 ${i === langIndex ? "w-6" : "w-2 bg-slate-300"}`}
+              className={"h-2 rounded-full transition-all duration-500 " + (i === langIndex ? "w-6" : "w-2 bg-slate-300")}
               style={i === langIndex ? { backgroundColor: departmentColor } : {}}
             />
           ))}
@@ -303,75 +385,77 @@ export default function OrientationScreen({
       )}
 
       <div className="mx-auto max-w-7xl">
-        <div className={`grid gap-6 ${hasRightColumn ? "xl:grid-cols-[1.35fr_0.85fr]" : ""}`}>
+        <div className={isPortrait ? "flex flex-col gap-4" : "grid gap-6 " + (hasRightColumn ? "xl:grid-cols-[1.35fr_0.85fr]" : "")}>
 
-          <div className="space-y-6">
+          {/* עמודה ראשית */}
+          <div className="space-y-4">
+
             {/* Header */}
             <Card className="rounded-[2rem] border-0 shadow-xl">
-              <CardContent className="p-8 md:p-10">
-                <div className="flex items-start justify-between gap-6">
+              <CardContent className={G.pad}>
+                <div className="flex items-start justify-between gap-4">
                   <div>
                     <div
-                      className="mb-3 inline-flex items-center gap-3 rounded-full px-5 py-2 text-2xl font-semibold"
-                      style={{ backgroundColor: colorLight, color: departmentColor }}
+                      className={"mb-3 inline-flex items-center gap-2 rounded-full font-semibold " + G.phase}
+                      style={{ backgroundColor: colorLight, color: departmentColor, padding: "6px 14px" }}
                     >
                       <TimeIcon tod={tod} />
                       <span>{t.phases[tod]}</span>
                     </div>
-                    <h1 className="text-6xl font-black tracking-tight text-slate-900 md:text-7xl">{t.greetings[tod]}</h1>
-                    <p className="mt-3 text-4xl font-bold text-slate-700 md:text-5xl">{dayName}</p>
-                    <p className="mt-6 text-2xl text-slate-600 md:text-3xl">{deptNameByLang[lang]}</p>
+                    <h1 className={"font-black tracking-tight text-slate-900 " + G.greeting}>{t.greetings[tod]}</h1>
+                    <p className={"mt-2 font-bold text-slate-700 " + G.day}>{dayName}</p>
+                    <p className={"mt-3 text-slate-600 " + G.dept}>{deptNameByLang[lang]}</p>
                   </div>
                   <div
-                    className="rounded-[2rem] px-6 py-5 text-center shadow-inner"
+                    className="rounded-[2rem] px-4 py-4 text-center shadow-inner flex-shrink-0"
                     style={{ backgroundColor: colorLight }}
                   >
-                    <div className="text-2xl font-semibold text-slate-600">{t.timeNow}</div>
-                    <div className="mt-2 text-6xl font-black md:text-7xl" style={{ color: departmentColor }}>{currentTime}</div>
+                    <div className={"font-semibold text-slate-600 " + G.timeLabel}>{t.timeNow}</div>
+                    <div className={"mt-1 font-black " + G.time} style={{ color: departmentColor }}>{currentTime}</div>
                   </div>
                 </div>
 
-                <Separator className="my-8" />
+                <Separator className="my-5" />
 
-                <div className={`grid gap-4 ${s.show_hebrew_date ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
-                  <InfoRow icon={<CalendarDays className="h-8 w-8" />} label={t.date} value={gregorianTxt} color={departmentColor} />
+                <div className={"grid gap-3 " + (s.show_hebrew_date ? "grid-cols-3" : "grid-cols-2")}>
+                  <InfoRow icon={<CalendarDays className="h-6 w-6" />} label={t.date} value={gregorianTxt} color={departmentColor} small={isPortrait} />
                   {s.show_hebrew_date && (
-                    <InfoRow icon={<Flower2 className="h-8 w-8" />} label={t.hebrewDate} value={hebrewDateTxt} color={departmentColor} />
+                    <InfoRow icon={<Flower2 className="h-6 w-6" />} label={t.hebrewDate} value={hebrewDateTxt} color={departmentColor} small={isPortrait} />
                   )}
-                  <InfoRow icon={<CloudSun className="h-8 w-8" />} label={t.season} value={season} color={departmentColor} />
+                  <InfoRow icon={<CloudSun className="h-6 w-6" />} label={t.season} value={season} color={departmentColor} small={isPortrait} />
                 </div>
               </CardContent>
             </Card>
 
             {/* Activities */}
             {s.show_activities && (
-              <div className="grid gap-6 lg:grid-cols-2">
+              <div className={"grid gap-4 " + (isPortrait ? "grid-cols-1" : "lg:grid-cols-2")}>
                 <Card className="rounded-[2rem] border-0 shadow-xl">
-                  <CardContent className="p-8">
-                    <div className="mb-5 flex items-center gap-3" style={{ color: departmentColor }}>
+                  <CardContent className={G.pad}>
+                    <div className={"mb-4 flex items-center gap-3 " + G.info} style={{ color: departmentColor }}>
                       <ActivityIcon category={currentActivity?.category} />
-                      <div className="text-3xl font-bold">{t.now}</div>
+                      <span className="font-bold">{t.now}</span>
                     </div>
-                    <div className="text-5xl font-black leading-tight text-slate-900 md:text-6xl">
+                    <div className={"font-black leading-tight text-slate-900 " + G.actMain}>
                       {currentActivity?.title ?? t.fallback[tod]}
                     </div>
-                    <div className="mt-5 text-2xl text-slate-600">
-                      {currentActivity ? `${currentActivity.startTime} - ${currentActivity.endTime}` : t.noChange}
+                    <div className={"mt-3 text-slate-600 " + G.actSub}>
+                      {currentActivity ? currentActivity.startTime + " - " + currentActivity.endTime : t.noChange}
                     </div>
                   </CardContent>
                 </Card>
 
                 <Card className="rounded-[2rem] border-0 shadow-xl">
-                  <CardContent className="p-8">
-                    <div className="mb-5 flex items-center gap-3" style={{ color: departmentColor }}>
+                  <CardContent className={G.pad}>
+                    <div className={"mb-4 flex items-center gap-3 " + G.info} style={{ color: departmentColor }}>
                       <Clock3 className="h-8 w-8" />
-                      <div className="text-3xl font-bold">{t.next}</div>
+                      <span className="font-bold">{t.next}</span>
                     </div>
-                    <div className="text-4xl font-black leading-tight text-slate-900 md:text-5xl">
+                    <div className={"font-black leading-tight text-slate-900 " + (isPortrait ? "text-3xl" : "text-4xl md:text-5xl")}>
                       {nextActivity?.title ?? t.noNext}
                     </div>
-                    <div className="mt-5 text-2xl text-slate-600">
-                      {nextActivity ? `${t.at} ${nextActivity.startTime}` : t.noNextTime}
+                    <div className={"mt-3 text-slate-600 " + G.actSub}>
+                      {nextActivity ? t.at + " " + nextActivity.startTime : t.noNextTime}
                     </div>
                   </CardContent>
                 </Card>
@@ -381,64 +465,24 @@ export default function OrientationScreen({
             {/* Calming */}
             {s.show_calming && (
               <Card className="rounded-[2rem] border-0 text-white shadow-xl" style={{ backgroundColor: departmentColor }}>
-                <CardContent className="p-8 md:p-10">
+                <CardContent className={G.pad}>
                   <div className="flex items-start gap-4">
-                    <ShieldCheck className="mt-1 h-10 w-10 shrink-0" />
+                    <ShieldCheck className="mt-1 h-8 w-8 shrink-0" />
                     <div>
-                      <div className="text-3xl font-bold md:text-4xl">{t.calmingTitle}</div>
-                      <p className="mt-4 text-3xl leading-relaxed md:text-4xl">{CALMING[lang]}</p>
+                      <div className={"font-bold " + G.info}>{t.calmingTitle}</div>
+                      <p className={"mt-3 leading-relaxed " + G.calming}>{CALMING[lang]}</p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
             )}
+
+            {/* בתצוגת portrait — מידע נוסף בתחתית */}
+            {isPortrait && (s.show_weather || s.show_staff || s.show_menu || s.show_announcement || s.show_anchors) && sideInfo}
           </div>
 
-          {/* Right column */}
-          {hasRightColumn && (
-            <div className="space-y-6">
-              {(s.show_weather || s.show_staff || s.show_menu) && (
-                <Card className="rounded-[2rem] border-0 shadow-xl">
-                  <CardContent className="p-8">
-                    <div className="mb-6 text-3xl font-black text-slate-900">{t.dailyInfo}</div>
-                    <div className="space-y-4">
-                      {s.show_weather && <InfoRow icon={<CloudSun className="h-7 w-7" />} label={t.weather} value={weatherDisplay} color={departmentColor} />}
-                      {s.show_staff && staffToday.length > 0 && <InfoRow icon={<Users className="h-7 w-7" />} label={t.staff} value={staffToday.join(", ")} color={departmentColor} />}
-                      {s.show_menu && <InfoRow icon={<Utensils className="h-7 w-7" />} label={t.menu} value={menuToday || t.noMenu} color={departmentColor} />}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {s.show_announcement && (
-                <Card className="rounded-[2rem] border-0 shadow-xl">
-                  <CardContent className="p-8">
-                    <div className="mb-5 flex items-center gap-3 text-amber-700">
-                      <Bell className="h-8 w-8" />
-                      <div className="text-3xl font-bold">{t.announcement}</div>
-                    </div>
-                    <div className="rounded-2xl bg-amber-50 p-6 text-3xl font-bold leading-relaxed text-slate-900">
-                      {announcementText || t.noAnnouncement}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {s.show_anchors && (
-                <Card className="rounded-[2rem] border-0 shadow-xl">
-                  <CardContent className="p-8">
-                    <div className="mb-4 text-3xl font-black text-slate-900">{t.anchors}</div>
-                    <div className="flex flex-wrap gap-3">
-                      <Badge className="rounded-full px-5 py-3 text-2xl text-white" style={{ backgroundColor: departmentColor }}>{dayName}</Badge>
-                      <Badge className="rounded-full px-5 py-3 text-2xl text-white" style={{ backgroundColor: departmentColor }}>{season}</Badge>
-                      <Badge className="rounded-full px-5 py-3 text-2xl text-white" style={{ backgroundColor: departmentColor }}>{currentTime}</Badge>
-                    </div>
-                    <p className="mt-5 text-2xl leading-relaxed text-slate-600">{t.anchorsDesc}</p>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
-          )}
+          {/* עמודה ימנית — רק ב-landscape */}
+          {hasRightColumn && sideInfo}
 
         </div>
       </div>

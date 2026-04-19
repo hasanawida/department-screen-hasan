@@ -28,12 +28,21 @@ export default function EmergencyPage() {
   }, []);
 
   async function loadDepartments() {
-    const { data } = await supabase
+    let data: any[] | null = null;
+    const withColors = await supabase
       .from("departments")
       .select("id, name, color, emergency_active, emergency_message, emergency_bg_color, emergency_text_color");
-    setDepartments(data ?? []);
-    setSelectedIds(new Set((data ?? []).map((d: any) => d.id)));
-    if (data && data[0]) {
+    if (withColors.error) {
+      const fallback = await supabase
+        .from("departments")
+        .select("id, name, color, emergency_active, emergency_message");
+      data = fallback.data ?? [];
+    } else {
+      data = withColors.data ?? [];
+    }
+    setDepartments(data);
+    setSelectedIds(new Set(data.map((d: any) => d.id)));
+    if (data[0]) {
       setMessage(data[0].emergency_message ?? "");
       setBgColor(data[0].emergency_bg_color || DEFAULT_BG);
       setFgColor(data[0].emergency_text_color || DEFAULT_FG);
@@ -59,7 +68,7 @@ export default function EmergencyPage() {
   async function handleActivate() {
     if (!message || selectedIds.size === 0) return;
     for (const id of selectedIds) {
-      await supabase
+      const res = await supabase
         .from("departments")
         .update({
           emergency_active: true,
@@ -70,6 +79,17 @@ export default function EmergencyPage() {
           emergency_display: targetDisplay,
         })
         .eq("id", id);
+      if (res.error) {
+        await supabase
+          .from("departments")
+          .update({
+            emergency_active: true,
+            emergency_message: message,
+            emergency_orientation: targetOrientation,
+            emergency_display: targetDisplay,
+          })
+          .eq("id", id);
+      }
     }
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);

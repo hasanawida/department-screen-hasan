@@ -57,6 +57,7 @@ export default function VoiceRemindersPage() {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [list, setList] = useState<Reminder[]>([]);
   const [saved, setSaved] = useState(false);
+  const [tableMissing, setTableMissing] = useState(false);
 
   const [form, setForm] = useState({
     department_id: "all",
@@ -71,12 +72,18 @@ export default function VoiceRemindersPage() {
 
   async function loadAll() {
     const supabase = createClient();
-    const [{ data: deps }, { data: rems }] = await Promise.all([
+    const [depsRes, remsRes] = await Promise.all([
       supabase.from("departments").select("id, name").order("name"),
       supabase.from("voice_reminders").select("*, departments(name)").order("scheduled_time", { ascending: true }),
     ]);
-    setDepartments(deps ?? []);
-    setList((rems as Reminder[]) ?? []);
+    setDepartments(depsRes.data ?? []);
+    if (remsRes.error) {
+      setTableMissing(true);
+      setList([]);
+    } else {
+      setTableMissing(false);
+      setList((remsRes.data as Reminder[]) ?? []);
+    }
   }
 
   useEffect(() => {
@@ -110,7 +117,7 @@ export default function VoiceRemindersPage() {
     const cleanedMessages: Record<string, string> = {};
     for (const l of form.languages) if (form.messages[l]) cleanedMessages[l] = form.messages[l];
 
-    await supabase.from("voice_reminders").insert({
+    const { error } = await supabase.from("voice_reminders").insert({
       department_id: form.department_id === "all" ? null : form.department_id,
       title: form.title || null,
       messages: cleanedMessages,
@@ -120,6 +127,12 @@ export default function VoiceRemindersPage() {
       languages: form.languages,
       is_active: form.is_active,
     });
+
+    if (error) {
+      alert("שגיאה בשמירה: " + error.message + "\n\nאם הטבלה לא קיימת — ראה הוראה בחלק העליון של הדף.");
+      setTableMissing(true);
+      return;
+    }
 
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
@@ -148,6 +161,30 @@ export default function VoiceRemindersPage() {
           <p className="text-muted-foreground">הודעות שהמערכת תקריא במועד שתגדיר</p>
         </div>
       </div>
+
+      {tableMissing && (
+        <Card className="mb-6 border-amber-300 bg-amber-50">
+          <CardContent className="p-5 space-y-2">
+            <div className="font-bold text-amber-800">⚠ הטבלה voice_reminders לא קיימת ב-Supabase</div>
+            <p className="text-sm text-amber-800">הרץ את ה-SQL הבא ב-Supabase → SQL Editor:</p>
+            <pre className="text-xs bg-white border border-amber-200 rounded p-3 overflow-auto"><code>{`CREATE TABLE IF NOT EXISTS voice_reminders (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  department_id UUID REFERENCES departments(id) ON DELETE CASCADE,
+  title TEXT,
+  messages JSONB DEFAULT '{}'::jsonb,
+  scheduled_time TIME NOT NULL,
+  days_of_week TEXT[] DEFAULT '{}',
+  repetitions INT DEFAULT 1,
+  languages TEXT[] DEFAULT ARRAY['he'],
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE voice_reminders ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "public read voice_reminders" ON voice_reminders FOR SELECT USING (true);
+CREATE POLICY "auth write voice_reminders" ON voice_reminders FOR ALL USING (auth.role() = 'authenticated');`}</code></pre>
+          </CardContent>
+        </Card>
+      )}
 
       <Card className="mb-6">
         <CardHeader><CardTitle>תזכורת חדשה</CardTitle></CardHeader>

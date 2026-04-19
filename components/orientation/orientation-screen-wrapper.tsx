@@ -24,6 +24,38 @@ export default function OrientationScreenWrapper({
   const [color, setColor] = useState(departmentColor ?? "#10B981");
   const [currentSettings, setCurrentSettings] = useState(settings);
 
+  const isPortrait = currentSettings?.display_orientation === "portrait";
+
+  useEffect(() => {
+    // מסך מלא אוטומטי
+    const goFullscreen = () => {
+      if (document.documentElement.requestFullscreen) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      }
+    };
+
+    // נסה fullscreen בלחיצה על המסך
+    document.addEventListener("click", goFullscreen, { once: true });
+
+    // CSS לכיסוי מלא
+    document.documentElement.style.overflow = "hidden";
+    document.body.style.overflow = "hidden";
+    document.body.style.margin = "0";
+    document.body.style.padding = "0";
+    document.body.style.width = "100vw";
+    document.body.style.height = "100vh";
+
+    return () => {
+      document.removeEventListener("click", goFullscreen);
+      document.documentElement.style.overflow = "";
+      document.body.style.overflow = "";
+      document.body.style.margin = "";
+      document.body.style.padding = "";
+      document.body.style.width = "";
+      document.body.style.height = "";
+    };
+  }, []);
+
   useEffect(() => {
     async function checkState() {
       const { data } = await supabase
@@ -88,7 +120,16 @@ export default function OrientationScreenWrapper({
   }, [departmentId]);
 
   return (
-    <>
+    <div
+      style={{
+        width: "100vw",
+        height: "100vh",
+        overflow: "hidden",
+        position: "fixed",
+        top: 0,
+        left: 0,
+      }}
+    >
       {emergencyActive && emergencyMessage && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-red-600/95">
           <div className="text-center p-10">
@@ -99,15 +140,25 @@ export default function OrientationScreenWrapper({
           </div>
         </div>
       )}
-      <OrientationScreen
-        departmentName={departmentName}
-        departmentNameAr={departmentNameAr}
-        departmentNameRu={departmentNameRu}
-        departmentNameEn={departmentNameEn}
-        departmentColor={color}
-        activities={activities}
-        settings={currentSettings}
-      />
-    </>
+      <div
+        style={{
+          width: "100%",
+          height: "100%",
+          overflowY: "auto",
+          overflowX: "hidden",
+        }}
+      >
+        <OrientationScreen
+          departmentName={departmentName}
+          departmentNameAr={departmentNameAr}
+          departmentNameRu={departmentNameRu}
+          departmentNameEn={departmentNameEn}
+          departmentColor={color}
+          activities={activities}
+          settings={currentSettings}
+          isPortrait={isPortrait}
+        />
+      </div>
+    </div>
   );
 }

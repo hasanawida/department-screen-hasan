@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, Settings } from "lucide-react";
+import { CheckCircle, Settings, Monitor, Smartphone } from "lucide-react";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -25,6 +25,7 @@ type OrientationSettings = {
   show_hebrew_date: boolean;
   show_weather: boolean;
   show_anchors: boolean;
+  display_orientation: "landscape" | "portrait";
 };
 
 const DEFAULT_SETTINGS: OrientationSettings = {
@@ -38,6 +39,7 @@ const DEFAULT_SETTINGS: OrientationSettings = {
   show_hebrew_date: true,
   show_weather: true,
   show_anchors: true,
+  display_orientation: "landscape",
 };
 
 const LANG_LABELS: Record<string, string> = {
@@ -149,6 +151,47 @@ export default function OrientationSettingsPage() {
           </div>
         </div>
 
+        {/* כיוון תצוגה */}
+        <Card className="rounded-2xl border-0 shadow-md">
+          <CardContent className="p-6 space-y-4">
+            <h2 className="text-2xl font-bold text-slate-900">כיוון תצוגה</h2>
+            <p className="text-slate-500">בחר איך המסך יוצג על הטלוויזיה או הטאבלט</p>
+            <div className="grid grid-cols-2 gap-4">
+              <button
+                onClick={() => setSettings(prev => ({ ...prev, display_orientation: "landscape" }))}
+                className={"flex flex-col items-center gap-3 rounded-2xl border-2 p-5 transition-all " + (settings.display_orientation === "landscape" ? "border-emerald-500 bg-emerald-50" : "border-slate-200 bg-white")}
+              >
+                <Monitor className={"h-12 w-12 " + (settings.display_orientation === "landscape" ? "text-emerald-600" : "text-slate-400")} />
+                <div className="text-center">
+                  <div className={"text-xl font-bold " + (settings.display_orientation === "landscape" ? "text-emerald-800" : "text-slate-600")}>
+                    לרוחב
+                  </div>
+                  <div className="text-sm text-slate-400 mt-1">טלוויזיה רגילה</div>
+                </div>
+                {settings.display_orientation === "landscape" && (
+                  <CheckCircle className="h-5 w-5 text-emerald-600" />
+                )}
+              </button>
+
+              <button
+                onClick={() => setSettings(prev => ({ ...prev, display_orientation: "portrait" }))}
+                className={"flex flex-col items-center gap-3 rounded-2xl border-2 p-5 transition-all " + (settings.display_orientation === "portrait" ? "border-blue-500 bg-blue-50" : "border-slate-200 bg-white")}
+              >
+                <Smartphone className={"h-12 w-12 " + (settings.display_orientation === "portrait" ? "text-blue-600" : "text-slate-400")} />
+                <div className="text-center">
+                  <div className={"text-xl font-bold " + (settings.display_orientation === "portrait" ? "text-blue-800" : "text-slate-600")}>
+                    לאורך
+                  </div>
+                  <div className="text-sm text-slate-400 mt-1">טלוויזיה אנכית / טאבלט</div>
+                </div>
+                {settings.display_orientation === "portrait" && (
+                  <CheckCircle className="h-5 w-5 text-blue-600" />
+                )}
+              </button>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* צבע מסך התמצאות */}
         <Card className="rounded-2xl border-0 shadow-md">
           <CardContent className="p-6 space-y-4">
@@ -180,9 +223,7 @@ export default function OrientationSettingsPage() {
                     <button
                       key={c}
                       onClick={() => setColor(c)}
-                      className={`h-8 w-8 rounded-full border-4 transition-transform hover:scale-110 ${
-                        color === c ? "border-slate-800 scale-110" : "border-white shadow"
-                      }`}
+                      className={"h-8 w-8 rounded-full border-4 transition-transform hover:scale-110 " + (color === c ? "border-slate-800 scale-110" : "border-white shadow")}
                       style={{ backgroundColor: c }}
                     />
                   ))}
@@ -208,11 +249,7 @@ export default function OrientationSettingsPage() {
                 <button
                   key={lang}
                   onClick={() => toggleLang(lang)}
-                  className={`flex items-center justify-between rounded-xl border-2 px-4 py-3 text-xl font-semibold transition-all ${
-                    settings.languages.includes(lang)
-                      ? "border-emerald-500 bg-emerald-50 text-emerald-800"
-                      : "border-slate-200 bg-white text-slate-400"
-                  }`}
+                  className={"flex items-center justify-between rounded-xl border-2 px-4 py-3 text-xl font-semibold transition-all " + (settings.languages.includes(lang) ? "border-emerald-500 bg-emerald-50 text-emerald-800" : "border-slate-200 bg-white text-slate-400")}
                 >
                   <span>{LANG_LABELS[lang]}</span>
                   <span className="text-2xl">
@@ -274,7 +311,7 @@ export default function OrientationSettingsPage() {
 
         <p className="text-center text-slate-400 text-lg">
           קישור למסך:{" "}
-          <a href={`/orientation/${token}`} target="_blank" className="text-emerald-600 underline">
+          <a href={"/orientation/" + token} target="_blank" className="text-emerald-600 underline">
             /orientation/{token?.slice(0, 8)}...
           </a>
         </p>

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import OrientationScreen from "./orientation-screen";
+import VoiceRemindersPlayer from "@/components/voice-reminders-player";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -153,6 +154,7 @@ export default function OrientationScreenWrapper({
         left: 0,
       }}
     >
+      <VoiceRemindersPlayer departmentId={departmentId} />
       {emergencyActive && emergencyMessage && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center"

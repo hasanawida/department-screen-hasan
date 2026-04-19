@@ -223,11 +223,11 @@ function ActivityIcon({ category }: { category?: ActivityCategory }) {
 
 function InfoRow({ icon, label, value, color, small }: { icon: React.ReactNode; label: string; value: string; color: string; small?: boolean }) {
   return (
-    <div className="flex items-start gap-3 rounded-2xl border bg-white/70 p-3 shadow-sm">
+    <div className="flex items-start gap-3 rounded-2xl border bg-white/70 p-4 shadow-sm">
       <div className="mt-1" style={{ color }}>{icon}</div>
       <div className="flex-1 min-w-0">
-        <div className={small ? "text-lg font-semibold text-slate-700" : "text-xl font-semibold text-slate-700"}>{label}</div>
-        <div className={small ? "mt-0.5 text-xl font-bold text-slate-900" : "mt-0.5 text-2xl font-bold text-slate-900"}>{value}</div>
+        <div className={small ? "text-xl font-semibold text-slate-700" : "text-2xl font-semibold text-slate-700"}>{label}</div>
+        <div className={small ? "mt-1 text-2xl font-bold text-slate-900" : "mt-1 text-3xl font-bold text-slate-900"}>{value}</div>
       </div>
     </div>
   );
@@ -293,31 +293,31 @@ export default function OrientationScreen({
 
   // גדלי טקסט — portrait קטן יותר
   const G = isPortrait ? {
-    greeting: "text-5xl",
-    day: "text-3xl",
-    dept: "text-xl",
-    time: "text-5xl",
-    timeLabel: "text-lg",
-    actMain: "text-4xl",
-    actSub: "text-xl",
-    phase: "text-xl",
-    info: "text-2xl",
-    calming: "text-2xl",
-    pad: "p-5",
-    badge: "px-4 py-2 text-xl",
-  } : {
-    greeting: "text-5xl xl:text-6xl",
-    day: "text-3xl xl:text-4xl",
-    dept: "text-xl xl:text-2xl",
-    time: "text-5xl xl:text-6xl",
+    greeting: "text-6xl",
+    day: "text-4xl",
+    dept: "text-2xl",
+    time: "text-6xl",
     timeLabel: "text-xl",
-    actMain: "text-4xl xl:text-5xl",
-    actSub: "text-xl",
-    phase: "text-xl",
-    info: "text-2xl",
-    calming: "text-2xl xl:text-3xl",
-    pad: "p-5 xl:p-6",
-    badge: "px-4 py-2 text-xl",
+    actMain: "text-5xl",
+    actSub: "text-2xl",
+    phase: "text-2xl",
+    info: "text-3xl",
+    calming: "text-3xl",
+    pad: "p-6",
+    badge: "px-5 py-2 text-2xl",
+  } : {
+    greeting: "text-6xl xl:text-7xl",
+    day: "text-4xl xl:text-5xl",
+    dept: "text-2xl xl:text-3xl",
+    time: "text-6xl xl:text-7xl",
+    timeLabel: "text-2xl",
+    actMain: "text-5xl xl:text-6xl",
+    actSub: "text-2xl",
+    phase: "text-2xl",
+    info: "text-3xl",
+    calming: "text-3xl xl:text-4xl",
+    pad: "p-6 xl:p-7",
+    badge: "px-5 py-2 text-2xl",
   };
 
   const sideInfo = (

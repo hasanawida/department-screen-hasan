@@ -186,28 +186,28 @@ export default async function DisplayPage({ params }: { params: Promise<{ code: 
             <header className="daily-header grid grid-cols-1 gap-3 xl:grid-cols-[1.4fr_1fr]">
               <Card className="rounded-3xl border-0 bg-white/95 shadow-xl">
                 <CardContent className="flex items-center justify-between gap-4 p-5 xl:p-6">
-                  <div className="space-y-1.5">
-                    <div className="flex items-center gap-2 text-xl font-semibold text-slate-600">
-                      <Sun className="h-6 w-6" /><span>יום נעים במחלקה</span>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-2xl font-semibold text-slate-600">
+                      <Sun className="h-7 w-7" /><span>יום נעים במחלקה</span>
                     </div>
-                    <h1 className="text-4xl font-bold tracking-tight xl:text-5xl">{greeting}</h1>
-                    <p className="text-xl text-slate-600 xl:text-2xl">{department.name}</p>
-                    {settings?.welcome_message && <p className="text-lg text-slate-500">{settings.welcome_message}</p>}
+                    <h1 className="text-5xl font-bold tracking-tight xl:text-6xl">{greeting}</h1>
+                    <p className="text-2xl text-slate-600 xl:text-3xl">{department.name}</p>
+                    {settings?.welcome_message && <p className="text-xl text-slate-500">{settings.welcome_message}</p>}
                   </div>
                   <div className="text-left">
-                    <div className="text-2xl font-semibold text-slate-600 xl:text-3xl">{formatHebrewDate(now)}</div>
-                    <div className="mt-1 flex items-center justify-end gap-2 text-4xl font-bold xl:text-5xl">
-                      <Clock3 className="h-10 w-10 xl:h-12 xl:w-12" />
+                    <div className="text-3xl font-semibold text-slate-600 xl:text-4xl">{formatHebrewDate(now)}</div>
+                    <div className="mt-1 flex items-center justify-end gap-2 text-5xl font-bold xl:text-6xl">
+                      <Clock3 className="h-12 w-12 xl:h-14 xl:w-14" />
                       <span>{formatClock(now)}</span>
                     </div>
                   </div>
                 </CardContent>
               </Card>
               <Card className="rounded-3xl border-0 shadow-xl" style={{ backgroundColor: department.color + "20" }}>
-                <CardContent className="flex h-full flex-col justify-center gap-2 p-5 xl:p-6">
-                  <Badge className="w-fit rounded-full px-4 py-1 text-lg font-semibold text-white" style={{ backgroundColor: department.color }}>היום במחלקה</Badge>
-                  <div className="text-2xl font-bold xl:text-3xl">{department.name}</div>
-                  <p className="text-lg leading-relaxed text-slate-700 xl:text-xl">מסך ברור, קבוע ורגוע כדי לעזור בהתמצאות ובהרגשת ביטחון.</p>
+                <CardContent className="flex h-full flex-col justify-center gap-3 p-5 xl:p-6">
+                  <Badge className="w-fit rounded-full px-5 py-1.5 text-xl font-semibold text-white" style={{ backgroundColor: department.color }}>היום במחלקה</Badge>
+                  <div className="text-3xl font-bold xl:text-4xl">{department.name}</div>
+                  <p className="text-xl leading-relaxed text-slate-700 xl:text-2xl">מסך ברור, קבוע ורגוע כדי לעזור בהתמצאות ובהרגשת ביטחון.</p>
                 </CardContent>
               </Card>
             </header>
@@ -220,41 +220,41 @@ export default async function DisplayPage({ params }: { params: Promise<{ code: 
                 <main className="grid flex-1 min-h-0 grid-cols-1 gap-4 overflow-hidden xl:grid-cols-[1.6fr_0.95fr]">
                   <section>
                     <Card className="flex h-full flex-col rounded-[2rem] border-0 bg-white shadow-2xl">
-                      <CardHeader className="pb-2 pt-5 px-6">
-                        <Badge className="w-fit rounded-full px-4 py-1 text-xl font-semibold text-white" style={{ backgroundColor: department.color }}>עכשיו</Badge>
+                      <CardHeader className="pb-2 pt-6 px-7">
+                        <Badge className="w-fit rounded-full px-5 py-1.5 text-2xl font-semibold text-white" style={{ backgroundColor: department.color }}>עכשיו</Badge>
                       </CardHeader>
-                      <CardContent className="flex flex-1 min-h-0 flex-col justify-center gap-4 p-6 pt-2">
+                      <CardContent className="flex flex-1 min-h-0 flex-col justify-center gap-4 p-7 pt-2">
                         {currentActivity ? (
                           <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
-                            <div className="flex items-center gap-4">
-                              <div className="flex h-24 w-24 items-center justify-center rounded-3xl xl:h-28 xl:w-28" style={{ backgroundColor: department.color + "20" }}>
-                                <CurrentIcon className="h-12 w-12 xl:h-14 xl:w-14" style={{ color: department.color }} />
+                            <div className="flex items-center gap-5">
+                              <div className="flex h-28 w-28 items-center justify-center rounded-3xl xl:h-32 xl:w-32" style={{ backgroundColor: department.color + "20" }}>
+                                <CurrentIcon className="h-14 w-14 xl:h-16 xl:w-16" style={{ color: department.color }} />
                               </div>
                               <div className="space-y-2">
-                                <p className="text-xl font-semibold text-slate-500 xl:text-2xl">{getActivityLabel(currentActivity.category)}</p>
-                                <h2 className="text-4xl font-bold leading-tight xl:text-5xl">{currentActivity.title}</h2>
+                                <p className="text-2xl font-semibold text-slate-500 xl:text-3xl">{getActivityLabel(currentActivity.category)}</p>
+                                <h2 className="text-5xl font-bold leading-tight xl:text-6xl">{currentActivity.title}</h2>
                                 {currentActivity.instructor_name && (
-                                  <div className="flex items-center gap-2 text-xl text-slate-600">
-                                    <User className="h-5 w-5" /><span>{currentActivity.instructor_name}</span>
+                                  <div className="flex items-center gap-2 text-2xl text-slate-600">
+                                    <User className="h-6 w-6" /><span>{currentActivity.instructor_name}</span>
                                   </div>
                                 )}
                               </div>
                             </div>
-                            <div className="rounded-3xl bg-slate-50 px-5 py-4 text-right shadow-sm">
+                            <div className="rounded-3xl bg-slate-50 px-6 py-5 text-right shadow-sm">
                               {currentActivity.location && (
-                                <div className="mb-2 flex items-center gap-2 text-xl font-semibold text-slate-600">
-                                  <MapPin className="h-6 w-6" /><span>{currentActivity.location}</span>
+                                <div className="mb-2 flex items-center gap-2 text-2xl font-semibold text-slate-600">
+                                  <MapPin className="h-7 w-7" /><span>{currentActivity.location}</span>
                                 </div>
                               )}
-                              <div className="text-2xl font-bold" dir="ltr">
+                              <div className="text-3xl font-bold" dir="ltr">
                                 {currentActivity.start_time?.slice(0,5)} - {currentActivity.end_time?.slice(0,5)}
                               </div>
                             </div>
                           </div>
                         ) : (
-                          <div className="rounded-3xl bg-slate-50 p-6 text-center">
-                            <p className="text-3xl font-bold xl:text-4xl">כרגע אין פעילות מתוזמנת</p>
-                            <p className="mt-2 text-xl text-slate-600">אפשר לנוח, לשתות משהו חם או להצטרף בהמשך.</p>
+                          <div className="rounded-3xl bg-slate-50 p-7 text-center">
+                            <p className="text-4xl font-bold xl:text-5xl">כרגע אין פעילות מתוזמנת</p>
+                            <p className="mt-3 text-2xl text-slate-600">אפשר לנוח, לשתות משהו חם או להצטרף בהמשך.</p>
                           </div>
                         )}
                       </CardContent>
@@ -262,47 +262,47 @@ export default async function DisplayPage({ params }: { params: Promise<{ code: 
                   </section>
                   <aside className="grid gap-3 content-start">
                     <Card className="rounded-[2rem] border-0 shadow-xl" style={{ backgroundColor: department.color + "15" }}>
-                      <CardHeader className="pb-2 pt-5 px-6"><CardTitle className="text-2xl font-bold">בהמשך</CardTitle></CardHeader>
-                      <CardContent className="space-y-3 pb-5 px-6">
+                      <CardHeader className="pb-2 pt-6 px-7"><CardTitle className="text-3xl font-bold">בהמשך</CardTitle></CardHeader>
+                      <CardContent className="space-y-3 pb-6 px-7">
                         {nextActivities.length > 0 ? nextActivities.slice(0, 2).map((activity, index) => {
                           const NextIcon = getActivityIcon(activity.category);
                           return (
-                            <div key={activity.id} className="rounded-3xl bg-white p-4 shadow-sm">
-                              <div className="mb-2 flex items-center justify-between gap-3">
-                                <Badge variant="secondary" className="rounded-full px-3 py-0.5 text-lg">{index === 0 ? "עוד מעט" : "אחר כך"}</Badge>
-                                <span className="text-xl font-bold text-slate-600" dir="ltr">{activity.start_time?.slice(0,5)}</span>
+                            <div key={activity.id} className="rounded-3xl bg-white p-5 shadow-sm">
+                              <div className="mb-3 flex items-center justify-between gap-3">
+                                <Badge variant="secondary" className="rounded-full px-4 py-1 text-xl">{index === 0 ? "עוד מעט" : "אחר כך"}</Badge>
+                                <span className="text-2xl font-bold text-slate-600" dir="ltr">{activity.start_time?.slice(0,5)}</span>
                               </div>
                               <div className="flex items-center gap-3">
-                                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100">
-                                  <NextIcon className="h-6 w-6 text-slate-700" />
+                                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100">
+                                  <NextIcon className="h-7 w-7 text-slate-700" />
                                 </div>
                                 <div>
-                                  <div className="text-2xl font-bold leading-tight">{activity.title}</div>
-                                  {activity.location && <div className="mt-0.5 text-lg text-slate-600">{activity.location}</div>}
+                                  <div className="text-3xl font-bold leading-tight">{activity.title}</div>
+                                  {activity.location && <div className="mt-1 text-xl text-slate-600">{activity.location}</div>}
                                 </div>
                               </div>
                             </div>
                           );
                         }) : (
-                          <div className="rounded-3xl bg-white p-4 text-xl font-semibold text-slate-600">אין פעילויות נוספות להיום.</div>
+                          <div className="rounded-3xl bg-white p-5 text-2xl font-semibold text-slate-600">אין פעילויות נוספות להיום.</div>
                         )}
                       </CardContent>
                     </Card>
 
                     {displaySettings.show_announcements && (
                       <Card className="rounded-[2rem] border-0 bg-white shadow-xl">
-                        <CardHeader className="pb-2 pt-5 px-6">
-                          <CardTitle className="flex items-center gap-2 text-2xl font-bold">
-                            <Megaphone className="h-7 w-7" />הודעות חשובות
+                        <CardHeader className="pb-2 pt-6 px-7">
+                          <CardTitle className="flex items-center gap-2 text-3xl font-bold">
+                            <Megaphone className="h-8 w-8" />הודעות חשובות
                           </CardTitle>
                         </CardHeader>
-                        <CardContent className="space-y-3 pb-5 px-6">
+                        <CardContent className="space-y-3 pb-6 px-7">
                           {announcements.length > 0 ? announcements.slice(0, 3).map((ann) => (
-                            <div key={ann.id} className="rounded-3xl bg-slate-50 p-4">
-                              <p className="text-xl font-semibold leading-relaxed text-slate-800">{ann.content || ann.title}</p>
+                            <div key={ann.id} className="rounded-3xl bg-slate-50 p-5">
+                              <p className="text-2xl font-semibold leading-relaxed text-slate-800">{ann.content || ann.title}</p>
                             </div>
                           )) : (
-                            <div className="rounded-3xl bg-slate-50 p-4 text-xl text-slate-600">אין הודעות כרגע.</div>
+                            <div className="rounded-3xl bg-slate-50 p-5 text-2xl text-slate-600">אין הודעות כרגע.</div>
                           )}
                         </CardContent>
                       </Card>
@@ -379,14 +379,14 @@ export default async function DisplayPage({ params }: { params: Promise<{ code: 
               <footer className="shrink-0">
                 <Card className="overflow-hidden rounded-2xl border-0 bg-slate-900 text-white shadow-xl">
                   <CardContent className="flex items-center gap-3 p-0">
-                    <Badge className="ms-3 shrink-0 rounded-full bg-white/15 px-3 py-0.5 text-sm text-white hover:bg-white/15">הודעות</Badge>
-                    <div className="relative flex-1 overflow-hidden py-2">
-                      <div className="ticker-track flex w-max items-center gap-6">
+                    <Badge className="ms-4 shrink-0 rounded-full bg-white/15 px-4 py-1 text-lg text-white hover:bg-white/15">הודעות</Badge>
+                    <div className="relative flex-1 overflow-hidden py-3">
+                      <div className="ticker-track flex w-max items-center gap-8">
                         {[...tickerItems, ...tickerItems].map((item, index) => (
-                          <div key={`${item.id}-${index}`} className="flex items-center gap-2 whitespace-nowrap">
-                            <Megaphone className="h-4 w-4 text-emerald-300" />
-                            <span className="text-lg font-semibold xl:text-xl">{item.message || item.content || item.title}</span>
-                            <Separator orientation="vertical" className="mx-1 h-4 bg-white/20" />
+                          <div key={`${item.id}-${index}`} className="flex items-center gap-3 whitespace-nowrap">
+                            <Megaphone className="h-6 w-6 text-emerald-300" />
+                            <span className="text-2xl font-semibold xl:text-3xl">{item.message || item.content || item.title}</span>
+                            <Separator orientation="vertical" className="mx-2 h-6 bg-white/20" />
                           </div>
                         ))}
                       </div>

@@ -154,7 +154,7 @@ export default function OrientationScreenWrapper({
         left: 0,
       }}
     >
-      <VoiceRemindersPlayer departmentId={departmentId} />
+      <VoiceRemindersPlayer departmentId={departmentId} screenType="orientation" />
       {emergencyActive && emergencyMessage && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center"

@@ -85,7 +85,7 @@ export default function DisplayScreenWrapper({
 
   return (
     <>
-      <VoiceRemindersPlayer departmentId={departmentId} />
+      <VoiceRemindersPlayer departmentId={departmentId} screenType="display" />
       {emergencyActive && emergencyMessage && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center"

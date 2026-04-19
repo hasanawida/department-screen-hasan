@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Volume2, Plus, Trash2, Play, Check } from "lucide-react";
+import { Volume2, Plus, Trash2, Play, Check, Pencil } from "lucide-react";
 
 type Department = { id: string; name: string };
 type LangKey = "he" | "ar" | "ru" | "en";
@@ -36,7 +36,14 @@ type Reminder = {
   repetitions: number;
   languages: string[];
   is_active: boolean;
+  play_on?: string[];
   departments?: { name: string } | null;
+};
+
+type ScreenKey = "display" | "orientation";
+const SCREEN_LABELS: Record<ScreenKey, string> = {
+  display: "לוח פעילות",
+  orientation: "לוח התמצאות",
 };
 
 const LANG_VOICE_MAP: Record<string, string> = { he: "he-IL", ar: "ar", ru: "ru-RU", en: "en-US" };
@@ -59,7 +66,7 @@ export default function VoiceRemindersPage() {
   const [saved, setSaved] = useState(false);
   const [tableMissing, setTableMissing] = useState(false);
 
-  const [form, setForm] = useState({
+  const emptyForm = {
     department_id: "all",
     title: "",
     message_he: "",
@@ -67,9 +74,12 @@ export default function VoiceRemindersPage() {
     days_of_week: [...DAY_CODES],
     repetitions: 1,
     languages: ["he"] as LangKey[],
+    play_on: ["display", "orientation"] as ScreenKey[],
     is_active: true,
-  });
+  };
+  const [form, setForm] = useState(emptyForm);
   const [isSaving, setIsSaving] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   async function loadAll() {
     const supabase = createClient();
@@ -98,6 +108,36 @@ export default function VoiceRemindersPage() {
         ? f.days_of_week.filter((x) => x !== code)
         : [...f.days_of_week, code],
     }));
+  }
+
+  function toggleScreen(s: ScreenKey) {
+    setForm((f) => ({
+      ...f,
+      play_on: f.play_on.includes(s) ? f.play_on.filter((x) => x !== s) : [...f.play_on, s],
+    }));
+  }
+
+  function startEdit(r: Reminder) {
+    setEditingId(r.id);
+    setForm({
+      department_id: r.department_id || "all",
+      title: r.title || "",
+      message_he: r.messages?.he || "",
+      scheduled_time: (r.scheduled_time || "10:00").slice(0, 5),
+      days_of_week: r.days_of_week?.length ? r.days_of_week : [...DAY_CODES],
+      repetitions: r.repetitions || 1,
+      languages: (r.languages as LangKey[]) || ["he"],
+      play_on: ((r.play_on as ScreenKey[]) || ["display", "orientation"]).filter(
+        (x): x is ScreenKey => x === "display" || x === "orientation"
+      ),
+      is_active: r.is_active,
+    });
+    if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setForm(emptyForm);
   }
 
   function toggleLang(lang: LangKey) {
@@ -132,7 +172,7 @@ export default function VoiceRemindersPage() {
     const cleanedMessages: Record<string, string> = {};
     for (const l of form.languages) cleanedMessages[l] = translated[l] || translated.he || form.message_he;
 
-    const { error } = await supabase.from("voice_reminders").insert({
+    const payload: any = {
       department_id: form.department_id === "all" ? null : form.department_id,
       title: form.title || null,
       messages: cleanedMessages,
@@ -140,19 +180,41 @@ export default function VoiceRemindersPage() {
       days_of_week: form.days_of_week,
       repetitions: form.repetitions,
       languages: form.languages,
+      play_on: form.play_on,
       is_active: form.is_active,
-    });
+    };
+
+    let error: any = null;
+    if (editingId) {
+      ({ error } = await supabase.from("voice_reminders").update(payload).eq("id", editingId));
+    } else {
+      ({ error } = await supabase.from("voice_reminders").insert(payload));
+    }
 
     setIsSaving(false);
     if (error) {
-      alert("שגיאה בשמירה: " + error.message + "\n\nאם הטבלה לא קיימת — ראה הוראה בחלק העליון של הדף.");
-      setTableMissing(true);
-      return;
+      if (error.message && /play_on/.test(error.message)) {
+        delete payload.play_on;
+        const retry = editingId
+          ? await supabase.from("voice_reminders").update(payload).eq("id", editingId)
+          : await supabase.from("voice_reminders").insert(payload);
+        if (retry.error) {
+          alert("שגיאה בשמירה: " + retry.error.message + "\n\nאם הטבלה לא קיימת — ראה הוראה בחלק העליון של הדף.");
+          setTableMissing(true);
+          return;
+        }
+        alert("נשמר ללא העמודה play_on. הרץ את ה-SQL שבבאנר כדי לתמוך בבחירת מסכים.");
+      } else {
+        alert("שגיאה בשמירה: " + error.message + "\n\nאם הטבלה לא קיימת — ראה הוראה בחלק העליון של הדף.");
+        setTableMissing(true);
+        return;
+      }
     }
 
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
-    setForm((f) => ({ ...f, title: "", message_he: "" }));
+    setEditingId(null);
+    setForm(emptyForm);
     loadAll();
   }
 
@@ -197,13 +259,19 @@ export default function VoiceRemindersPage() {
 );
 ALTER TABLE voice_reminders ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "public read voice_reminders" ON voice_reminders FOR SELECT USING (true);
-CREATE POLICY "auth write voice_reminders" ON voice_reminders FOR ALL USING (auth.role() = 'authenticated');`}</code></pre>
+CREATE POLICY "auth write voice_reminders" ON voice_reminders FOR ALL USING (auth.role() = 'authenticated');
+ALTER TABLE voice_reminders ADD COLUMN IF NOT EXISTS play_on TEXT[] DEFAULT ARRAY['display','orientation'];`}</code></pre>
           </CardContent>
         </Card>
       )}
 
       <Card className="mb-6">
-        <CardHeader><CardTitle>תזכורת חדשה</CardTitle></CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>{editingId ? "עריכת תזכורת" : "תזכורת חדשה"}</CardTitle>
+          {editingId && (
+            <Button variant="outline" size="sm" onClick={cancelEdit}>ביטול עריכה</Button>
+          )}
+        </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -264,6 +332,25 @@ CREATE POLICY "auth write voice_reminders" ON voice_reminders FOR ALL USING (aut
           </div>
 
           <div>
+            <label className="text-sm font-medium mb-2 block">על איזה מסך להקריא</label>
+            <div className="flex flex-wrap gap-2">
+              {(Object.keys(SCREEN_LABELS) as ScreenKey[]).map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => toggleScreen(s)}
+                  className={`px-3 py-1.5 rounded-full border text-sm font-medium transition-colors ${
+                    form.play_on.includes(s)
+                      ? "bg-amber-500 text-white border-amber-500"
+                      : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
+                  }`}
+                >{SCREEN_LABELS[s]}</button>
+              ))}
+            </div>
+            <p className="text-xs text-slate-500 mt-1">אם לא נבחר — יוקרא בכל המסכים</p>
+          </div>
+
+          <div>
             <div className="flex items-center justify-between mb-1">
               <label className="text-sm font-medium">הודעה בעברית</label>
               <Button
@@ -297,7 +384,7 @@ CREATE POLICY "auth write voice_reminders" ON voice_reminders FOR ALL USING (aut
           </div>
 
           <Button onClick={handleAdd} disabled={isSaving} className="w-full gap-2">
-            {saved ? <><Check className="h-4 w-4" /> נשמר!</> : isSaving ? "מתרגם ושומר..." : <><Plus className="h-4 w-4" /> הוסף תזכורת</>}
+            {saved ? <><Check className="h-4 w-4" /> נשמר!</> : isSaving ? "מתרגם ושומר..." : editingId ? <><Check className="h-4 w-4" /> שמור שינויים</> : <><Plus className="h-4 w-4" /> הוסף תזכורת</>}
           </Button>
         </CardContent>
       </Card>
@@ -329,11 +416,19 @@ CREATE POLICY "auth write voice_reminders" ON voice_reminders FOR ALL USING (aut
                       {(r.languages || []).map((l) => (
                         <span key={l} className="text-xs rounded bg-indigo-50 text-indigo-700 px-1.5 py-0.5">{LANG_LABELS[l as LangKey] || l}</span>
                       ))}
+                      {(r.play_on || ["display", "orientation"]).map((s) => (
+                        <span key={s} className="text-xs rounded bg-amber-50 text-amber-700 px-1.5 py-0.5">{SCREEN_LABELS[s as ScreenKey] || s}</span>
+                      ))}
                     </div>
                   </div>
-                  <Button variant="ghost" size="sm" onClick={() => remove(r.id)}>
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
+                  <div className="flex flex-col gap-1">
+                    <Button variant="ghost" size="sm" onClick={() => startEdit(r)}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => remove(r.id)}>
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>

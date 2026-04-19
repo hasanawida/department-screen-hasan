@@ -18,7 +18,10 @@ type Reminder = {
   languages: string[];
   is_active: boolean;
   department_id: string | null;
+  play_on?: string[];
 };
+
+type ScreenType = "display" | "orientation";
 
 const DAY_CODES = ["א'", "ב'", "ג'", "ד'", "ה'", "ו'", "ש'"];
 
@@ -56,7 +59,7 @@ async function speak(text: string, lang: string): Promise<void> {
   });
 }
 
-export default function VoiceRemindersPlayer({ departmentId }: { departmentId: string }) {
+export default function VoiceRemindersPlayer({ departmentId, screenType }: { departmentId: string; screenType: ScreenType }) {
   const firedKeysRef = useRef<Set<string>>(new Set());
   const playingRef = useRef(false);
 
@@ -84,6 +87,7 @@ export default function VoiceRemindersPlayer({ departmentId }: { departmentId: s
         const t = (r.scheduled_time || "").slice(0, 5);
         if (t !== nowHm) continue;
         if (r.days_of_week && r.days_of_week.length > 0 && !r.days_of_week.includes(todayCode)) continue;
+        if (r.play_on && r.play_on.length > 0 && !r.play_on.includes(screenType)) continue;
         const fireKey = `${r.id}-${dateKey}-${t}`;
         if (firedKeysRef.current.has(fireKey)) continue;
         firedKeysRef.current.add(fireKey);
@@ -116,7 +120,7 @@ export default function VoiceRemindersPlayer({ departmentId }: { departmentId: s
       cancelled = true;
       clearInterval(id);
     };
-  }, [departmentId]);
+  }, [departmentId, screenType]);
 
   return null;
 }

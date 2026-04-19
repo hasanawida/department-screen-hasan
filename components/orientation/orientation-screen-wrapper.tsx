@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import OrientationScreen from "./orientation-screen";
 
@@ -23,8 +23,25 @@ export default function OrientationScreenWrapper({
   const [emergencyMessage, setEmergencyMessage] = useState("");
   const [color, setColor] = useState(departmentColor ?? "#10B981");
   const [currentSettings, setCurrentSettings] = useState(settings);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const isPortrait = currentSettings?.display_orientation === "portrait";
+
+  useEffect(() => {
+    if (!isPortrait) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    let direction = 1;
+    const id = setInterval(() => {
+      const max = el.scrollHeight - el.clientHeight;
+      if (max <= 0) return;
+      const next = el.scrollTop + direction * 2;
+      if (next >= max) direction = -1;
+      else if (next <= 0) direction = 1;
+      el.scrollTo({ top: next, behavior: "auto" });
+    }, 60);
+    return () => clearInterval(id);
+  }, [isPortrait]);
 
   useEffect(() => {
     // מסך מלא אוטומטי
@@ -141,10 +158,13 @@ export default function OrientationScreenWrapper({
         </div>
       )}
       <div
+        ref={scrollRef}
+        className="orientation-scroll"
         style={{
           width: "100%",
           height: "100%",
-          overflow: "hidden",
+          overflowY: isPortrait ? "auto" : "hidden",
+          overflowX: "hidden",
         }}
       >
         <OrientationScreen
@@ -158,6 +178,10 @@ export default function OrientationScreenWrapper({
           isPortrait={isPortrait}
         />
       </div>
+      <style jsx global>{`
+        .orientation-scroll::-webkit-scrollbar { display: none; }
+        .orientation-scroll { -ms-overflow-style: none; scrollbar-width: none; }
+      `}</style>
     </div>
   );
 }

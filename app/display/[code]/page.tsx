@@ -379,14 +379,14 @@ export default async function DisplayPage({ params }: { params: Promise<{ code: 
               <footer className="shrink-0">
                 <Card className="overflow-hidden rounded-2xl border-0 bg-slate-900 text-white shadow-xl">
                   <CardContent className="flex items-center gap-3 p-0">
-                    <Badge className="ms-4 shrink-0 rounded-full bg-white/15 px-4 py-1 text-lg text-white hover:bg-white/15">הודעות</Badge>
-                    <div className="relative flex-1 overflow-hidden py-3">
-                      <div className="ticker-track flex w-max items-center gap-8">
+                    <Badge className="ms-3 shrink-0 rounded-full bg-white/15 px-3 py-0.5 text-base text-white hover:bg-white/15">הודעות</Badge>
+                    <div className="relative flex-1 overflow-hidden py-2">
+                      <div className="ticker-track flex w-max items-center gap-6">
                         {[...tickerItems, ...tickerItems].map((item, index) => (
-                          <div key={`${item.id}-${index}`} className="flex items-center gap-3 whitespace-nowrap">
-                            <Megaphone className="h-6 w-6 text-emerald-300" />
-                            <span className="text-2xl font-semibold xl:text-3xl">{item.message || item.content || item.title}</span>
-                            <Separator orientation="vertical" className="mx-2 h-6 bg-white/20" />
+                          <div key={`${item.id}-${index}`} className="flex items-center gap-2 whitespace-nowrap">
+                            <Megaphone className="h-5 w-5 text-emerald-300" />
+                            <span className="text-xl font-semibold xl:text-2xl">{item.message || item.content || item.title}</span>
+                            <Separator orientation="vertical" className="mx-2 h-5 bg-white/20" />
                           </div>
                         ))}
                       </div>

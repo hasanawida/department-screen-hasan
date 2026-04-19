@@ -341,28 +341,28 @@ export default async function DisplayPage({ params }: { params: Promise<{ code: 
                       const isToday = dayCode === todayCode;
                       const acts = weeklyActivities[dayCode] || [];
                       return (
-                        <div key={dayCode} className="flex flex-col overflow-hidden rounded-2xl p-2 shadow-sm" style={{ backgroundColor: isToday ? department.color + "20" : "#ffffff", border: isToday ? `3px solid ${department.color}` : "2px solid #e2e8f0" }}>
-                          <div className="text-center mb-2 shrink-0">
-                            <div className="text-xl font-bold xl:text-2xl" style={{ color: isToday ? department.color : "#334155" }}>{dayNames[dayCode]}</div>
-                            <div className="text-xs font-medium text-slate-500 mt-0.5 xl:text-sm" dir="ltr">{weekDates[dayCode]}</div>
-                            {isToday && <Badge className="mt-0.5 text-xs" style={{ backgroundColor: department.color }}>היום</Badge>}
+                        <div key={dayCode} className="flex flex-col overflow-hidden rounded-2xl p-3 shadow-sm" style={{ backgroundColor: isToday ? department.color + "20" : "#ffffff", border: isToday ? `3px solid ${department.color}` : "2px solid #e2e8f0" }}>
+                          <div className="text-center mb-3 shrink-0">
+                            <div className="text-2xl font-bold xl:text-3xl" style={{ color: isToday ? department.color : "#334155" }}>{dayNames[dayCode]}</div>
+                            <div className="text-sm font-medium text-slate-500 mt-1 xl:text-base" dir="ltr">{weekDates[dayCode]}</div>
+                            {isToday && <Badge className="mt-1 text-sm" style={{ backgroundColor: department.color }}>היום</Badge>}
                           </div>
-                          <div className="flex-1 min-h-0 space-y-1.5 overflow-hidden">
+                          <div className="flex-1 min-h-0 space-y-2 overflow-hidden">
                             {acts.length > 0 ? acts.map((act) => {
                               const Icon = getActivityIcon(act.category);
                               return (
-                                <div key={act.id} className="rounded-lg p-1.5 bg-slate-50 shadow-sm">
-                                  <div className="flex items-center gap-1 mb-0.5">
-                                    <Icon className="h-3 w-3 text-slate-500 shrink-0" />
-                                    <span className="truncate text-xs font-semibold text-slate-500">{getActivityLabel(act.category)}</span>
+                                <div key={act.id} className="rounded-lg p-2 bg-slate-50 shadow-sm">
+                                  <div className="flex items-center gap-1 mb-1">
+                                    <Icon className="h-4 w-4 text-slate-500 shrink-0" />
+                                    <span className="truncate text-sm font-semibold text-slate-500">{getActivityLabel(act.category)}</span>
                                   </div>
-                                  <div className="truncate text-sm font-bold leading-tight text-slate-800">{act.title}</div>
-                                  <div className="text-xs text-slate-500 mt-0.5" dir="ltr">{act.start_time?.slice(0,5)}{act.end_time && ` - ${act.end_time?.slice(0,5)}`}</div>
-                                  {act.location && <div className="truncate text-xs text-slate-400 flex items-center gap-1 mt-0.5"><MapPin className="h-3 w-3 shrink-0" />{act.location}</div>}
+                                  <div className="text-base font-bold leading-tight text-slate-800 xl:text-lg">{act.title}</div>
+                                  <div className="text-sm text-slate-500 mt-1" dir="ltr">{act.start_time?.slice(0,5)}{act.end_time && ` - ${act.end_time?.slice(0,5)}`}</div>
+                                  {act.location && <div className="truncate text-sm text-slate-400 flex items-center gap-1 mt-0.5"><MapPin className="h-3 w-3 shrink-0" />{act.location}</div>}
                                 </div>
                               );
                             }) : (
-                              <div className="text-center text-slate-400 text-xs py-2">אין פעילויות</div>
+                              <div className="text-center text-slate-400 text-sm py-2">אין פעילויות</div>
                             )}
                           </div>
                         </div>

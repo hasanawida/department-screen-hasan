@@ -154,7 +154,7 @@ export default async function DisplayPage({ params }: { params: Promise<{ code: 
       initialEmergencyActive={department.emergency_active && department.emergency_display}
       initialEmergencyMessage={department.emergency_message ?? ""}
     >
-      <div className="min-h-screen w-full bg-slate-50 text-slate-900" dir="rtl">
+      <div className="h-screen w-screen overflow-hidden bg-slate-50 text-slate-900" dir="rtl">
 
         {/* מדיה מסך מלא */}
         {displaySettings.show_media && allMediaSlides.length > 0 && (
@@ -179,8 +179,8 @@ export default async function DisplayPage({ params }: { params: Promise<{ code: 
         )}
 
         {/* תצוגה רגילה */}
-        <div id="normal-screen">
-          <div className="mx-auto flex min-h-screen max-w-[1800px] flex-col gap-6 p-6 md:p-8 lg:p-10">
+        <div id="normal-screen" className="h-full w-full">
+          <div className="mx-auto flex h-full w-full max-w-none flex-col gap-4 p-4 md:gap-5 md:p-6 lg:p-8">
 
             {/* Header */}
             <header className="grid grid-cols-1 gap-4 xl:grid-cols-[1.4fr_1fr]">
@@ -213,11 +213,11 @@ export default async function DisplayPage({ params }: { params: Promise<{ code: 
             </header>
 
             {/* תוכן */}
-            <div className="view-container flex-1">
+            <div className="view-container flex-1 min-h-0">
 
               {/* תצוגה יומית */}
-              <div className="daily-view" style={{ display: displaySettings.show_daily ? "block" : "none" }}>
-                <main className="grid flex-1 grid-cols-1 gap-6 xl:grid-cols-[1.6fr_0.95fr]">
+              <div className="daily-view h-full" style={{ display: displaySettings.show_daily ? "flex" : "none", flexDirection: "column" }}>
+                <main className="grid flex-1 min-h-0 grid-cols-1 gap-4 xl:grid-cols-[1.6fr_0.95fr]">
                   <section>
                     <Card className="h-full rounded-[2rem] border-0 bg-white shadow-2xl">
                       <CardHeader className="pb-2 pt-8">
@@ -313,7 +313,7 @@ export default async function DisplayPage({ params }: { params: Promise<{ code: 
 
               {/* תצוגה שבועית */}
               {displaySettings.show_weekly && (
-                <div className="weekly-view" style={{ display: "none" }}>
+                <div className="weekly-view h-full" style={{ display: "none", flexDirection: "column" }}>
                   {weeklyTopic && (
                     <Card className="rounded-[2rem] border-0 bg-white shadow-xl mb-4">
                       <CardContent className="p-6 flex items-center gap-6">
@@ -325,11 +325,11 @@ export default async function DisplayPage({ params }: { params: Promise<{ code: 
                       </CardContent>
                     </Card>
                   )}
-                  <Card className="rounded-[2rem] border-0 bg-white shadow-2xl">
+                  <Card className="flex flex-1 min-h-0 flex-col rounded-[2rem] border-0 bg-white shadow-2xl">
                     <CardHeader className="pb-4 pt-8">
                       <CardTitle className="text-4xl font-bold">לוח פעילויות שבועי</CardTitle>
                     </CardHeader>
-                    <CardContent className="p-6">
+                    <CardContent className="flex-1 min-h-0 overflow-auto p-6">
                       <div className="grid grid-cols-7 gap-3">
                         {dayOrder.map((dayCode) => {
                           const isToday = dayCode === todayCode;
@@ -440,8 +440,8 @@ export default async function DisplayPage({ params }: { params: Promise<{ code: 
               } else {
                 if (mediaFullscreen) mediaFullscreen.style.display = 'none';
                 normalScreen.style.display = 'block';
-                if (daily)  daily.style.display  = viewName === 'daily'  ? 'block' : 'none';
-                if (weekly) weekly.style.display = viewName === 'weekly' ? 'block' : 'none';
+                if (daily)  daily.style.display  = viewName === 'daily'  ? 'flex' : 'none';
+                if (weekly) weekly.style.display = viewName === 'weekly' ? 'flex' : 'none';
               }
             }
 

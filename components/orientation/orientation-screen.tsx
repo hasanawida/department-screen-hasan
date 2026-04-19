@@ -384,7 +384,7 @@ export default function OrientationScreen({
         </div>
       )}
 
-      <div className={isPortrait ? "mx-auto w-full max-w-full" : "mx-auto w-full max-w-[1800px]"}>
+      <div className="mx-auto w-full max-w-none">
         <div className={isPortrait ? "flex flex-col gap-4" : "grid gap-6 " + (hasRightColumn ? "xl:grid-cols-[1.35fr_0.85fr]" : "")}>
 
           {/* עמודה ראשית */}

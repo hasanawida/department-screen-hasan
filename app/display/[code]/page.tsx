@@ -320,18 +320,18 @@ export default async function DisplayPage({ params }: { params: Promise<{ code: 
                   </div>
                   {weeklyTopic && (
                     <Card className="mb-3 rounded-2xl border-0 bg-white shadow-lg">
-                      <CardContent className="flex items-center gap-3 p-3">
+                      <CardContent className="flex items-center gap-4 p-4">
                         {weeklyTopic.image_url && (
                           <img
                             src={weeklyTopic.image_url}
                             alt={weeklyTopic.title}
-                            className="h-14 w-14 rounded-xl object-cover shadow-sm"
+                            className="h-28 w-28 rounded-2xl object-cover shadow-sm shrink-0"
                           />
                         )}
-                        <Badge className="rounded-full px-3 py-0.5 text-base font-semibold text-white whitespace-nowrap" style={{ backgroundColor: department.color }}>נושא השבוע</Badge>
+                        <Badge className="rounded-full px-4 py-1 text-xl font-semibold text-white whitespace-nowrap" style={{ backgroundColor: department.color }}>נושא השבוע</Badge>
                         <div className="flex-1 min-w-0">
-                          <h2 className="truncate text-xl font-bold text-slate-800">{weeklyTopic.title}</h2>
-                          {weeklyTopic.description && <p className="truncate text-base text-slate-600">{weeklyTopic.description}</p>}
+                          <h2 className="truncate text-3xl font-bold text-slate-800">{weeklyTopic.title}</h2>
+                          {weeklyTopic.description && <p className="truncate text-xl text-slate-600 mt-1">{weeklyTopic.description}</p>}
                         </div>
                       </CardContent>
                     </Card>
@@ -343,26 +343,26 @@ export default async function DisplayPage({ params }: { params: Promise<{ code: 
                       return (
                         <div key={dayCode} className="flex flex-col overflow-hidden rounded-2xl p-3 shadow-sm" style={{ backgroundColor: isToday ? department.color + "20" : "#ffffff", border: isToday ? `3px solid ${department.color}` : "2px solid #e2e8f0" }}>
                           <div className="text-center mb-3 shrink-0">
-                            <div className="text-2xl font-bold xl:text-3xl" style={{ color: isToday ? department.color : "#334155" }}>{dayNames[dayCode]}</div>
-                            <div className="text-sm font-medium text-slate-500 mt-1 xl:text-base" dir="ltr">{weekDates[dayCode]}</div>
-                            {isToday && <Badge className="mt-1 text-sm" style={{ backgroundColor: department.color }}>היום</Badge>}
+                            <div className="text-3xl font-bold xl:text-4xl" style={{ color: isToday ? department.color : "#334155" }}>{dayNames[dayCode]}</div>
+                            <div className="text-base font-medium text-slate-500 mt-1 xl:text-lg" dir="ltr">{weekDates[dayCode]}</div>
+                            {isToday && <Badge className="mt-1 text-base" style={{ backgroundColor: department.color }}>היום</Badge>}
                           </div>
                           <div className="flex-1 min-h-0 space-y-2 overflow-hidden">
                             {acts.length > 0 ? acts.map((act) => {
                               const Icon = getActivityIcon(act.category);
                               return (
-                                <div key={act.id} className="rounded-lg p-2 bg-slate-50 shadow-sm">
-                                  <div className="flex items-center gap-1 mb-1">
-                                    <Icon className="h-4 w-4 text-slate-500 shrink-0" />
-                                    <span className="truncate text-sm font-semibold text-slate-500">{getActivityLabel(act.category)}</span>
+                                <div key={act.id} className="rounded-lg p-2.5 bg-slate-50 shadow-sm">
+                                  <div className="flex items-center gap-1.5 mb-1">
+                                    <Icon className="h-5 w-5 text-slate-500 shrink-0" />
+                                    <span className="truncate text-base font-semibold text-slate-500">{getActivityLabel(act.category)}</span>
                                   </div>
-                                  <div className="text-base font-bold leading-tight text-slate-800 xl:text-lg">{act.title}</div>
-                                  <div className="text-sm text-slate-500 mt-1" dir="ltr">{act.start_time?.slice(0,5)}{act.end_time && ` - ${act.end_time?.slice(0,5)}`}</div>
-                                  {act.location && <div className="truncate text-sm text-slate-400 flex items-center gap-1 mt-0.5"><MapPin className="h-3 w-3 shrink-0" />{act.location}</div>}
+                                  <div className="text-xl font-bold leading-tight text-slate-800 xl:text-2xl">{act.title}</div>
+                                  <div className="text-base text-slate-500 mt-1" dir="ltr">{act.start_time?.slice(0,5)}{act.end_time && ` - ${act.end_time?.slice(0,5)}`}</div>
+                                  {act.location && <div className="truncate text-base text-slate-400 flex items-center gap-1 mt-0.5"><MapPin className="h-4 w-4 shrink-0" />{act.location}</div>}
                                 </div>
                               );
                             }) : (
-                              <div className="text-center text-slate-400 text-sm py-2">אין פעילויות</div>
+                              <div className="text-center text-slate-400 text-base py-2">אין פעילויות</div>
                             )}
                           </div>
                         </div>

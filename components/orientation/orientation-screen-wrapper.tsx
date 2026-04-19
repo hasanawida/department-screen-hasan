@@ -21,6 +21,8 @@ export default function OrientationScreenWrapper({
 }: any) {
   const [emergencyActive, setEmergencyActive] = useState(false);
   const [emergencyMessage, setEmergencyMessage] = useState("");
+  const [emergencyBg, setEmergencyBg] = useState("#DC2626");
+  const [emergencyFg, setEmergencyFg] = useState("#FFFFFF");
   const [color, setColor] = useState(departmentColor ?? "#10B981");
   const [currentSettings, setCurrentSettings] = useState(settings);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -90,6 +92,8 @@ export default function OrientationScreenWrapper({
         if (d.emergency_active && d.emergency_orientation) {
           setEmergencyActive(true);
           setEmergencyMessage(d.emergency_message ?? "");
+          setEmergencyBg(d.emergency_bg_color || "#DC2626");
+          setEmergencyFg(d.emergency_text_color || "#FFFFFF");
         } else {
           setEmergencyActive(false);
           setEmergencyMessage("");
@@ -122,6 +126,8 @@ export default function OrientationScreenWrapper({
           if (n.emergency_active && n.emergency_orientation) {
             setEmergencyActive(true);
             setEmergencyMessage(n.emergency_message ?? "");
+            setEmergencyBg(n.emergency_bg_color || "#DC2626");
+            setEmergencyFg(n.emergency_text_color || "#FFFFFF");
           } else {
             setEmergencyActive(false);
             setEmergencyMessage("");
@@ -148,10 +154,13 @@ export default function OrientationScreenWrapper({
       }}
     >
       {emergencyActive && emergencyMessage && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-red-600/95">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center"
+          style={{ backgroundColor: emergencyBg + "F2" }}
+        >
           <div className="text-center p-10">
             <div className="text-8xl mb-6">🚨</div>
-            <div className="text-5xl font-black text-white leading-tight" dir="rtl">
+            <div className="text-5xl font-black leading-tight" style={{ color: emergencyFg }} dir="rtl">
               {emergencyMessage}
             </div>
           </div>

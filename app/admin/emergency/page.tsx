@@ -9,8 +9,13 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
 );
 
+const DEFAULT_BG = "#DC2626";
+const DEFAULT_FG = "#FFFFFF";
+
 export default function EmergencyPage() {
   const [message, setMessage] = useState("");
+  const [bgColor, setBgColor] = useState(DEFAULT_BG);
+  const [fgColor, setFgColor] = useState(DEFAULT_FG);
   const [departments, setDepartments] = useState<any[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [targetOrientation, setTargetOrientation] = useState(true);
@@ -25,11 +30,13 @@ export default function EmergencyPage() {
   async function loadDepartments() {
     const { data } = await supabase
       .from("departments")
-      .select("id, name, color, emergency_active, emergency_message");
+      .select("id, name, color, emergency_active, emergency_message, emergency_bg_color, emergency_text_color");
     setDepartments(data ?? []);
     setSelectedIds(new Set((data ?? []).map((d: any) => d.id)));
     if (data && data[0]) {
       setMessage(data[0].emergency_message ?? "");
+      setBgColor(data[0].emergency_bg_color || DEFAULT_BG);
+      setFgColor(data[0].emergency_text_color || DEFAULT_FG);
     }
   }
 
@@ -57,6 +64,8 @@ export default function EmergencyPage() {
         .update({
           emergency_active: true,
           emergency_message: message,
+          emergency_bg_color: bgColor,
+          emergency_text_color: fgColor,
           emergency_orientation: targetOrientation,
           emergency_display: targetDisplay,
         })
@@ -241,6 +250,34 @@ export default function EmergencyPage() {
             placeholder="כתוב כאן את הודעת החירום..."
             className="w-full rounded-xl border border-slate-200 p-4 text-xl text-right resize-none h-32 focus:outline-none focus:ring-2 focus:ring-red-400"
           />
+
+          {/* צבעים + תצוגה מקדימה */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-700">צבע רקע</label>
+              <div className="flex gap-2 items-center">
+                <input type="color" value={bgColor} onChange={(e) => setBgColor(e.target.value)} className="w-14 h-10 rounded cursor-pointer p-1 border" />
+                <input type="text" value={bgColor} onChange={(e) => setBgColor(e.target.value)} className="flex-1 rounded border px-2 py-1 text-sm" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-700">צבע כתב</label>
+              <div className="flex gap-2 items-center">
+                <input type="color" value={fgColor} onChange={(e) => setFgColor(e.target.value)} className="w-14 h-10 rounded cursor-pointer p-1 border" />
+                <input type="text" value={fgColor} onChange={(e) => setFgColor(e.target.value)} className="flex-1 rounded border px-2 py-1 text-sm" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-700">תצוגה מקדימה</label>
+              <div
+                className="rounded-xl p-3 text-center font-bold shadow-inner"
+                style={{ backgroundColor: bgColor, color: fgColor }}
+              >
+                {message || "הודעת חירום"}
+              </div>
+            </div>
+          </div>
+
           <div className="flex gap-3">
             <button
               onClick={handleActivate}

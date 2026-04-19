@@ -7,17 +7,18 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Plus, Trash2, Check } from "lucide-react"
+import { Plus, Trash2, Check, Image as ImageIcon, X } from "lucide-react"
 
 interface Department { id: string; name: string }
-interface Topic { id: string; title: string; description: string; week_start: string; is_active: boolean; department_id: string }
+interface Topic { id: string; title: string; description: string; week_start: string; is_active: boolean; department_id: string; image_url?: string | null }
 
 export default function TopicsPage() {
   const [departments, setDepartments] = useState<Department[]>([])
   const [topics, setTopics] = useState<Topic[]>([])
-  const [form, setForm] = useState({ title: "", description: "", week_start: "", department_id: "" })
+  const [form, setForm] = useState({ title: "", description: "", week_start: "", department_id: "", image_url: "" })
   const [isLoading, setIsLoading] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [isUploading, setIsUploading] = useState(false)
 
   useEffect(() => {
     const supabase = createClient()
@@ -42,13 +43,31 @@ export default function TopicsPage() {
       description: form.description || null,
       week_start: form.week_start,
       department_id: form.department_id,
+      image_url: form.image_url || null,
       is_active: true,
     })
-    setForm({ title: "", description: "", week_start: "", department_id: "" })
+    setForm({ title: "", description: "", week_start: "", department_id: "", image_url: "" })
     setIsLoading(false)
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
     loadTopics()
+  }
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setIsUploading(true)
+    const supabase = createClient()
+    const ext = file.name.split(".").pop()?.toLowerCase()
+    const fileName = `topics/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+    const { error } = await supabase.storage.from("department-media").upload(fileName, file, { upsert: true })
+    if (!error) {
+      const { data } = supabase.storage.from("department-media").getPublicUrl(fileName)
+      setForm((f) => ({ ...f, image_url: data.publicUrl }))
+    } else {
+      alert("שגיאה בהעלאת תמונה: " + error.message)
+    }
+    setIsUploading(false)
   }
 
   const deleteTopic = async (id: string) => {
@@ -94,6 +113,25 @@ export default function TopicsPage() {
             <label className="text-sm font-medium">תיאור (אופציונלי)</label>
             <Textarea placeholder="פירוט על הנושא השבועי..." value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} />
           </div>
+          <div>
+            <label className="text-sm font-medium">תמונה (אופציונלי)</label>
+            {form.image_url ? (
+              <div className="mt-2 flex items-center gap-3">
+                <img src={form.image_url} alt="preview" className="h-20 w-20 rounded-lg object-cover border" />
+                <Button type="button" variant="outline" size="sm" onClick={() => setForm({ ...form, image_url: "" })}>
+                  <X className="h-4 w-4 me-1" /> הסר
+                </Button>
+              </div>
+            ) : (
+              <div className="mt-2">
+                <label className="flex items-center gap-2 cursor-pointer rounded-md border border-dashed px-3 py-2 hover:bg-slate-50">
+                  <ImageIcon className="h-4 w-4" />
+                  <span className="text-sm">{isUploading ? "מעלה..." : "בחר תמונה"}</span>
+                  <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} disabled={isUploading} />
+                </label>
+              </div>
+            )}
+          </div>
           <Button className="w-full gap-2" onClick={handleSubmit} disabled={isLoading || !form.title || !form.week_start || !form.department_id}>
             {saved ? <><Check className="h-4 w-4" /> נשמר!</> : isLoading ? "שומר..." : <><Plus className="h-4 w-4" /> הוסף נושא</>}
           </Button>
@@ -109,6 +147,9 @@ export default function TopicsPage() {
             <div className="space-y-3">
               {topics.map((topic: any) => (
                 <div key={topic.id} className="flex items-center justify-between p-4 rounded-lg border gap-4">
+                  {topic.image_url && (
+                    <img src={topic.image_url} alt={topic.title} className="h-16 w-16 rounded-lg object-cover shrink-0" />
+                  )}
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
                       <span className="font-bold text-lg">{topic.title}</span>

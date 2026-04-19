@@ -183,7 +183,7 @@ export default async function DisplayPage({ params }: { params: Promise<{ code: 
           <div className="mx-auto flex h-full w-full max-w-none flex-col gap-4 p-4 md:gap-5 md:p-6 lg:p-8">
 
             {/* Header */}
-            <header className="grid grid-cols-1 gap-3 xl:grid-cols-[1.4fr_1fr]">
+            <header className="daily-header grid grid-cols-1 gap-3 xl:grid-cols-[1.4fr_1fr]">
               <Card className="rounded-3xl border-0 bg-white/95 shadow-xl">
                 <CardContent className="flex items-center justify-between gap-4 p-5 xl:p-6">
                   <div className="space-y-1.5">
@@ -317,6 +317,13 @@ export default async function DisplayPage({ params }: { params: Promise<{ code: 
                   {weeklyTopic && (
                     <Card className="rounded-[2rem] border-0 bg-white shadow-xl mb-3">
                       <CardContent className="p-4 flex items-center gap-4">
+                        {weeklyTopic.image_url && (
+                          <img
+                            src={weeklyTopic.image_url}
+                            alt={weeklyTopic.title}
+                            className="h-20 w-20 rounded-2xl object-cover shadow-sm"
+                          />
+                        )}
                         <Badge className="rounded-full px-4 py-1 text-lg font-semibold text-white whitespace-nowrap" style={{ backgroundColor: department.color }}>נושא השבוע</Badge>
                         <div>
                           <h2 className="text-2xl font-bold text-slate-800">{weeklyTopic.title}</h2>
@@ -326,37 +333,37 @@ export default async function DisplayPage({ params }: { params: Promise<{ code: 
                     </Card>
                   )}
                   <Card className="flex flex-1 min-h-0 flex-col rounded-[2rem] border-0 bg-white shadow-2xl">
-                    <CardHeader className="pb-2 pt-5 px-6">
-                      <CardTitle className="text-3xl font-bold">לוח פעילויות שבועי</CardTitle>
+                    <CardHeader className="pb-3 pt-6 px-8">
+                      <CardTitle className="text-4xl font-bold xl:text-5xl">לוח פעילויות שבועי</CardTitle>
                     </CardHeader>
-                    <CardContent className="flex-1 min-h-0 overflow-auto p-4">
-                      <div className="grid h-full grid-cols-7 gap-2">
+                    <CardContent className="flex-1 min-h-0 overflow-auto p-5">
+                      <div className="grid h-full grid-cols-7 gap-3">
                         {dayOrder.map((dayCode) => {
                           const isToday = dayCode === todayCode;
                           const acts = weeklyActivities[dayCode] || [];
                           return (
-                            <div key={dayCode} className="flex flex-col rounded-2xl p-2 transition-all" style={{ backgroundColor: isToday ? department.color + "20" : "#f8fafc", border: isToday ? `2px solid ${department.color}` : "2px solid transparent" }}>
-                              <div className="text-center mb-2">
-                                <div className="text-lg font-bold" style={{ color: isToday ? department.color : "#334155" }}>{dayNames[dayCode]}</div>
-                                <div className="text-xs font-medium text-slate-500 mt-0.5" dir="ltr">{weekDates[dayCode]}</div>
-                                {isToday && <Badge className="mt-0.5 text-xs" style={{ backgroundColor: department.color }}>היום</Badge>}
+                            <div key={dayCode} className="flex flex-col rounded-2xl p-3 transition-all" style={{ backgroundColor: isToday ? department.color + "20" : "#f8fafc", border: isToday ? `3px solid ${department.color}` : "3px solid transparent" }}>
+                              <div className="text-center mb-3">
+                                <div className="text-2xl font-bold" style={{ color: isToday ? department.color : "#334155" }}>{dayNames[dayCode]}</div>
+                                <div className="text-sm font-medium text-slate-500 mt-0.5" dir="ltr">{weekDates[dayCode]}</div>
+                                {isToday && <Badge className="mt-1 text-sm" style={{ backgroundColor: department.color }}>היום</Badge>}
                               </div>
-                              <div className="flex-1 space-y-1.5 overflow-auto">
+                              <div className="flex-1 space-y-2 overflow-auto">
                                 {acts.length > 0 ? acts.map((act) => {
                                   const Icon = getActivityIcon(act.category);
                                   return (
-                                    <div key={act.id} className="rounded-xl p-2 bg-white shadow-sm">
-                                      <div className="flex items-center gap-1 mb-0.5">
-                                        <Icon className="h-3 w-3 text-slate-500" />
-                                        <span className="text-xs font-semibold text-slate-500">{getActivityLabel(act.category)}</span>
+                                    <div key={act.id} className="rounded-xl p-2.5 bg-white shadow-sm">
+                                      <div className="flex items-center gap-1.5 mb-1">
+                                        <Icon className="h-4 w-4 text-slate-500" />
+                                        <span className="text-sm font-semibold text-slate-500">{getActivityLabel(act.category)}</span>
                                       </div>
-                                      <div className="text-sm font-bold leading-tight text-slate-800">{act.title}</div>
-                                      <div className="text-xs text-slate-500 mt-0.5" dir="ltr">{act.start_time?.slice(0,5)}{act.end_time && ` - ${act.end_time?.slice(0,5)}`}</div>
-                                      {act.location && <div className="text-xs text-slate-400 flex items-center gap-1 mt-0.5"><MapPin className="h-3 w-3" />{act.location}</div>}
+                                      <div className="text-base font-bold leading-tight text-slate-800">{act.title}</div>
+                                      <div className="text-sm text-slate-500 mt-1" dir="ltr">{act.start_time?.slice(0,5)}{act.end_time && ` - ${act.end_time?.slice(0,5)}`}</div>
+                                      {act.location && <div className="text-sm text-slate-400 flex items-center gap-1 mt-0.5"><MapPin className="h-3 w-3" />{act.location}</div>}
                                     </div>
                                   );
                                 }) : (
-                                  <div className="text-center text-slate-400 text-xs py-2">אין פעילויות</div>
+                                  <div className="text-center text-slate-400 text-sm py-3">אין פעילויות</div>
                                 )}
                               </div>
                             </div>
@@ -373,18 +380,16 @@ export default async function DisplayPage({ params }: { params: Promise<{ code: 
             {/* Footer - Ticker */}
             {displaySettings.show_ticker && tickerItems.length > 0 && (
               <footer className="shrink-0">
-                <Card className="overflow-hidden rounded-[2rem] border-0 bg-slate-900 text-white shadow-xl">
-                  <CardContent className="p-0">
-                    <div className="flex items-center gap-3 border-b border-white/10 px-5 py-2">
-                      <Badge className="rounded-full bg-white/15 px-3 py-0.5 text-base text-white hover:bg-white/15">הודעות מתחלפות</Badge>
-                    </div>
-                    <div className="relative overflow-hidden py-3">
-                      <div className="ticker-track flex w-max items-center gap-8 px-5">
+                <Card className="overflow-hidden rounded-2xl border-0 bg-slate-900 text-white shadow-xl">
+                  <CardContent className="flex items-center gap-3 p-0">
+                    <Badge className="ms-3 shrink-0 rounded-full bg-white/15 px-3 py-0.5 text-sm text-white hover:bg-white/15">הודעות</Badge>
+                    <div className="relative flex-1 overflow-hidden py-2">
+                      <div className="ticker-track flex w-max items-center gap-6">
                         {[...tickerItems, ...tickerItems].map((item, index) => (
-                          <div key={`${item.id}-${index}`} className="flex items-center gap-3 whitespace-nowrap">
-                            <Megaphone className="h-6 w-6 text-emerald-300" />
-                            <span className="text-2xl font-semibold xl:text-3xl">{item.message || item.content || item.title}</span>
-                            <Separator orientation="vertical" className="mx-2 h-6 bg-white/20" />
+                          <div key={`${item.id}-${index}`} className="flex items-center gap-2 whitespace-nowrap">
+                            <Megaphone className="h-4 w-4 text-emerald-300" />
+                            <span className="text-lg font-semibold xl:text-xl">{item.message || item.content || item.title}</span>
+                            <Separator orientation="vertical" className="mx-1 h-4 bg-white/20" />
                           </div>
                         ))}
                       </div>
@@ -442,6 +447,8 @@ export default async function DisplayPage({ params }: { params: Promise<{ code: 
                 normalScreen.style.display = 'block';
                 if (daily)  daily.style.display  = viewName === 'daily'  ? 'flex' : 'none';
                 if (weekly) weekly.style.display = viewName === 'weekly' ? 'flex' : 'none';
+                var header = document.querySelector('.daily-header');
+                if (header) header.style.display = viewName === 'weekly' ? 'none' : 'grid';
               }
             }
 

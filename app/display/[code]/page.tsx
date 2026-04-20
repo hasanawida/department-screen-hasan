@@ -128,10 +128,14 @@ export default async function DisplayPage({ params }: { params: Promise<{ code: 
   if (!data) notFound();
 
   const { department, currentActivity, nextActivities, weeklyActivities, todayCode, weekDates, weeklyTopic, announcements, tickerMessages, settings, displaySettings, mediaItems, now } = data;
+
+  // סניטציה לצבע לפני הטמעה ב-dangerouslySetInnerHTML — רק hex חוקי
+  const safeColor = /^#[0-9A-Fa-f]{3,8}$/.test(department.color) ? department.color : "#10B981";
+
   const CurrentIcon = getActivityIcon(currentActivity?.category);
   const greeting = getGreeting(now.getHours());
   const tickerItems = tickerMessages.length > 0 ? tickerMessages : announcements;
-  const displaySeconds = displaySettings.view_interval_seconds * 1000;
+  const displaySeconds = Math.max(5000, Math.min(120000, Number(displaySettings.view_interval_seconds) * 1000 || 20000));
 
   const allMediaSlides: { url: string; type: string }[] = [];
   if (mediaItems.length > 0) {
@@ -408,9 +412,9 @@ export default async function DisplayPage({ params }: { params: Promise<{ code: 
           (function() {
             var displaySeconds = ${displaySeconds};
             var mediaCount = ${allMediaSlides.length};
-            var showMedia = ${displaySettings.show_media};
+            var showMedia = ${displaySettings.show_media ? 'true' : 'false'};
             var currentMediaIdx = 0;
-            var departmentColor = '${department.color}';
+            var departmentColor = ${JSON.stringify(safeColor)};
 
             var normalScreen    = document.getElementById('normal-screen');
             var mediaFullscreen = document.getElementById('media-fullscreen');

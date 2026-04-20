@@ -75,11 +75,6 @@ function LoginForm() {
                   <Button type="submit" className="w-full" disabled={isLoading}>
                     {isLoading ? 'מתחבר...' : 'התחבר'}
                   </Button>
-                  <div className="text-center text-sm">
-                    <a href="/auth/sign-up" className="underline underline-offset-4">
-                      אין לך חשבון? הירשם
-                    </a>
-                  </div>
                 </div>
               </form>
             </CardContent>

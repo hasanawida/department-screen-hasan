@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
 
 const LANG_NAMES: Record<string, string> = {
   he: "Hebrew",
@@ -9,6 +10,13 @@ const LANG_NAMES: Record<string, string> = {
 
 export async function POST(req: NextRequest) {
   try {
+    // בדיקת אימות — רק משתמשים מחוברים
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { text, targetLangs } = (await req.json()) as { text: string; targetLangs: string[] };
     if (!text || !Array.isArray(targetLangs) || targetLangs.length === 0) {
       return NextResponse.json({ error: "Missing text or targetLangs" }, { status: 400 });

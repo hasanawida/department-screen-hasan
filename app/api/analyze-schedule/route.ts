@@ -1,8 +1,16 @@
 import { NextRequest, NextResponse } from "next/server"
 import Anthropic from "@anthropic-ai/sdk"
+import { createClient } from "@/lib/supabase/server"
 const client = new Anthropic()
 export async function POST(request: NextRequest) {
   try {
+    // בדיקת אימות — רק משתמשים מחוברים
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
     const { base64, mediaType, fileName } = await request.json()
     const isPDF = mediaType === "application/pdf" || fileName?.toLowerCase().endsWith(".pdf")
     const prompt = `נתח את לוח הפעילויות והחזר JSON בלבד בפורמט הבא:
@@ -45,17 +53,14 @@ export async function POST(request: NextRequest) {
       messages: [{ role: "user", content }],
     })
     const text = response.content[0].type === "text" ? response.content[0].text : ""
-    console.log("AI RAW RESPONSE:", text)
     const clean = text.replace(/```json|```/g, "").trim()
     try {
       const parsed = JSON.parse(clean)
       return NextResponse.json(parsed)
     } catch {
-      console.error("PARSE ERROR. Clean text:", clean)
       return NextResponse.json({ error: "לא הצלחתי לנתח את הקובץ" }, { status: 400 })
     }
   } catch (error: any) {
-    console.error("FULL ERROR:", error?.message || error)
     return NextResponse.json({ error: "אירעה שגיאה" }, { status: 500 })
   }
 }

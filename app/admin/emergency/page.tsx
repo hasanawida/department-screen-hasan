@@ -12,10 +12,21 @@ const supabase = createClient(
 const DEFAULT_BG = "#DC2626";
 const DEFAULT_FG = "#FFFFFF";
 
+type LangKey = "he" | "ar" | "ru" | "en";
+const LANG_LABELS: Record<LangKey, string> = {
+  he: "עברית",
+  ar: "ערבית",
+  ru: "רוסית",
+  en: "אנגלית",
+};
+
 export default function EmergencyPage() {
   const [message, setMessage] = useState("");
   const [bgColor, setBgColor] = useState(DEFAULT_BG);
   const [fgColor, setFgColor] = useState(DEFAULT_FG);
+  const [languages, setLanguages] = useState<LangKey[]>(["he"]);
+  const [speak, setSpeak] = useState(false);
+  const [translating, setTranslating] = useState(false);
   const [departments, setDepartments] = useState<any[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [targetOrientation, setTargetOrientation] = useState(true);
@@ -29,16 +40,23 @@ export default function EmergencyPage() {
 
   async function loadDepartments() {
     let data: any[] | null = null;
-    const withColors = await supabase
+    const full = await supabase
       .from("departments")
-      .select("id, name, color, emergency_active, emergency_message, emergency_bg_color, emergency_text_color");
-    if (withColors.error) {
-      const fallback = await supabase
+      .select("id, name, color, emergency_active, emergency_message, emergency_bg_color, emergency_text_color, emergency_translations, emergency_languages, emergency_speak");
+    if (full.error) {
+      const withColors = await supabase
         .from("departments")
-        .select("id, name, color, emergency_active, emergency_message");
-      data = fallback.data ?? [];
+        .select("id, name, color, emergency_active, emergency_message, emergency_bg_color, emergency_text_color");
+      if (withColors.error) {
+        const base = await supabase
+          .from("departments")
+          .select("id, name, color, emergency_active, emergency_message");
+        data = base.data ?? [];
+      } else {
+        data = withColors.data ?? [];
+      }
     } else {
-      data = withColors.data ?? [];
+      data = full.data ?? [];
     }
     setDepartments(data);
     setSelectedIds(new Set(data.map((d: any) => d.id)));
@@ -46,7 +64,17 @@ export default function EmergencyPage() {
       setMessage(data[0].emergency_message ?? "");
       setBgColor(data[0].emergency_bg_color || DEFAULT_BG);
       setFgColor(data[0].emergency_text_color || DEFAULT_FG);
+      if (Array.isArray(data[0].emergency_languages) && data[0].emergency_languages.length) {
+        setLanguages(data[0].emergency_languages as LangKey[]);
+      }
+      setSpeak(!!data[0].emergency_speak);
     }
+  }
+
+  function toggleLang(l: LangKey) {
+    setLanguages((prev) =>
+      prev.includes(l) ? prev.filter((x) => x !== l) : [...prev, l]
+    );
   }
 
   function toggleDept(id: string) {
@@ -67,28 +95,60 @@ export default function EmergencyPage() {
 
   async function handleActivate() {
     if (!message || selectedIds.size === 0) return;
+
+    // תרגום אוטומטי לשפות הנבחרות (חוץ מעברית)
+    let translations: Record<string, string> = { he: message };
+    const othersToTranslate = languages.filter((l) => l !== "he");
+    if (othersToTranslate.length > 0) {
+      setTranslating(true);
+      try {
+        const res = await fetch("/api/translate-reminder", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: message, targetLangs: languages }),
+        });
+        const data = await res.json();
+        if (res.ok && data.messages) translations = data.messages;
+        else console.warn("Translation failed:", data.error);
+      } catch (e) {
+        console.warn("Translation error:", e);
+      }
+      setTranslating(false);
+    }
+
+    const fullPayload = {
+      emergency_active: true,
+      emergency_message: message,
+      emergency_translations: translations,
+      emergency_languages: languages,
+      emergency_speak: speak,
+      emergency_bg_color: bgColor,
+      emergency_text_color: fgColor,
+      emergency_orientation: targetOrientation,
+      emergency_display: targetDisplay,
+    };
+    const colorsOnly = {
+      emergency_active: true,
+      emergency_message: message,
+      emergency_bg_color: bgColor,
+      emergency_text_color: fgColor,
+      emergency_orientation: targetOrientation,
+      emergency_display: targetDisplay,
+    };
+    const minimal = {
+      emergency_active: true,
+      emergency_message: message,
+      emergency_orientation: targetOrientation,
+      emergency_display: targetDisplay,
+    };
+
     for (const id of selectedIds) {
-      const res = await supabase
-        .from("departments")
-        .update({
-          emergency_active: true,
-          emergency_message: message,
-          emergency_bg_color: bgColor,
-          emergency_text_color: fgColor,
-          emergency_orientation: targetOrientation,
-          emergency_display: targetDisplay,
-        })
-        .eq("id", id);
-      if (res.error) {
-        await supabase
-          .from("departments")
-          .update({
-            emergency_active: true,
-            emergency_message: message,
-            emergency_orientation: targetOrientation,
-            emergency_display: targetDisplay,
-          })
-          .eq("id", id);
+      const r1 = await supabase.from("departments").update(fullPayload).eq("id", id);
+      if (r1.error) {
+        const r2 = await supabase.from("departments").update(colorsOnly).eq("id", id);
+        if (r2.error) {
+          await supabase.from("departments").update(minimal).eq("id", id);
+        }
       }
     }
     setSaved(true);
@@ -298,14 +358,48 @@ export default function EmergencyPage() {
             </div>
           </div>
 
+          {/* שפות להצגה */}
+          <div>
+            <label className="text-sm font-bold text-slate-700 mb-2 block">שפות להצגה במסך</label>
+            <div className="flex flex-wrap gap-2">
+              {(Object.keys(LANG_LABELS) as LangKey[]).map((l) => (
+                <button
+                  key={l}
+                  type="button"
+                  onClick={() => toggleLang(l)}
+                  className={`px-3 py-1.5 rounded-full border text-sm font-medium transition-colors ${
+                    languages.includes(l)
+                      ? "bg-indigo-600 text-white border-indigo-600"
+                      : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
+                  }`}
+                >{LANG_LABELS[l]}</button>
+              ))}
+            </div>
+            <p className="text-xs text-slate-500 mt-1">המסך יחליף בין השפות הנבחרות אוטומטית. תרגום ע״י AI.</p>
+          </div>
+
+          {/* הקראה קולית */}
+          <label className="flex items-center gap-3 rounded-xl bg-slate-50 border border-slate-200 px-4 py-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={speak}
+              onChange={(e) => setSpeak(e.target.checked)}
+              className="h-5 w-5 accent-red-600"
+            />
+            <div>
+              <div className="font-bold text-slate-800">הקראה קולית של ההודעה</div>
+              <div className="text-xs text-slate-500">המסך יקריא את ההודעה בקול בשפות הנבחרות</div>
+            </div>
+          </label>
+
           <div className="flex gap-3">
             <button
               onClick={handleActivate}
-              disabled={!message || selectedIds.size === 0}
+              disabled={!message || selectedIds.size === 0 || translating}
               className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-red-600 hover:bg-red-700 disabled:bg-slate-300 text-white py-4 text-xl font-bold transition-colors"
             >
               <AlertTriangle className="h-5 w-5" />
-              הפעל ({selectedIds.size} מחלקות)
+              {translating ? "מתרגם..." : `הפעל (${selectedIds.size} מחלקות)`}
             </button>
             <button
               onClick={handleDeactivateAll}

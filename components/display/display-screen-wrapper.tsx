@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import VoiceRemindersPlayer from "@/components/voice-reminders-player";
+import EmergencyOverlay from "@/components/emergency-overlay";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -26,24 +27,40 @@ export default function DisplayScreenWrapper({
   const [emergencyMessage, setEmergencyMessage] = useState(initialEmergencyMessage);
   const [bgColor, setBgColor] = useState("#DC2626");
   const [fgColor, setFgColor] = useState("#FFFFFF");
+  const [translations, setTranslations] = useState<Record<string, string> | null>(null);
+  const [languages, setLanguages] = useState<string[] | null>(null);
+  const [speakAloud, setSpeakAloud] = useState(false);
 
   useEffect(() => {
     async function checkEmergency() {
-      const { data } = await supabase
+      let row: any = null;
+      const full = await supabase
         .from("departments")
-        .select("emergency_active, emergency_message, emergency_display, emergency_bg_color, emergency_text_color")
+        .select("emergency_active, emergency_message, emergency_display, emergency_bg_color, emergency_text_color, emergency_translations, emergency_languages, emergency_speak")
         .eq("id", departmentId)
         .single();
-      if (data) {
-        if (data.emergency_active && data.emergency_display) {
-          setEmergencyActive(true);
-          setEmergencyMessage(data.emergency_message ?? "");
-          setBgColor((data as any).emergency_bg_color || "#DC2626");
-          setFgColor((data as any).emergency_text_color || "#FFFFFF");
-        } else {
-          setEmergencyActive(false);
-          setEmergencyMessage("");
-        }
+      if (full.error) {
+        const fallback = await supabase
+          .from("departments")
+          .select("emergency_active, emergency_message, emergency_display")
+          .eq("id", departmentId)
+          .single();
+        row = fallback.data;
+      } else {
+        row = full.data;
+      }
+
+      if (row && row.emergency_active && row.emergency_display) {
+        setEmergencyActive(true);
+        setEmergencyMessage(row.emergency_message ?? "");
+        setBgColor(row.emergency_bg_color || "#DC2626");
+        setFgColor(row.emergency_text_color || "#FFFFFF");
+        setTranslations(row.emergency_translations || null);
+        setLanguages(row.emergency_languages || null);
+        setSpeakAloud(!!row.emergency_speak);
+      } else {
+        setEmergencyActive(false);
+        setEmergencyMessage("");
       }
     }
 
@@ -69,6 +86,9 @@ export default function DisplayScreenWrapper({
             setEmergencyMessage(payload.new.emergency_message ?? "");
             setBgColor(payload.new.emergency_bg_color || "#DC2626");
             setFgColor(payload.new.emergency_text_color || "#FFFFFF");
+            setTranslations(payload.new.emergency_translations || null);
+            setLanguages(payload.new.emergency_languages || null);
+            setSpeakAloud(!!payload.new.emergency_speak);
           } else {
             setEmergencyActive(false);
             setEmergencyMessage("");
@@ -86,19 +106,15 @@ export default function DisplayScreenWrapper({
   return (
     <>
       <VoiceRemindersPlayer departmentId={departmentId} screenType="display" />
-      {emergencyActive && emergencyMessage && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center"
-          style={{ backgroundColor: bgColor + "F2" }}
-        >
-          <div className="text-center p-10">
-            <div className="text-8xl mb-6">🚨</div>
-            <div className="text-5xl font-black leading-tight" style={{ color: fgColor }} dir="rtl">
-              {emergencyMessage}
-            </div>
-          </div>
-        </div>
-      )}
+      <EmergencyOverlay
+        active={emergencyActive && !!emergencyMessage}
+        message={emergencyMessage}
+        translations={translations}
+        languages={languages}
+        bgColor={bgColor}
+        fgColor={fgColor}
+        speakAloud={speakAloud}
+      />
       {children}
     </>
   );

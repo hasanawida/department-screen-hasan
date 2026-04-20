@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Building2, Calendar, Monitor, LogOut, Home, LayoutDashboard, Upload, Users, UserRound, GraduationCap, AlertTriangle, Volume2 } from "lucide-react"
+import { Building2, Calendar, Monitor, LogOut, Home, LayoutDashboard, Upload, Users, UserRound, GraduationCap, AlertTriangle, Volume2, ShieldCheck } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface AdminSidebarProps {
@@ -21,6 +21,7 @@ const navItems = [
   { href: "/admin/residents", label: "דיירים", icon: UserRound },
   { href: "/admin/orientation", label: "מסכי התמצאות", icon: Monitor },
   { href: "/admin/voice-reminders", label: "תזכורת קולית", icon: Volume2 },
+  { href: "/admin/users", label: "מנהלי מערכת", icon: ShieldCheck },
   { href: "/admin/emergency", label: "הודעת חירום", icon: AlertTriangle },
 ]
 

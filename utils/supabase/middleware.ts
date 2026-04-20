@@ -31,14 +31,32 @@ export async function updateSession(request: NextRequest) {
   const pathname = request.nextUrl.pathname
   const isAuthPage = pathname.startsWith('/auth')
   const isAdminPage = pathname.startsWith('/admin')
-  const isAdminApi = pathname.startsWith('/api/translate-reminder') || pathname.startsWith('/api/analyze-schedule')
+  const isAdminApi =
+    pathname.startsWith('/api/translate-reminder') ||
+    pathname.startsWith('/api/analyze-schedule') ||
+    pathname.startsWith('/api/admins')
 
-  // רשימת מורשים לניהול — מהסביבה (ADMIN_EMAILS="a@x,b@y"). אם ריק → כל משתמש מחובר.
-  const allowed = (process.env.ADMIN_EMAILS || '')
-    .split(',')
-    .map(s => s.trim().toLowerCase())
-    .filter(Boolean)
-  const isAllowedUser = user && (allowed.length === 0 || (user.email && allowed.includes(user.email.toLowerCase())))
+  // רשימת מורשים: קודם טבלת admins ב-DB, ואם אין — fallback ל-ADMIN_EMAILS מה-env
+  let isAllowedUser = false
+  if (user && user.email) {
+    const emailLc = user.email.toLowerCase()
+
+    const { data: adminRow } = await supabase
+      .from('admins')
+      .select('email')
+      .eq('email', emailLc)
+      .maybeSingle()
+
+    if (adminRow) {
+      isAllowedUser = true
+    } else {
+      const fallback = (process.env.ADMIN_EMAILS || '')
+        .split(',')
+        .map((s) => s.trim().toLowerCase())
+        .filter(Boolean)
+      if (fallback.length === 0 || fallback.includes(emailLc)) isAllowedUser = true
+    }
+  }
 
   // לא מחובר ומנסה להיכנס לאדמין → לוגין
   if (!user && isAdminPage) {

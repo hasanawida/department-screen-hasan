@@ -106,13 +106,36 @@ export default function ImportPage() {
     if (!selectedDept || activities.length === 0) return
     setIsSaving(true)
     const supabase = createClient()
+
+    // upsert מפעילים מתוך הפעילויות שמיובאות
+    const uniqueNames = Array.from(new Set(
+      activities.map((a) => (a.instructor_name || "").trim()).filter(Boolean)
+    ))
+    if (uniqueNames.length > 0) {
+      const { data: existing } = await supabase
+        .from("instructors")
+        .select("name, view_token")
+        .in("name", uniqueNames)
+      const existingMap = new Map((existing || []).map((i: any) => [i.name, i]))
+      for (const name of uniqueNames) {
+        const cur = existingMap.get(name) as any
+        if (!cur) {
+          const token = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)
+          await supabase.from("instructors").insert({ name, view_token: token })
+        } else if (!cur.view_token) {
+          const token = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)
+          await supabase.from("instructors").update({ view_token: token }).eq("name", name)
+        }
+      }
+    }
+
     for (const activity of activities) {
       await supabase.from("activities").insert({
         title: activity.title,
         start_time: activity.start_time,
         end_time: activity.end_time || null,
         location: activity.location || null,
-        instructor_name: activity.instructor_name || null,
+        instructor_name: (activity.instructor_name || "").trim() || null,
         day_of_week: activity.day_of_week || null,
         activity_date: activity.activity_date || null,
         is_recurring: activity.is_recurring !== false,

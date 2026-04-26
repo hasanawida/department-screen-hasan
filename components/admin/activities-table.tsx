@@ -172,6 +172,8 @@ export function ActivitiesTable({ activities, departments }: ActivitiesTableProp
     if (!editingActivity) return
     setIsSaving(true)
     const supabase = createClient()
+    const instructorNameTrimmed = (editForm.instructor_name || "").trim()
+
     await supabase.from("activities").update({
       title: editForm.title,
       description: editForm.description || null,
@@ -179,7 +181,7 @@ export function ActivitiesTable({ activities, departments }: ActivitiesTableProp
       end_time: editForm.end_time || null,
       location: editForm.location || null,
       department_id: editForm.department_id,
-      instructor_name: editForm.instructor_name || null,
+      instructor_name: instructorNameTrimmed || null,
       participants: editForm.participants || null,
       day_of_week: editForm.day_of_week || null,
       category: editForm.category || null,
@@ -188,6 +190,23 @@ export function ActivitiesTable({ activities, departments }: ActivitiesTableProp
       activity_date: editForm.activity_date || null,
       is_recurring: editForm.is_recurring,
     }).eq("id", editingActivity.id)
+
+    // ודא רשומת מפעיל עם view_token
+    if (instructorNameTrimmed) {
+      const { data: existing } = await supabase
+        .from("instructors")
+        .select("id, view_token")
+        .eq("name", instructorNameTrimmed)
+        .maybeSingle()
+      if (!existing) {
+        const token = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)
+        await supabase.from("instructors").insert({ name: instructorNameTrimmed, view_token: token })
+      } else if (!existing.view_token) {
+        const token = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)
+        await supabase.from("instructors").update({ view_token: token }).eq("id", existing.id)
+      }
+    }
+
     setEditingActivity(null)
     setIsSaving(false)
     router.refresh()

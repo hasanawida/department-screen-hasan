@@ -1,7 +1,8 @@
 "use client";
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState } from "react";
-import { Card, CardContent } from "@/components/ui/card";
+import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -9,7 +10,7 @@ import {
 } from "@/components/ui/select";
 import {
   Clock, Calendar, Bell, MessageSquare, BookOpen, Image as ImageIcon,
-  CloudSun, Trash2, Plus, Save, Eye, Palette, Sparkles,
+  CloudSun, Trash2, Plus, Save, Eye, Palette, Sparkles, Upload,
 } from "lucide-react";
 
 import { Responsive, WidthProvider } from "react-grid-layout";
@@ -273,6 +274,41 @@ export default function LayoutDemoPage() {
   const [bgImageOpacity, setBgImageOpacity] = useState(0.3);
   const [bgImageFit, setBgImageFit] = useState<"cover" | "contain" | "repeat">("cover");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [isUploadingBg, setIsUploadingBg] = useState(false);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+
+  async function uploadFile(file: File): Promise<string | null> {
+    const supabase = createClient();
+    const ext = file.name.split(".").pop()?.toLowerCase() || "png";
+    const fileName = `layout-demo/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+    const { error } = await supabase.storage.from("department-media").upload(fileName, file, { upsert: true });
+    if (error) {
+      alert("שגיאה בהעלאת קובץ: " + error.message);
+      return null;
+    }
+    const { data } = supabase.storage.from("department-media").getPublicUrl(fileName);
+    return data.publicUrl;
+  }
+
+  async function handleBgUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploadingBg(true);
+    const url = await uploadFile(file);
+    setIsUploadingBg(false);
+    if (url) setBgImage(url);
+    e.target.value = "";
+  }
+
+  async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>, widgetId: string) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploadingLogo(true);
+    const url = await uploadFile(file);
+    setIsUploadingLogo(false);
+    if (url) updateWidget(widgetId, { imageUrl: url });
+    e.target.value = "";
+  }
 
   useEffect(() => {
     loadTemplate("classic");
@@ -421,6 +457,12 @@ export default function LayoutDemoPage() {
 
             <h2 className="text-sm font-bold mt-4 mb-2 text-slate-600">תמונת רקע</h2>
             <div className="space-y-2">
+              <label className="flex items-center justify-center gap-2 w-full text-xs border border-dashed rounded px-3 py-2 cursor-pointer hover:bg-slate-50">
+                <Upload className="h-3 w-3" />
+                {isUploadingBg ? "מעלה..." : "העלה תמונה מהמחשב"}
+                <input type="file" accept="image/*" className="hidden" onChange={handleBgUpload} disabled={isUploadingBg} />
+              </label>
+              <div className="text-[10px] text-slate-400 text-center">או הדבק URL ↓</div>
               <Input
                 value={bgImage}
                 onChange={(e) => setBgImage(e.target.value)}
@@ -497,8 +539,11 @@ export default function LayoutDemoPage() {
               isResizable={!previewMode}
               onLayoutChange={onLayoutChange}
               draggableCancel=".no-drag"
-              compactType="vertical"
+              compactType={null}
+              preventCollision={true}
+              allowOverlap={false}
               margin={[8, 8]}
+              isBounded={false}
             >
               {layout.map((l) => {
                 const w = items.find((x) => x.i === l.i)
@@ -585,8 +630,14 @@ export default function LayoutDemoPage() {
 
               {selectedWidget.type === "logo" && (
                 <>
-                  <div className="pt-2 border-t">
-                    <label className="text-xs font-medium block mb-1">URL של תמונת לוגו</label>
+                  <div className="pt-2 border-t space-y-2">
+                    <label className="text-xs font-medium block">תמונת לוגו</label>
+                    <label className="flex items-center justify-center gap-2 w-full text-xs border border-dashed rounded px-3 py-2 cursor-pointer hover:bg-slate-50">
+                      <Upload className="h-3 w-3" />
+                      {isUploadingLogo ? "מעלה..." : "העלה לוגו מהמחשב"}
+                      <input type="file" accept="image/*" className="hidden" onChange={(e) => handleLogoUpload(e, selectedWidget.i)} disabled={isUploadingLogo} />
+                    </label>
+                    <div className="text-[10px] text-slate-400 text-center">או הדבק URL ↓</div>
                     <Input
                       value={selectedWidget.imageUrl || ""}
                       onChange={(e) => updateWidget(selectedWidget.i, { imageUrl: e.target.value || undefined })}

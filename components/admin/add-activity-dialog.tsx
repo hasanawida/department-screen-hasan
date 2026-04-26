@@ -51,6 +51,8 @@ export function AddActivityDialog({ departments }: AddActivityDialogProps) {
     e.preventDefault()
     setIsLoading(true)
     const supabase = createClient()
+    const instructorNameTrimmed = form.instructor_name.trim()
+
     await supabase.from("activities").insert({
       title: form.title,
       description: form.description || null,
@@ -58,7 +60,7 @@ export function AddActivityDialog({ departments }: AddActivityDialogProps) {
       end_time: form.end_time || null,
       location: form.location || null,
       department_id: form.department_id,
-      instructor_name: form.instructor_name || null,
+      instructor_name: instructorNameTrimmed || null,
       participants: form.participants || null,
       image_url: form.image_url || null,
       day_of_week: form.day_of_week || null,
@@ -67,6 +69,23 @@ export function AddActivityDialog({ departments }: AddActivityDialogProps) {
       is_recurring: form.is_recurring,
       is_active: true,
     })
+
+    // אם הוקלד שם מפעיל — ודא שיש רשומה ב-instructors עם view_token
+    if (instructorNameTrimmed) {
+      const { data: existing } = await supabase
+        .from("instructors")
+        .select("id, view_token")
+        .eq("name", instructorNameTrimmed)
+        .maybeSingle()
+      if (!existing) {
+        const token = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)
+        await supabase.from("instructors").insert({ name: instructorNameTrimmed, view_token: token })
+      } else if (!existing.view_token) {
+        const token = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)
+        await supabase.from("instructors").update({ view_token: token }).eq("id", existing.id)
+      }
+    }
+
     setIsLoading(false)
     setOpen(false)
     setForm({ title: "", description: "", start_time: "", end_time: "", location: "", department_id: "", instructor_name: "", participants: "", image_url: "", day_of_week: "", category: "default", activity_date: "", is_recurring: true })

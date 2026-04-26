@@ -2,6 +2,9 @@ import { createClient } from "@/lib/supabase/server"
 import { InstructorsList } from "@/components/admin/instructors-list"
 import { AddInstructorButton } from "@/components/admin/add-instructor-button"
 
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+
 function genToken() {
   return Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)
 }

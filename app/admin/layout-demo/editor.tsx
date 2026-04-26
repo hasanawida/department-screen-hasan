@@ -12,9 +12,7 @@ import {
   CloudSun, Trash2, Plus, Save, Eye, Palette, Sparkles,
 } from "lucide-react";
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const RGL = require("react-grid-layout");
-const { Responsive, WidthProvider } = RGL;
+import { Responsive, WidthProvider } from "react-grid-layout";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 

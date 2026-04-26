@@ -20,7 +20,7 @@ const ResponsiveGridLayout = WidthProvider(Responsive);
 
 type WidgetType =
   | "header" | "current" | "next" | "weekly" | "ticker"
-  | "announcements" | "topic" | "clock" | "media" | "weather";
+  | "announcements" | "topic" | "clock" | "media" | "weather" | "logo";
 
 type Widget = {
   i: string;             // unique id for grid
@@ -28,6 +28,9 @@ type Widget = {
   bg?: string;
   fg?: string;
   fontScale?: number;    // 1 = normal, 1.2, 1.5, ...
+  imageUrl?: string;     // for logo widget
+  imageFit?: "contain" | "cover";
+  imageOpacity?: number; // 0..1
 };
 
 type LayoutItem = {
@@ -50,6 +53,7 @@ const WIDGET_META: Record<WidgetType, { label: string; icon: any; defaultW: numb
   clock:         { label: "שעון",             icon: Clock,         defaultW: 3,  defaultH: 2 },
   media:         { label: "תמונה / מדיה",     icon: ImageIcon,     defaultW: 6,  defaultH: 4 },
   weather:       { label: "מזג אוויר",        icon: CloudSun,      defaultW: 3,  defaultH: 2 },
+  logo:          { label: "לוגו",             icon: ImageIcon,     defaultW: 2,  defaultH: 2 },
 };
 
 const TEMPLATES: Record<string, { layout: LayoutItem[], style: Record<string, { bg?: string; fg?: string; fontScale?: number }> }> = {
@@ -221,6 +225,34 @@ function WidgetRenderer({ w, color }: { w: Widget; color: { bg: string; fg: stri
           <div className="opacity-50 text-xs mt-2">איזור תמונות / PDF</div>
         </div>
       );
+    case "logo": {
+      const fit = w.imageFit || "contain";
+      const opacity = w.imageOpacity ?? 1;
+      return (
+        <div className={cls} style={{ ...style, justifyContent: "center", alignItems: "center", padding: 4 }}>
+          {w.imageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={w.imageUrl}
+              alt="לוגו"
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: fit,
+                opacity,
+              }}
+              onError={(e) => ((e.currentTarget as HTMLImageElement).style.display = "none")}
+            />
+          ) : (
+            <div className="flex flex-col items-center text-center opacity-40 text-xs">
+              <ImageIcon className="h-8 w-8 mb-1" />
+              <div>הקלד URL של לוגו</div>
+              <div className="opacity-70">בפאנל מאפיינים</div>
+            </div>
+          )}
+        </div>
+      );
+    }
     default:
       return (
         <div className={cls} style={style}>
@@ -237,6 +269,9 @@ export default function LayoutDemoPage() {
   const [previewMode, setPreviewMode] = useState(false);
   const [globalBg, setGlobalBg] = useState("#F8FAFC");
   const [globalFg, setGlobalFg] = useState("#1E293B");
+  const [bgImage, setBgImage] = useState("");
+  const [bgImageOpacity, setBgImageOpacity] = useState(0.3);
+  const [bgImageFit, setBgImageFit] = useState<"cover" | "contain" | "repeat">("cover");
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -295,11 +330,21 @@ export default function LayoutDemoPage() {
     const config = {
       layout: layout.map(({ i, x, y, w, h, type }) => ({ i, x, y, w, h, type })),
       style: items.reduce<Record<string, any>>((acc, w) => {
-        if (w.bg || w.fg || w.fontScale) acc[w.i] = { bg: w.bg, fg: w.fg, fontScale: w.fontScale };
+        const entry: any = {};
+        if (w.bg) entry.bg = w.bg;
+        if (w.fg) entry.fg = w.fg;
+        if (w.fontScale) entry.fontScale = w.fontScale;
+        if (w.imageUrl) entry.imageUrl = w.imageUrl;
+        if (w.imageFit) entry.imageFit = w.imageFit;
+        if (w.imageOpacity != null) entry.imageOpacity = w.imageOpacity;
+        if (Object.keys(entry).length > 0) acc[w.i] = entry;
         return acc;
       }, {}),
       globalBg,
       globalFg,
+      bgImage,
+      bgImageOpacity,
+      bgImageFit,
     };
     navigator.clipboard.writeText(JSON.stringify(config, null, 2));
     alert("JSON של הלייאוט הועתק לקליפבורד");
@@ -373,13 +418,51 @@ export default function LayoutDemoPage() {
                 <input type="color" value={globalFg} onChange={(e) => setGlobalFg(e.target.value)} className="w-full h-8 rounded border" />
               </div>
             </div>
+
+            <h2 className="text-sm font-bold mt-4 mb-2 text-slate-600">תמונת רקע</h2>
+            <div className="space-y-2">
+              <Input
+                value={bgImage}
+                onChange={(e) => setBgImage(e.target.value)}
+                placeholder="https://..."
+                dir="ltr"
+                className="text-xs"
+              />
+              {bgImage && (
+                <>
+                  <div>
+                    <label className="text-xs">שקיפות: {Math.round(bgImageOpacity * 100)}%</label>
+                    <input
+                      type="range" min={0} max={1} step={0.05}
+                      value={bgImageOpacity}
+                      onChange={(e) => setBgImageOpacity(parseFloat(e.target.value))}
+                      className="w-full"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs block mb-1">התאמה</label>
+                    <Select value={bgImageFit} onValueChange={(v) => setBgImageFit(v as any)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="cover">cover (מילוי כל המסך)</SelectItem>
+                        <SelectItem value="contain">contain (כל התמונה)</SelectItem>
+                        <SelectItem value="repeat">repeat (חזרה)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button variant="outline" size="sm" className="w-full text-xs" onClick={() => setBgImage("")}>
+                    הסר תמונת רקע
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
         )}
 
         {/* Center: canvas */}
         <div className="flex-1 overflow-auto p-4" style={{ backgroundColor: previewMode ? globalBg : undefined }}>
           <div
-            className="mx-auto rounded-lg shadow-lg overflow-hidden"
+            className="mx-auto rounded-lg shadow-lg overflow-hidden relative"
             style={{
               maxWidth: 1200,
               backgroundColor: globalBg,
@@ -388,6 +471,22 @@ export default function LayoutDemoPage() {
               minHeight: 600,
             }}
           >
+            {bgImage && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-0"
+                style={{
+                  backgroundImage: `url(${bgImage})`,
+                  backgroundSize: bgImageFit === "repeat" ? "auto" : bgImageFit,
+                  backgroundRepeat: bgImageFit === "repeat" ? "repeat" : "no-repeat",
+                  backgroundPosition: "center",
+                  opacity: bgImageOpacity,
+                  zIndex: 0,
+                }}
+              />
+            )}
+            <div className="relative z-10">
             <ResponsiveGridLayout
               className="layout"
               layouts={{ lg: layout }}
@@ -425,6 +524,7 @@ export default function LayoutDemoPage() {
                 );
               })}
             </ResponsiveGridLayout>
+            </div>
           </div>
         </div>
 
@@ -482,6 +582,51 @@ export default function LayoutDemoPage() {
                   onChange={(e) => updateWidget(selectedWidget.i, { fontScale: parseFloat(e.target.value) })}
                   className="w-full" />
               </div>
+
+              {selectedWidget.type === "logo" && (
+                <>
+                  <div className="pt-2 border-t">
+                    <label className="text-xs font-medium block mb-1">URL של תמונת לוגו</label>
+                    <Input
+                      value={selectedWidget.imageUrl || ""}
+                      onChange={(e) => updateWidget(selectedWidget.i, { imageUrl: e.target.value || undefined })}
+                      placeholder="https://..."
+                      dir="ltr"
+                      className="text-xs"
+                    />
+                    {selectedWidget.imageUrl && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={selectedWidget.imageUrl}
+                        alt=""
+                        className="mt-2 max-h-20 rounded border bg-slate-50 object-contain w-full"
+                        onError={(e) => ((e.currentTarget as HTMLImageElement).style.display = "none")}
+                      />
+                    )}
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium block mb-1">התאמה</label>
+                    <Select value={selectedWidget.imageFit || "contain"} onValueChange={(v) => updateWidget(selectedWidget.i, { imageFit: v as any })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="contain">contain (כל הלוגו)</SelectItem>
+                        <SelectItem value="cover">cover (מילוי הריבוע)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium block mb-1">
+                      שקיפות: {Math.round((selectedWidget.imageOpacity ?? 1) * 100)}%
+                    </label>
+                    <input
+                      type="range" min={0.1} max={1} step={0.05}
+                      value={selectedWidget.imageOpacity ?? 1}
+                      onChange={(e) => updateWidget(selectedWidget.i, { imageOpacity: parseFloat(e.target.value) })}
+                      className="w-full"
+                    />
+                  </div>
+                </>
+              )}
 
               <div className="text-xs text-slate-400 pt-2 border-t">
                 גרור פינה ימנית-תחתונה לשינוי גודל. גרור את המרכז להזזה.

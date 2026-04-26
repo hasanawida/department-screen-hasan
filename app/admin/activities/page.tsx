@@ -7,7 +7,7 @@ export default async function ActivitiesPage() {
   const supabase = await createClient()
   
   const [activitiesResult, departmentsResult] = await Promise.all([
-    supabase.from("activities").select("*, departments(name)").order("start_time", { ascending: true }),
+    supabase.from("activities").select("*, departments(name)").order("day_of_week", { ascending: true }).order("start_time", { ascending: true }),
     supabase.from("departments").select("id, name").order("name", { ascending: true }),
   ])
 

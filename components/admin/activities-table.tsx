@@ -13,7 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Edit, Trash2, Music2, Coffee, Dumbbell, Sparkles, Heart, BookOpen, Palette, Users } from "lucide-react"
+import { Edit, Trash2, Music2, Coffee, Dumbbell, Sparkles, Heart, BookOpen, Palette, Users, Search, X } from "lucide-react"
 import type { Activity, Department } from "@/lib/types"
 
 interface ActivitiesTableProps {
@@ -30,6 +30,8 @@ const DAY_OPTIONS = [
   { value: "ו'", label: "שישי" },
   { value: "ש'", label: "שבת" },
 ]
+
+const DAY_ORDER: Record<string, number> = { "א'": 1, "ב'": 2, "ג'": 3, "ד'": 4, "ה'": 5, "ו'": 6, "ש'": 7 }
 
 const CATEGORY_OPTIONS = [
   { value: "default", label: "כללי", icon: Sparkles },
@@ -49,6 +51,10 @@ export function ActivitiesTable({ activities, departments }: ActivitiesTableProp
   const [showBulkDelete, setShowBulkDelete] = useState(false)
   const [editingActivity, setEditingActivity] = useState<Activity | null>(null)
   const [filterDept, setFilterDept] = useState<string>("all")
+  const [filterDay, setFilterDay] = useState<string>("all")
+  const [filterCategory, setFilterCategory] = useState<string>("all")
+  const [filterStatus, setFilterStatus] = useState<string>("all")
+  const [searchText, setSearchText] = useState<string>("")
   const [editForm, setEditForm] = useState({
     title: "", description: "", start_time: "", end_time: "",
     location: "", department_id: "", instructor_name: "",
@@ -58,14 +64,52 @@ export function ActivitiesTable({ activities, departments }: ActivitiesTableProp
   const [isDeleting, setIsDeleting] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
 
-  const filteredActivities = filterDept === "all" ? activities : activities.filter(a => a.department_id === filterDept)
+  const search = searchText.trim().toLowerCase()
+  const filteredActivities = activities.filter((a) => {
+    if (filterDept !== "all" && a.department_id !== filterDept) return false
+    if (filterDay !== "all" && (a as any).day_of_week !== filterDay) return false
+    if (filterCategory !== "all" && ((a as any).category || "default") !== filterCategory) return false
+    if (filterStatus === "active" && !a.is_active) return false
+    if (filterStatus === "inactive" && a.is_active) return false
+    if (search) {
+      const haystack = [
+        a.title,
+        a.description,
+        a.location,
+        a.instructor_name,
+        a.participants,
+        a.departments?.name,
+      ].filter(Boolean).join(" ").toLowerCase()
+      if (!haystack.includes(search)) return false
+    }
+    return true
+  })
+
+  // מיון לפי יום (א'→ש') ואז לפי שעת התחלה
+  const sortedActivities = [...filteredActivities].sort((x, y) => {
+    const dx = DAY_ORDER[(x as any).day_of_week as string] ?? 99
+    const dy = DAY_ORDER[(y as any).day_of_week as string] ?? 99
+    if (dx !== dy) return dx - dy
+    const tx = (x.start_time || "99:99").slice(0, 5)
+    const ty = (y.start_time || "99:99").slice(0, 5)
+    return tx.localeCompare(ty)
+  })
 
   const groupedByDept: Record<string, typeof activities> = {}
-  filteredActivities.forEach(a => {
+  sortedActivities.forEach(a => {
     const deptName = a.departments?.name || "ללא מחלקה"
     if (!groupedByDept[deptName]) groupedByDept[deptName] = []
     groupedByDept[deptName].push(a)
   })
+
+  const hasAnyFilter = filterDept !== "all" || filterDay !== "all" || filterCategory !== "all" || filterStatus !== "all" || !!search
+  function clearFilters() {
+    setFilterDept("all")
+    setFilterDay("all")
+    setFilterCategory("all")
+    setFilterStatus("all")
+    setSearchText("")
+  }
 
   const toggleSelect = (id: string) => {
     const next = new Set(selectedIds)
@@ -173,24 +217,90 @@ export function ActivitiesTable({ activities, departments }: ActivitiesTableProp
 
   return (
     <>
-      <div className="mb-4 flex items-center gap-3 flex-wrap">
-        <label className="text-sm font-medium">סינון לפי מחלקה:</label>
-        <Select value={filterDept} onValueChange={setFilterDept}>
-          <SelectTrigger className="w-48"><SelectValue placeholder="כל המחלקות" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">כל המחלקות</SelectItem>
-            {departments.map(d => (
-              <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Badge variant="secondary">{filteredActivities.length} פעילויות</Badge>
-        {selectedIds.size > 0 && (
-          <Button variant="destructive" size="sm" className="gap-2 mr-auto" onClick={() => setShowBulkDelete(true)}>
-            <Trash2 className="h-4 w-4" />מחק {selectedIds.size} פעילויות
-          </Button>
-        )}
-      </div>
+      <Card className="mb-4">
+        <CardContent className="p-4 space-y-3">
+          <div className="relative">
+            <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+            <Input
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              placeholder="חיפוש כללי — שם, מנחה, מיקום, תיאור, מחלקה..."
+              className="pr-10 pl-10"
+            />
+            {searchText && (
+              <button
+                type="button"
+                onClick={() => setSearchText("")}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">מחלקה</label>
+              <Select value={filterDept} onValueChange={setFilterDept}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">כל המחלקות</SelectItem>
+                  {departments.map(d => (
+                    <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">יום</label>
+              <Select value={filterDay} onValueChange={setFilterDay}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">כל הימים</SelectItem>
+                  {DAY_OPTIONS.map(d => (
+                    <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">קטגוריה</label>
+              <Select value={filterCategory} onValueChange={setFilterCategory}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">כל הקטגוריות</SelectItem>
+                  {CATEGORY_OPTIONS.map(c => (
+                    <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">סטטוס</label>
+              <Select value={filterStatus} onValueChange={setFilterStatus}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">הכל</SelectItem>
+                  <SelectItem value="active">פעילות בלבד</SelectItem>
+                  <SelectItem value="inactive">לא פעילות בלבד</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 flex-wrap">
+            <Badge variant="secondary">{sortedActivities.length} מתוך {activities.length} פעילויות</Badge>
+            {hasAnyFilter && (
+              <Button variant="ghost" size="sm" onClick={clearFilters} className="gap-1">
+                <X className="h-3 w-3" /> נקה סינון
+              </Button>
+            )}
+            {selectedIds.size > 0 && (
+              <Button variant="destructive" size="sm" className="gap-2 mr-auto" onClick={() => setShowBulkDelete(true)}>
+                <Trash2 className="h-4 w-4" />מחק {selectedIds.size} פעילויות
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       {Object.entries(groupedByDept).map(([deptName, deptActivities]) => {
         const allSelected = deptActivities.every(a => selectedIds.has(a.id))

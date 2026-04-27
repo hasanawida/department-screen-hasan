@@ -67,11 +67,27 @@ export type DynamicLiveData = {
   currentActivity: { title: string; time: string; instructor?: string } | null;
   nextActivities: { title: string; time: string }[];
   topic: string;
+  topicImage?: string;
   ticker: string;
   announcements: string;
   weeklyDays: string[];
   /** activities indexed by day-of-week (0=ראשון..6=שבת) */
-  weeklyActivitiesByIdx?: { title: string; time: string }[][];
+  weeklyActivitiesByIdx?: { title: string; time: string; endTime?: string; location?: string; category?: string }[][];
+  /** dates for each day this week, formatted DD.MM.YY */
+  weekDatesByIdx?: string[];
+  /** primary department color (used to accent the weekly board) */
+  accentColor?: string;
+};
+
+const CATEGORY_LABEL: Record<string, string> = {
+  music: "מוזיקה",
+  coffee: "הפסקה",
+  exercise: "התעמלות",
+  health: "בריאות",
+  education: "לימודים",
+  art: "אמנות",
+  social: "חברתי",
+  default: "פעילות",
 };
 
 function WidgetView({ w, color, data }: { w: DynamicWidget; color: { bg: string; fg: string; scale: number }; data: DynamicLiveData }) {
@@ -152,24 +168,53 @@ function WidgetView({ w, color, data }: { w: DynamicWidget; color: { bg: string;
           </div>
         </div>
       );
-    case "weekly":
+    case "weekly": {
+      const today = data.todayIdx ?? new Date().getDay();
+      const accent = data.accentColor || "#10B981";
       return (
         <div className={cls} style={style}>
-          <div className="font-semibold opacity-70 mb-2 flex items-center gap-1" style={{ fontSize: fs(0.55) }}>
-            <Calendar className="h-3 w-3" /> לוח שבועי
-          </div>
-          <div className="grid grid-cols-7 gap-1 flex-1 overflow-hidden" style={{ fontSize: fs(0.55) }}>
-            {data.weeklyDays.map((d, i) => {
-              const today = data.todayIdx ?? new Date().getDay();
+          <div className="font-bold mb-3" style={{ fontSize: fs(0.85) }}>לוח פעילויות שבועי</div>
+          <div className="grid grid-cols-7 gap-2 flex-1 overflow-hidden">
+            {data.weeklyDays.map((dayName, i) => {
+              const isToday = i === today;
               const acts = data.weeklyActivitiesByIdx?.[i] || [];
+              const dateStr = data.weekDatesByIdx?.[i];
               return (
-                <div key={d} className={`rounded p-1.5 flex flex-col gap-1 overflow-hidden ${i === today ? "bg-current/20 font-bold" : "bg-current/5"}`}>
-                  <div className="text-center pb-1 border-b border-current/10">{d}</div>
-                  <div className="flex-1 overflow-hidden flex flex-col gap-0.5">
-                    {acts.slice(0, 8).map((act, j) => (
-                      <div key={j} className="opacity-80 truncate" style={{ fontSize: fs(0.42), lineHeight: 1.2 }}>
-                        <span className="opacity-60 me-1">{act.time}</span>
-                        {act.title}
+                <div
+                  key={dayName}
+                  className="flex flex-col rounded-2xl p-2 overflow-hidden"
+                  style={{
+                    backgroundColor: isToday ? accent + "22" : "#F8FAFC",
+                    border: `2px solid ${isToday ? accent : "transparent"}`,
+                    color: isToday ? accent : "#334155",
+                  }}
+                >
+                  <div className="text-center mb-2 shrink-0">
+                    <div className="font-bold" style={{ fontSize: fs(0.72) }}>{dayName}</div>
+                    {dateStr && (
+                      <div className="opacity-70" style={{ fontSize: fs(0.45) }} dir="ltr">{dateStr}</div>
+                    )}
+                    {isToday && (
+                      <div
+                        className="inline-block rounded-full px-2 py-0.5 mt-1 text-white"
+                        style={{ backgroundColor: accent, fontSize: fs(0.4) }}
+                      >היום</div>
+                    )}
+                  </div>
+                  <div className="flex-1 overflow-hidden flex flex-col gap-1">
+                    {acts.length === 0 ? (
+                      <div className="text-center opacity-40" style={{ fontSize: fs(0.45) }}>אין פעילויות</div>
+                    ) : acts.slice(0, 6).map((act, j) => (
+                      <div key={j} className="rounded-lg bg-white p-1.5 shadow-sm" style={{ color: "#1E293B" }}>
+                        {act.category && (
+                          <div className="opacity-60 truncate" style={{ fontSize: fs(0.38) }}>
+                            {CATEGORY_LABEL[act.category] || CATEGORY_LABEL.default}
+                          </div>
+                        )}
+                        <div className="font-bold leading-tight truncate" style={{ fontSize: fs(0.5) }}>{act.title}</div>
+                        <div className="opacity-70" dir="ltr" style={{ fontSize: fs(0.38) }}>
+                          {act.time}{act.endTime ? ` - ${act.endTime}` : ""}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -179,6 +224,7 @@ function WidgetView({ w, color, data }: { w: DynamicWidget; color: { bg: string;
           </div>
         </div>
       );
+    }
     case "ticker":
       return (
         <div className={cls} style={style}>

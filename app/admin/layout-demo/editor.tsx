@@ -170,7 +170,20 @@ type LiveData = {
   ticker: string;
   announcements: string;
   weeklyDays: string[];
-  weeklyActivitiesByIdx?: { title: string; time: string }[][];
+  weeklyActivitiesByIdx?: { title: string; time: string; endTime?: string; location?: string; category?: string }[][];
+  weekDatesByIdx?: string[];
+  accentColor?: string;
+};
+
+const CATEGORY_LABEL_LIVE: Record<string, string> = {
+  music: "מוזיקה",
+  coffee: "הפסקה",
+  exercise: "התעמלות",
+  health: "בריאות",
+  education: "לימודים",
+  art: "אמנות",
+  social: "חברתי",
+  default: "פעילות",
 };
 
 const SAMPLE_DATA: LiveData = {
@@ -269,24 +282,46 @@ function WidgetRenderer({ w, color, data }: { w: Widget; color: { bg: string; fg
           </div>
         </div>
       );
-    case "weekly":
+    case "weekly": {
+      const today = data.todayIdx ?? new Date().getDay();
+      const accent = data.accentColor || "#10B981";
       return (
         <div className={cls} style={style}>
-          <div className="font-semibold opacity-70 mb-2 flex items-center gap-1" style={{ fontSize: fs(0.55) }}>
-            <Calendar className="h-3 w-3" /> לוח שבועי
-          </div>
-          <div className="grid grid-cols-7 gap-1 flex-1 overflow-hidden" style={{ fontSize: fs(0.55) }}>
-            {data.weeklyDays.map((d, i) => {
-              const today = data.todayIdx ?? new Date().getDay();
+          <div className="font-bold mb-3" style={{ fontSize: fs(0.85) }}>לוח פעילויות שבועי</div>
+          <div className="grid grid-cols-7 gap-2 flex-1 overflow-hidden">
+            {data.weeklyDays.map((dayName, i) => {
+              const isToday = i === today;
               const acts = data.weeklyActivitiesByIdx?.[i] || [];
+              const dateStr = data.weekDatesByIdx?.[i];
               return (
-                <div key={d} className={`rounded p-1.5 flex flex-col gap-1 overflow-hidden ${i === today ? "bg-current/20 font-bold" : "bg-current/5"}`}>
-                  <div className="text-center pb-1 border-b border-current/10">{d}</div>
-                  <div className="flex-1 overflow-hidden flex flex-col gap-0.5">
-                    {acts.slice(0, 8).map((act, j) => (
-                      <div key={j} className="opacity-80 truncate" style={{ fontSize: fs(0.42), lineHeight: 1.2 }}>
-                        <span className="opacity-60 me-1">{act.time}</span>
-                        {act.title}
+                <div key={dayName} className="flex flex-col rounded-2xl p-2 overflow-hidden"
+                  style={{
+                    backgroundColor: isToday ? accent + "22" : "#F8FAFC",
+                    border: `2px solid ${isToday ? accent : "transparent"}`,
+                    color: isToday ? accent : "#334155",
+                  }}>
+                  <div className="text-center mb-2 shrink-0">
+                    <div className="font-bold" style={{ fontSize: fs(0.72) }}>{dayName}</div>
+                    {dateStr && <div className="opacity-70" style={{ fontSize: fs(0.45) }} dir="ltr">{dateStr}</div>}
+                    {isToday && (
+                      <div className="inline-block rounded-full px-2 py-0.5 mt-1 text-white"
+                        style={{ backgroundColor: accent, fontSize: fs(0.4) }}>היום</div>
+                    )}
+                  </div>
+                  <div className="flex-1 overflow-hidden flex flex-col gap-1">
+                    {acts.length === 0 ? (
+                      <div className="text-center opacity-40" style={{ fontSize: fs(0.45) }}>אין פעילויות</div>
+                    ) : acts.slice(0, 6).map((act, j) => (
+                      <div key={j} className="rounded-lg bg-white p-1.5 shadow-sm" style={{ color: "#1E293B" }}>
+                        {act.category && (
+                          <div className="opacity-60 truncate" style={{ fontSize: fs(0.38) }}>
+                            {CATEGORY_LABEL_LIVE[act.category] || CATEGORY_LABEL_LIVE.default}
+                          </div>
+                        )}
+                        <div className="font-bold leading-tight truncate" style={{ fontSize: fs(0.5) }}>{act.title}</div>
+                        <div className="opacity-70" dir="ltr" style={{ fontSize: fs(0.38) }}>
+                          {act.time}{act.endTime ? ` - ${act.endTime}` : ""}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -296,6 +331,7 @@ function WidgetRenderer({ w, color, data }: { w: Widget; color: { bg: string; fg
           </div>
         </div>
       );
+    }
     case "ticker":
       return (
         <div className={cls} style={style}>
@@ -556,6 +592,34 @@ export default function LayoutEditor() {
     applyConfig(cfg);
   }
 
+  async function resetToDefault() {
+    if (previewDeptId === "sample") return;
+    const dept = departments.find((d) => d.id === previewDeptId);
+    if (!confirm(`לבטל את העיצוב המותאם של "${dept?.name}" ולחזור לתצוגה הברירה (הלייאוט המובנה)?\n\nפעולה זו תמחק את העיצוב השמור — לא ניתן לבטל.`)) return;
+
+    const supabase = createClient();
+    const { data: existing } = await supabase
+      .from("screen_settings")
+      .select("id, display_settings")
+      .eq("department_id", previewDeptId)
+      .single();
+
+    if (existing) {
+      const next = { ...((existing.display_settings as any) || {}) };
+      delete next.layout_config;
+      await supabase.from("screen_settings").update({ display_settings: next }).eq("id", existing.id);
+    }
+
+    // טריגר רענון מסך
+    await supabase.from("departments").update({ force_refresh: true }).eq("id", previewDeptId);
+    setTimeout(async () => {
+      await supabase.from("departments").update({ force_refresh: false }).eq("id", previewDeptId);
+    }, 5000);
+
+    setSavedAtDept(null);
+    alert(`העיצוב המותאם של "${dept?.name}" בוטל. המסך חוזר לתצוגה הסטנדרטית תוך שניות.`);
+  }
+
   const [showDuplicateDialog, setShowDuplicateDialog] = useState(false);
   const [duplicateTargets, setDuplicateTargets] = useState<Set<string>>(new Set());
 
@@ -618,11 +682,28 @@ export default function LayoutEditor() {
     ]);
 
     const dayCodes = ["א'", "ב'", "ג'", "ד'", "ה'", "ו'", "ש'"];
-    const weeklyByIdx: { title: string; time: string }[][] = dayCodes.map((code) =>
+    const weeklyByIdx = dayCodes.map((code) =>
       (allActs.data || [])
         .filter((a: any) => a.day_of_week === code)
-        .map((a: any) => ({ title: a.title, time: (a.start_time || "").slice(0, 5) }))
+        .map((a: any) => ({
+          title: a.title,
+          time: (a.start_time || "").slice(0, 5),
+          endTime: a.end_time ? a.end_time.slice(0, 5) : undefined,
+          location: a.location,
+          category: a.category,
+        }))
     );
+
+    // build week dates DD.MM.YY indexed by day-of-week
+    const weekDatesByIdx: string[] = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(now);
+      d.setDate(now.getDate() - now.getDay() + i);
+      const dd = String(d.getDate()).padStart(2, "0");
+      const mo = String(d.getMonth() + 1).padStart(2, "0");
+      const yy = String(d.getFullYear()).slice(2);
+      weekDatesByIdx.push(`${dd}.${mo}.${yy}`);
+    }
 
     const todayActs = (allActs.data || [])
       .filter((a: any) => a.day_of_week === dayOfWeekHe)
@@ -650,6 +731,7 @@ export default function LayoutEditor() {
       announcements: (anns.data || []).map((a: any) => a.content || a.title).join(" · "),
       weeklyDays: ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"],
       weeklyActivitiesByIdx: weeklyByIdx,
+      weekDatesByIdx,
     });
   }
 
@@ -971,7 +1053,6 @@ export default function LayoutEditor() {
         <div className="flex items-center gap-2">
           <Palette className="h-5 w-5 text-emerald-400" />
           <h1 className="text-lg font-bold">עורך עיצוב</h1>
-          <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full">Demo</span>
         </div>
 
         <div className="h-6 w-px bg-white/10" />
@@ -1095,6 +1176,13 @@ export default function LayoutEditor() {
                 className="bg-transparent border-white/20 text-white hover:bg-white/10 gap-1">
                 <CopyIcon className="h-4 w-4" /> שכפל ל...
               </Button>
+              {savedAtDept && (
+                <Button size="sm" onClick={resetToDefault} variant="outline"
+                  className="bg-transparent border-red-500/30 text-red-400 hover:bg-red-500/10 gap-1"
+                  title="מחק את העיצוב המותאם וחזור לתצוגה הסטנדרטית">
+                  <Trash2 className="h-4 w-4" /> ביטול עיצוב
+                </Button>
+              )}
             </>
           )}
           <Button size="sm" onClick={exportJson} variant="ghost" className="text-slate-400 hover:bg-white/5 gap-1 text-xs">

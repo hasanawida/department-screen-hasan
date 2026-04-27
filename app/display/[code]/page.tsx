@@ -158,9 +158,9 @@ export default async function DisplayPage({ params }: { params: Promise<{ code: 
   if (customLayout && Array.isArray(customLayout.widgets) && customLayout.widgets.length > 0) {
     const dayOfWeekHe = ["א'", "ב'", "ג'", "ד'", "ה'", "ו'", "ש'"][now.getDay()];
 
-    // weeklyActivities by day index 0..6 (Sunday..Saturday in the JS sense, ראשון..שבת)
+    // weeklyActivities by day index 0..6 (Sunday..Saturday — ראשון..שבת)
     const dayCodes = ["א'", "ב'", "ג'", "ד'", "ה'", "ו'", "ש'"];
-    const weeklyByIdx: { title: string; time: string }[][] = dayCodes.map((code) => {
+    const weeklyByIdx = dayCodes.map((code) => {
       return (weeklyActivities[code] || [])
         .slice()
         .sort((a: any, b: any) =>
@@ -169,8 +169,14 @@ export default async function DisplayPage({ params }: { params: Promise<{ code: 
         .map((a: any) => ({
           title: a.title,
           time: (a.start_time || "").slice(0, 5),
+          endTime: a.end_time ? a.end_time.slice(0, 5) : undefined,
+          location: a.location,
+          category: a.category,
         }));
     });
+
+    // dates per day index (DD.MM.YY)
+    const weekDatesByIdx: string[] = dayCodes.map((code) => weekDates[code] || "");
 
     const liveData: DynamicLiveData = {
       greeting: getGreeting(now.getHours()),
@@ -192,6 +198,9 @@ export default async function DisplayPage({ params }: { params: Promise<{ code: 
       announcements: (announcements || []).slice(0, 3).map((a: any) => a.content || a.title).join(" · "),
       weeklyDays: ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"],
       weeklyActivitiesByIdx: weeklyByIdx,
+      weekDatesByIdx,
+      accentColor: department.color,
+      topicImage: weeklyTopic?.image_url || undefined,
     };
 
     return (

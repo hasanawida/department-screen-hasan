@@ -36,15 +36,37 @@ type Widget = {
   bg?: string;
   fg?: string;
   fontScale?: number;
+  fontFamily?: string;
+  fontSize?: number;        // direct px override
+  fontWeight?: string;      // normal | bold | 300 | 500 | 700 | 900
+  italic?: boolean;
+  letterSpacing?: number;   // px
+  lineHeight?: number;      // unitless multiplier
+  bgTransparent?: boolean;  // skip background entirely
+  borderColor?: string;
+  borderWidth?: number;
+  shadow?: boolean;
   imageUrl?: string;
   imageFit?: "contain" | "cover";
   imageOpacity?: number;
   text?: string;
   textAlign?: "right" | "center" | "left";
-  fontWeight?: "normal" | "bold";
   shape?: "rect" | "circle";
   radius?: number;
 };
+
+const FONT_FAMILIES = [
+  { value: "system", label: "ברירת מחדל" },
+  { value: "'Heebo', sans-serif", label: "Heebo (מודרני)" },
+  { value: "'Rubik', sans-serif", label: "Rubik (מעוגל)" },
+  { value: "'Assistant', sans-serif", label: "Assistant (נקי)" },
+  { value: "'Varela Round', sans-serif", label: "Varela Round" },
+  { value: "'Secular One', sans-serif", label: "Secular One (גדול)" },
+  { value: "'Suez One', serif", label: "Suez One (display)" },
+  { value: "'Frank Ruhl Libre', serif", label: "Frank Ruhl Libre (קלאסי)" },
+  { value: "'Alef', sans-serif", label: "Alef" },
+  { value: "'Miriam Libre', serif", label: "Miriam" },
+];
 
 const WIDGET_META: Record<WidgetType, { label: string; icon: any; defaultW: number; defaultH: number }> = {
   header:        { label: "כותרת + שעון",    icon: Clock,         defaultW: 1800, defaultH: 160 },
@@ -166,8 +188,25 @@ const SAMPLE_DATA: LiveData = {
 };
 
 function WidgetRenderer({ w, color, data }: { w: Widget; color: { bg: string; fg: string; scale: number }; data: LiveData }) {
-  const cls = "w-full h-full flex flex-col rounded-xl p-3 overflow-hidden shadow-sm border";
-  const style = { backgroundColor: color.bg, color: color.fg, fontSize: `${color.scale}rem` };
+  const transparent = w.bgTransparent === true || color.bg === "transparent";
+  const baseClass = "w-full h-full flex flex-col p-3 overflow-hidden";
+  const cls = `${baseClass} rounded-xl ${transparent ? "" : "shadow-sm border"}`;
+  const fontStyles = {
+    fontFamily: w.fontFamily && w.fontFamily !== "system" ? w.fontFamily : undefined,
+    fontWeight: (w.fontWeight as any) || undefined,
+    fontStyle: w.italic ? "italic" : undefined,
+    letterSpacing: w.letterSpacing != null ? `${w.letterSpacing}px` : undefined,
+    lineHeight: w.lineHeight,
+  };
+  const style: React.CSSProperties = {
+    backgroundColor: transparent ? "transparent" : color.bg,
+    color: color.fg,
+    fontSize: w.fontSize != null ? `${w.fontSize}px` : `${color.scale}rem`,
+    border: transparent ? "none" : (w.borderWidth ? `${w.borderWidth}px solid ${w.borderColor || color.fg}` : undefined),
+    borderRadius: w.radius != null ? `${w.radius}px` : undefined,
+    boxShadow: w.shadow ? "0 8px 32px rgba(0,0,0,0.18)" : (transparent ? "none" : undefined),
+    ...fontStyles,
+  };
   const Icon = WIDGET_META[w.type].icon;
 
   switch (w.type) {
@@ -289,18 +328,23 @@ function WidgetRenderer({ w, color, data }: { w: Widget; color: { bg: string; fg
       );
     case "text": {
       const align = w.textAlign || "right";
-      const weight = w.fontWeight || "normal";
       return (
         <div
           className="w-full h-full flex items-center p-2 overflow-hidden"
           style={{
-            backgroundColor: color.bg,
+            backgroundColor: transparent ? "transparent" : color.bg,
             color: color.fg,
             borderRadius: w.radius != null ? `${w.radius}px` : 12,
             justifyContent: align === "center" ? "center" : align === "left" ? "flex-start" : "flex-end",
             textAlign: align,
-            fontWeight: weight,
-            fontSize: `${color.scale * 1.4}rem`,
+            fontFamily: w.fontFamily && w.fontFamily !== "system" ? w.fontFamily : undefined,
+            fontWeight: (w.fontWeight as any) || "normal",
+            fontStyle: w.italic ? "italic" : undefined,
+            fontSize: w.fontSize != null ? `${w.fontSize}px` : `${color.scale * 1.4}rem`,
+            letterSpacing: w.letterSpacing != null ? `${w.letterSpacing}px` : undefined,
+            lineHeight: w.lineHeight,
+            border: w.borderWidth ? `${w.borderWidth}px solid ${w.borderColor || color.fg}` : undefined,
+            boxShadow: w.shadow ? "0 4px 16px rgba(0,0,0,0.18)" : undefined,
           }}
         >
           {w.text || "לחץ כאן להוספת טקסט"}
@@ -313,8 +357,10 @@ function WidgetRenderer({ w, color, data }: { w: Widget; color: { bg: string; fg
         <div
           className="w-full h-full"
           style={{
-            backgroundColor: color.bg,
+            backgroundColor: transparent ? "transparent" : color.bg,
             borderRadius: isCircle ? "50%" : (w.radius != null ? `${w.radius}px` : 12),
+            border: w.borderWidth ? `${w.borderWidth}px solid ${w.borderColor || color.fg}` : undefined,
+            boxShadow: w.shadow ? "0 8px 32px rgba(0,0,0,0.18)" : undefined,
           }}
         />
       );
@@ -804,6 +850,9 @@ export default function LayoutEditor() {
 
   return (
     <div className="h-screen flex flex-col bg-[#1f1f1f] text-slate-100" dir="rtl">
+      <style jsx global>{`
+        @import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;900&family=Rubik:ital,wght@0,300;0,400;0,500;0,700;0,900;1,400;1,700&family=Assistant:wght@300;400;600;700&family=Varela+Round&family=Secular+One&family=Suez+One&family=Frank+Ruhl+Libre:wght@300;400;700;900&family=Alef:wght@400;700&family=Miriam+Libre:wght@400;700&display=swap');
+      `}</style>
       {/* Top bar */}
       <div className="bg-[#2a2a2a] border-b border-black/40 px-4 py-2 flex items-center gap-3 flex-wrap">
         <div className="flex items-center gap-2">
@@ -1222,54 +1271,144 @@ export default function LayoutEditor() {
                     </Select>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="text-xs text-slate-400">צבע רקע</label>
-                      <input type="color" value={selectedWidget.bg || "#FFFFFF"}
-                        onChange={(e) => updateWidget(selectedWidget.i, { bg: e.target.value })}
-                        className="w-full h-8 rounded border border-white/10 bg-transparent" />
+                  {/* Background */}
+                  <div className="pt-2 border-t border-white/10">
+                    <div className="text-xs font-bold text-slate-300 mb-2">רקע</div>
+                    <label className="flex items-center gap-2 text-xs cursor-pointer mb-2">
+                      <input type="checkbox" checked={!!selectedWidget.bgTransparent}
+                        onChange={(e) => updateWidget(selectedWidget.i, { bgTransparent: e.target.checked })} />
+                      <span>ללא רקע (שקוף)</span>
+                    </label>
+                    {!selectedWidget.bgTransparent && (
+                      <div className="flex gap-2 items-center">
+                        <input type="color" value={selectedWidget.bg || "#FFFFFF"}
+                          onChange={(e) => updateWidget(selectedWidget.i, { bg: e.target.value })}
+                          className="w-12 h-8 rounded border border-white/10 bg-transparent" />
+                        <Input value={selectedWidget.bg || ""}
+                          onChange={(e) => updateWidget(selectedWidget.i, { bg: e.target.value || undefined })}
+                          placeholder="#FFFFFF"
+                          className="flex-1 bg-[#1f1f1f] border-white/10 text-white text-xs h-8" />
+                      </div>
+                    )}
+                    <div className="grid grid-cols-2 gap-2 mt-2">
+                      <div>
+                        <label className="text-xs text-slate-400">עובי מסגרת</label>
+                        <Input type="number" min={0} max={20}
+                          value={selectedWidget.borderWidth || 0}
+                          onChange={(e) => updateWidget(selectedWidget.i, { borderWidth: parseInt(e.target.value) || 0 })}
+                          className="bg-[#1f1f1f] border-white/10 text-white text-xs h-8" />
+                      </div>
+                      <div>
+                        <label className="text-xs text-slate-400">צבע מסגרת</label>
+                        <input type="color" value={selectedWidget.borderColor || "#000000"}
+                          onChange={(e) => updateWidget(selectedWidget.i, { borderColor: e.target.value })}
+                          className="w-full h-8 rounded border border-white/10 bg-transparent" />
+                      </div>
                     </div>
-                    <div>
-                      <label className="text-xs text-slate-400">צבע טקסט</label>
-                      <input type="color" value={selectedWidget.fg || globalFg}
-                        onChange={(e) => updateWidget(selectedWidget.i, { fg: e.target.value })}
-                        className="w-full h-8 rounded border border-white/10 bg-transparent" />
-                    </div>
+                    <label className="flex items-center gap-2 text-xs cursor-pointer mt-2">
+                      <input type="checkbox" checked={!!selectedWidget.shadow}
+                        onChange={(e) => updateWidget(selectedWidget.i, { shadow: e.target.checked })} />
+                      <span>צל</span>
+                    </label>
                   </div>
 
-                  <div>
-                    <label className="text-xs text-slate-400">
-                      גודל גופן: ×{(selectedWidget.fontScale || 1).toFixed(2)}
-                    </label>
-                    <input type="range" min={0.7} max={3} step={0.1}
-                      value={selectedWidget.fontScale || 1}
-                      onChange={(e) => updateWidget(selectedWidget.i, { fontScale: parseFloat(e.target.value) })}
-                      className="w-full" />
+                  {/* Typography */}
+                  <div className="pt-2 border-t border-white/10">
+                    <div className="text-xs font-bold text-slate-300 mb-2">טיפוגרפיה</div>
+                    <div className="space-y-2">
+                      <div>
+                        <label className="text-xs text-slate-400">צבע טקסט</label>
+                        <div className="flex gap-2 items-center">
+                          <input type="color" value={selectedWidget.fg || globalFg}
+                            onChange={(e) => updateWidget(selectedWidget.i, { fg: e.target.value })}
+                            className="w-12 h-8 rounded border border-white/10 bg-transparent" />
+                          <Input value={selectedWidget.fg || ""}
+                            onChange={(e) => updateWidget(selectedWidget.i, { fg: e.target.value || undefined })}
+                            placeholder={globalFg}
+                            className="flex-1 bg-[#1f1f1f] border-white/10 text-white text-xs h-8" />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-xs text-slate-400">גופן</label>
+                        <Select value={selectedWidget.fontFamily || "system"} onValueChange={(v) => updateWidget(selectedWidget.i, { fontFamily: v })}>
+                          <SelectTrigger className="bg-[#1f1f1f] border-white/10 text-white"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {FONT_FAMILIES.map((f) => (
+                              <SelectItem key={f.value} value={f.value}>
+                                <span style={{ fontFamily: f.value !== "system" ? f.value : undefined }}>{f.label}</span>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-xs text-slate-400">גודל (px)</label>
+                          <Input type="number" min={8} max={200} placeholder="אוטו"
+                            value={selectedWidget.fontSize ?? ""}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              updateWidget(selectedWidget.i, { fontSize: v === "" ? undefined : parseInt(v) });
+                            }}
+                            className="bg-[#1f1f1f] border-white/10 text-white text-xs h-8" />
+                        </div>
+                        <div>
+                          <label className="text-xs text-slate-400">משקל</label>
+                          <Select value={selectedWidget.fontWeight || "normal"}
+                            onValueChange={(v) => updateWidget(selectedWidget.i, { fontWeight: v })}>
+                            <SelectTrigger className="bg-[#1f1f1f] border-white/10 text-white"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="300">דק</SelectItem>
+                              <SelectItem value="normal">רגיל</SelectItem>
+                              <SelectItem value="500">חצי-מודגש</SelectItem>
+                              <SelectItem value="bold">מודגש</SelectItem>
+                              <SelectItem value="900">שמן</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <label className="flex items-center gap-2 text-xs cursor-pointer">
+                        <input type="checkbox" checked={!!selectedWidget.italic}
+                          onChange={(e) => updateWidget(selectedWidget.i, { italic: e.target.checked })} />
+                        <span>נטוי</span>
+                      </label>
+                      <div>
+                        <label className="text-xs text-slate-400">
+                          סולם גודל (יחסי): ×{(selectedWidget.fontScale || 1).toFixed(2)}
+                        </label>
+                        <input type="range" min={0.4} max={4} step={0.1}
+                          value={selectedWidget.fontScale || 1}
+                          onChange={(e) => updateWidget(selectedWidget.i, { fontScale: parseFloat(e.target.value) })}
+                          className="w-full" />
+                      </div>
+                      <div>
+                        <label className="text-xs text-slate-400">
+                          ריווח אותיות: {selectedWidget.letterSpacing ?? 0}px
+                        </label>
+                        <input type="range" min={-2} max={20} step={0.5}
+                          value={selectedWidget.letterSpacing || 0}
+                          onChange={(e) => updateWidget(selectedWidget.i, { letterSpacing: parseFloat(e.target.value) })}
+                          className="w-full" />
+                      </div>
+                    </div>
                   </div>
 
                   {selectedWidget.type === "text" && (
                     <div className="space-y-2 pt-2 border-t border-white/10">
+                      <div className="text-xs font-bold text-slate-300">תוכן הטקסט</div>
+                      <textarea value={selectedWidget.text || ""}
+                        onChange={(e) => updateWidget(selectedWidget.i, { text: e.target.value })}
+                        placeholder="הקלד טקסט חופשי..."
+                        rows={3}
+                        className="w-full bg-[#1f1f1f] border border-white/10 text-white text-sm rounded p-2" />
                       <div>
-                        <label className="text-xs text-slate-400">תוכן</label>
-                        <Input value={selectedWidget.text || ""}
-                          onChange={(e) => updateWidget(selectedWidget.i, { text: e.target.value })}
-                          placeholder="הקלד טקסט..."
-                          className="bg-[#1f1f1f] border-white/10 text-white" />
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
+                        <label className="text-xs text-slate-400">יישור</label>
                         <Select value={selectedWidget.textAlign || "right"} onValueChange={(v) => updateWidget(selectedWidget.i, { textAlign: v as any })}>
                           <SelectTrigger className="bg-[#1f1f1f] border-white/10 text-white"><SelectValue /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="right">ימין</SelectItem>
                             <SelectItem value="center">מרכז</SelectItem>
                             <SelectItem value="left">שמאל</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <Select value={selectedWidget.fontWeight || "normal"} onValueChange={(v) => updateWidget(selectedWidget.i, { fontWeight: v as any })}>
-                          <SelectTrigger className="bg-[#1f1f1f] border-white/10 text-white"><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="normal">רגיל</SelectItem>
-                            <SelectItem value="bold">מודגש</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>

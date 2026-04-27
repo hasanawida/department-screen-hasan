@@ -6,6 +6,7 @@ import { Separator } from "@/components/ui/separator";
 import { Clock3, MapPin, Sun, Coffee, Music2, Dumbbell, Megaphone, Sparkles, User } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import DisplayScreenWrapper from "@/components/display/display-screen-wrapper";
+import DynamicLayoutRenderer, { type LayoutConfig, type DynamicLiveData } from "@/components/display/dynamic-layout";
 
 export const revalidate = 0;
 
@@ -151,6 +152,41 @@ export default async function DisplayPage({ params }: { params: Promise<{ code: 
     allMediaSlides.forEach(() => viewsList.push("media"));
   }
   if (viewsList.length === 0) viewsList.push("daily");
+
+  // עיצוב מותאם אישית מהעורך — אם יש layout_config, מציגים אותו במקום הלייאוט הקבוע
+  const customLayout = (settings?.display_settings as any)?.layout_config as LayoutConfig | undefined;
+  if (customLayout && Array.isArray(customLayout.widgets) && customLayout.widgets.length > 0) {
+    const dayOfWeekHe = ["א'", "ב'", "ג'", "ד'", "ה'", "ו'", "ש'"][now.getDay()];
+    const liveData: DynamicLiveData = {
+      greeting: getGreeting(now.getHours()),
+      deptName: department.name,
+      date: `יום ${dayOfWeekHe} | ${formatShortDate(now)}`,
+      time: formatClock(now),
+      currentActivity: currentActivity ? {
+        title: currentActivity.title,
+        time: `${(currentActivity.start_time || "").slice(0, 5)}${currentActivity.end_time ? " - " + currentActivity.end_time.slice(0, 5) : ""}`,
+        instructor: currentActivity.instructor_name,
+      } : null,
+      nextActivities: nextActivities.slice(0, 3).map((a: any) => ({
+        title: a.title,
+        time: (a.start_time || "").slice(0, 5),
+      })),
+      topic: weeklyTopic?.title || "",
+      ticker: (tickerMessages || []).map((t: any) => t.message || t.content || t.title).join(" · "),
+      announcements: (announcements || []).slice(0, 3).map((a: any) => a.content || a.title).join(" · "),
+      weeklyDays: ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"],
+    };
+
+    return (
+      <DisplayScreenWrapper
+        departmentId={department.id}
+        initialEmergencyActive={department.emergency_active && department.emergency_display}
+        initialEmergencyMessage={department.emergency_message ?? ""}
+      >
+        <DynamicLayoutRenderer config={customLayout} data={liveData} />
+      </DisplayScreenWrapper>
+    );
+  }
 
   return (
     <DisplayScreenWrapper

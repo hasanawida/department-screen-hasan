@@ -191,6 +191,11 @@ function WidgetRenderer({ w, color, data }: { w: Widget; color: { bg: string; fg
   const transparent = w.bgTransparent === true || color.bg === "transparent";
   const baseClass = "w-full h-full flex flex-col p-3 overflow-hidden";
   const cls = `${baseClass} rounded-xl ${transparent ? "" : "shadow-sm border"}`;
+
+  // Helper: compute font-size for sub-elements proportionally to the widget's font-size.
+  // If the user set a px fontSize, sub-elements scale relative to it; otherwise use the rem scale.
+  const fs = (ratio: number): string =>
+    w.fontSize != null ? `${w.fontSize * ratio}px` : `${color.scale * ratio}rem`;
   const fontStyles = {
     fontFamily: w.fontFamily && w.fontFamily !== "system" ? w.fontFamily : undefined,
     fontWeight: (w.fontWeight as any) || undefined,
@@ -215,12 +220,12 @@ function WidgetRenderer({ w, color, data }: { w: Widget; color: { bg: string; fg
         <div className={cls} style={style}>
           <div className="flex justify-between items-center w-full h-full">
             <div>
-              <div className="font-bold" style={{ fontSize: `${color.scale * 1.7}rem` }}>{data.greeting}</div>
-              <div className="opacity-70" style={{ fontSize: `${color.scale * 0.9}rem` }}>{data.deptName}</div>
+              <div className="font-bold" style={{ fontSize: fs(1.7) }}>{data.greeting}</div>
+              <div className="opacity-70" style={{ fontSize: fs(0.9) }}>{data.deptName}</div>
             </div>
             <div className="text-left">
-              <div className="font-bold" style={{ fontSize: `${color.scale * 1.7}rem` }}>{data.time}</div>
-              <div className="opacity-70" style={{ fontSize: `${color.scale * 0.85}rem` }}>{data.date}</div>
+              <div className="font-bold" style={{ fontSize: fs(1.7) }}>{data.time}</div>
+              <div className="opacity-70" style={{ fontSize: fs(0.85) }}>{data.date}</div>
             </div>
           </div>
         </div>
@@ -233,7 +238,7 @@ function WidgetRenderer({ w, color, data }: { w: Widget; color: { bg: string; fg
           </div>
           {data.currentActivity ? (
             <>
-              <div className="font-bold" style={{ fontSize: `${color.scale * 2}rem` }}>{data.currentActivity.title}</div>
+              <div className="font-bold" style={{ fontSize: fs(2) }}>{data.currentActivity.title}</div>
               <div className="opacity-70 mt-1">{data.currentActivity.time}</div>
               {data.currentActivity.instructor && (
                 <div className="opacity-70">מנחה: {data.currentActivity.instructor}</div>
@@ -301,14 +306,14 @@ function WidgetRenderer({ w, color, data }: { w: Widget; color: { bg: string; fg
           <div className="text-xs font-semibold opacity-70 mb-1 flex items-center gap-1">
             <BookOpen className="h-3 w-3" /> נושא השבוע
           </div>
-          <div className="font-bold" style={{ fontSize: `${color.scale * 1.4}rem` }}>{data.topic || "—"}</div>
+          <div className="font-bold" style={{ fontSize: fs(1.4) }}>{data.topic || "—"}</div>
         </div>
       );
     case "clock":
       return (
         <div className={cls} style={{ ...style, justifyContent: "center", alignItems: "center" }}>
           <Clock className="h-5 w-5 opacity-50" />
-          <div className="font-bold" style={{ fontSize: `${color.scale * 2.4}rem` }}>{data.time}</div>
+          <div className="font-bold" style={{ fontSize: fs(2.4) }}>{data.time}</div>
         </div>
       );
     case "weather":
@@ -340,7 +345,7 @@ function WidgetRenderer({ w, color, data }: { w: Widget; color: { bg: string; fg
             fontFamily: w.fontFamily && w.fontFamily !== "system" ? w.fontFamily : undefined,
             fontWeight: (w.fontWeight as any) || "normal",
             fontStyle: w.italic ? "italic" : undefined,
-            fontSize: w.fontSize != null ? `${w.fontSize}px` : `${color.scale * 1.4}rem`,
+            fontSize: w.fontSize != null ? `${w.fontSize}px` : `${color.scale * 1.4}rem`, // text widget — direct fontSize
             letterSpacing: w.letterSpacing != null ? `${w.letterSpacing}px` : undefined,
             lineHeight: w.lineHeight,
             border: w.borderWidth ? `${w.borderWidth}px solid ${w.borderColor || color.fg}` : undefined,
@@ -495,6 +500,38 @@ export default function LayoutEditor() {
       return;
     }
     applyConfig(cfg);
+  }
+
+  const [showDuplicateDialog, setShowDuplicateDialog] = useState(false);
+  const [duplicateTargets, setDuplicateTargets] = useState<Set<string>>(new Set());
+
+  async function duplicateToOthers() {
+    if (duplicateTargets.size === 0) {
+      alert("בחר לפחות מחלקה אחת");
+      return;
+    }
+    const supabase = createClient();
+    const config = getCurrentConfig();
+    let success = 0;
+    let failed = 0;
+    for (const deptId of duplicateTargets) {
+      const { data: existing } = await supabase
+        .from("screen_settings")
+        .select("id, display_settings")
+        .eq("department_id", deptId)
+        .single();
+      const nextDisplaySettings = {
+        ...(existing?.display_settings || {}),
+        layout_config: config,
+      };
+      const res = existing
+        ? await supabase.from("screen_settings").update({ display_settings: nextDisplaySettings }).eq("id", existing.id)
+        : await supabase.from("screen_settings").insert({ department_id: deptId, display_settings: nextDisplaySettings });
+      if (res.error) failed++; else success++;
+    }
+    alert(`שוכפל ל-${success} מחלקות${failed ? ` (נכשלו ${failed})` : ""}`);
+    setShowDuplicateDialog(false);
+    setDuplicateTargets(new Set());
   }
 
   async function fetchLiveData(deptId: string) {
@@ -977,6 +1014,10 @@ export default function LayoutEditor() {
               </Button>
               <Button size="sm" onClick={saveToDepartment} className="bg-emerald-600 hover:bg-emerald-700 gap-1">
                 <Save className="h-4 w-4" /> שמור למחלקה
+              </Button>
+              <Button size="sm" onClick={() => setShowDuplicateDialog(true)} variant="outline"
+                className="bg-transparent border-white/20 text-white hover:bg-white/10 gap-1">
+                <CopyIcon className="h-4 w-4" /> שכפל ל...
               </Button>
             </>
           )}
@@ -1476,6 +1517,42 @@ export default function LayoutEditor() {
           </div>
         )}
       </div>
+
+      {showDuplicateDialog && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4" onClick={() => setShowDuplicateDialog(false)}>
+          <div className="bg-[#2a2a2a] rounded-xl p-5 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-bold mb-2">שכפל עיצוב למחלקות נוספות</h2>
+            <p className="text-xs text-slate-400 mb-3">
+              העיצוב הנוכחי יישמר בכל המחלקות שתבחר. עיצוב קיים במחלקות אלו ידרס.
+            </p>
+            <div className="space-y-1 max-h-80 overflow-y-auto border border-white/10 rounded p-2">
+              {departments.filter((d) => d.id !== previewDeptId).map((d) => {
+                const checked = duplicateTargets.has(d.id);
+                return (
+                  <label key={d.id} className="flex items-center gap-2 p-2 rounded hover:bg-white/5 cursor-pointer text-sm">
+                    <input type="checkbox" checked={checked} onChange={(e) => {
+                      const next = new Set(duplicateTargets);
+                      if (e.target.checked) next.add(d.id); else next.delete(d.id);
+                      setDuplicateTargets(next);
+                    }} />
+                    <span>{d.name}</span>
+                  </label>
+                );
+              })}
+            </div>
+            <div className="flex gap-2 mt-3 justify-end">
+              <Button variant="outline" size="sm" className="bg-transparent border-white/20 text-white hover:bg-white/10"
+                onClick={() => { setShowDuplicateDialog(false); setDuplicateTargets(new Set()); }}>
+                ביטול
+              </Button>
+              <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={duplicateToOthers}
+                disabled={duplicateTargets.size === 0}>
+                שכפל ל-{duplicateTargets.size} מחלקות
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="bg-[#2a2a2a] border-t border-black/40 px-3 py-1 text-[10px] text-slate-400 flex items-center justify-between">
         <div className="flex items-center gap-2 flex-wrap">

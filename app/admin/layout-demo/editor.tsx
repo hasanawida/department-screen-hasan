@@ -386,7 +386,70 @@ export default function LayoutEditor() {
       return;
     }
     fetchLiveData(previewDeptId);
+    fetchSavedLayout(previewDeptId);
   }, [previewDeptId]);
+
+  const [savedAtDept, setSavedAtDept] = useState<string | null>(null);
+
+  async function fetchSavedLayout(deptId: string) {
+    const supabase = createClient();
+    const { data } = await supabase
+      .from("screen_settings")
+      .select("display_settings")
+      .eq("department_id", deptId)
+      .single();
+    const cfg = (data?.display_settings as any)?.layout_config;
+    if (cfg) setSavedAtDept(JSON.stringify(cfg).slice(0, 32));
+    else setSavedAtDept(null);
+  }
+
+  async function saveToDepartment() {
+    if (previewDeptId === "sample") {
+      alert("בחר מחלקה לתצוגה מקדימה לפני שמירה");
+      return;
+    }
+    const supabase = createClient();
+    const { data: existing } = await supabase
+      .from("screen_settings")
+      .select("id, display_settings")
+      .eq("department_id", previewDeptId)
+      .single();
+
+    const nextDisplaySettings = {
+      ...(existing?.display_settings || {}),
+      layout_config: getCurrentConfig(),
+    };
+
+    if (existing) {
+      await supabase
+        .from("screen_settings")
+        .update({ display_settings: nextDisplaySettings })
+        .eq("id", existing.id);
+    } else {
+      await supabase
+        .from("screen_settings")
+        .insert({ department_id: previewDeptId, display_settings: nextDisplaySettings });
+    }
+    const dept = departments.find((d) => d.id === previewDeptId);
+    alert(`נשמר עיצוב למחלקה: ${dept?.name || ""}`);
+    fetchSavedLayout(previewDeptId);
+  }
+
+  async function loadFromDepartment() {
+    if (previewDeptId === "sample") return;
+    const supabase = createClient();
+    const { data } = await supabase
+      .from("screen_settings")
+      .select("display_settings")
+      .eq("department_id", previewDeptId)
+      .single();
+    const cfg = (data?.display_settings as any)?.layout_config;
+    if (!cfg) {
+      alert("אין עיצוב שמור למחלקה זו");
+      return;
+    }
+    applyConfig(cfg);
+  }
 
   async function fetchLiveData(deptId: string) {
     const supabase = createClient();
@@ -853,10 +916,23 @@ export default function LayoutEditor() {
             </Select>
           )}
           <Button size="sm" onClick={saveDesign} variant="outline" className="bg-transparent border-white/20 text-white hover:bg-white/10 gap-1">
-            <Save className="h-4 w-4" /> שמור עיצוב
+            <Save className="h-4 w-4" /> שמור מקומי
           </Button>
-          <Button size="sm" onClick={exportJson} className="bg-emerald-600 hover:bg-emerald-700 gap-1">
-            ייצוא JSON
+          {previewDeptId !== "sample" && (
+            <>
+              <Button size="sm" onClick={loadFromDepartment} variant="outline"
+                className="bg-transparent border-white/20 text-white hover:bg-white/10 gap-1"
+                disabled={!savedAtDept}
+                title={savedAtDept ? "טען עיצוב שמור למחלקה" : "אין עיצוב שמור למחלקה זו"}>
+                טען ממחלקה
+              </Button>
+              <Button size="sm" onClick={saveToDepartment} className="bg-emerald-600 hover:bg-emerald-700 gap-1">
+                <Save className="h-4 w-4" /> שמור למחלקה
+              </Button>
+            </>
+          )}
+          <Button size="sm" onClick={exportJson} variant="ghost" className="text-slate-400 hover:bg-white/5 gap-1 text-xs">
+            JSON
           </Button>
         </div>
       </div>

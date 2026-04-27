@@ -233,29 +233,29 @@ function WidgetRenderer({ w, color, data }: { w: Widget; color: { bg: string; fg
     case "current":
       return (
         <div className={cls} style={style}>
-          <div className="text-xs font-semibold opacity-70 mb-1 flex items-center gap-1">
+          <div className="font-semibold opacity-70 mb-1 flex items-center gap-1" style={{ fontSize: fs(0.55) }}>
             <Sparkles className="h-3 w-3" /> עכשיו
           </div>
           {data.currentActivity ? (
             <>
               <div className="font-bold" style={{ fontSize: fs(2) }}>{data.currentActivity.title}</div>
-              <div className="opacity-70 mt-1">{data.currentActivity.time}</div>
+              <div className="opacity-70 mt-1" style={{ fontSize: fs(0.9) }}>{data.currentActivity.time}</div>
               {data.currentActivity.instructor && (
-                <div className="opacity-70">מנחה: {data.currentActivity.instructor}</div>
+                <div className="opacity-70" style={{ fontSize: fs(0.9) }}>מנחה: {data.currentActivity.instructor}</div>
               )}
             </>
           ) : (
-            <div className="opacity-50 text-sm">אין פעילות כעת</div>
+            <div className="opacity-50" style={{ fontSize: fs(0.9) }}>אין פעילות כעת</div>
           )}
         </div>
       );
     case "next":
       return (
         <div className={cls} style={style}>
-          <div className="text-xs font-semibold opacity-70 mb-1 flex items-center gap-1">
+          <div className="font-semibold opacity-70 mb-1 flex items-center gap-1" style={{ fontSize: fs(0.55) }}>
             <Calendar className="h-3 w-3" /> בהמשך
           </div>
-          <div className="space-y-1.5 text-sm">
+          <div className="space-y-1.5" style={{ fontSize: fs(0.95) }}>
             {data.nextActivities.length === 0 ? (
               <div className="opacity-50">אין פעילויות נוספות</div>
             ) : data.nextActivities.map((a, i) => (
@@ -270,12 +270,12 @@ function WidgetRenderer({ w, color, data }: { w: Widget; color: { bg: string; fg
     case "weekly":
       return (
         <div className={cls} style={style}>
-          <div className="text-xs font-semibold opacity-70 mb-2 flex items-center gap-1">
+          <div className="font-semibold opacity-70 mb-2 flex items-center gap-1" style={{ fontSize: fs(0.55) }}>
             <Calendar className="h-3 w-3" /> לוח שבועי
           </div>
-          <div className="grid grid-cols-7 gap-1 flex-1">
+          <div className="grid grid-cols-7 gap-1 flex-1" style={{ fontSize: fs(0.55) }}>
             {data.weeklyDays.map((d, i) => (
-              <div key={d} className={`rounded p-1 text-center text-xs ${i === 0 ? "bg-current/20 font-bold" : "bg-current/5"}`}>
+              <div key={d} className={`rounded p-1 text-center ${i === 0 ? "bg-current/20 font-bold" : "bg-current/5"}`}>
                 {d}
               </div>
             ))}
@@ -287,23 +287,23 @@ function WidgetRenderer({ w, color, data }: { w: Widget; color: { bg: string; fg
         <div className={cls} style={style}>
           <div className="flex items-center gap-2 h-full">
             <Bell className="h-4 w-4 shrink-0" />
-            <div className="truncate">{data.ticker || "—"}</div>
+            <div className="truncate" style={{ fontSize: fs(1) }}>{data.ticker || "—"}</div>
           </div>
         </div>
       );
     case "announcements":
       return (
         <div className={cls} style={style}>
-          <div className="text-xs font-semibold opacity-70 mb-1 flex items-center gap-1">
+          <div className="font-semibold opacity-70 mb-1 flex items-center gap-1" style={{ fontSize: fs(0.55) }}>
             <Bell className="h-3 w-3" /> הודעות
           </div>
-          <div className="text-sm">{data.announcements || "אין הודעות חדשות"}</div>
+          <div style={{ fontSize: fs(0.9) }}>{data.announcements || "אין הודעות חדשות"}</div>
         </div>
       );
     case "topic":
       return (
         <div className={cls} style={style}>
-          <div className="text-xs font-semibold opacity-70 mb-1 flex items-center gap-1">
+          <div className="font-semibold opacity-70 mb-1 flex items-center gap-1" style={{ fontSize: fs(0.55) }}>
             <BookOpen className="h-3 w-3" /> נושא השבוע
           </div>
           <div className="font-bold" style={{ fontSize: fs(1.4) }}>{data.topic || "—"}</div>
@@ -320,15 +320,15 @@ function WidgetRenderer({ w, color, data }: { w: Widget; color: { bg: string; fg
       return (
         <div className={cls} style={{ ...style, justifyContent: "center", alignItems: "center" }}>
           <CloudSun className="h-7 w-7" />
-          <div className="font-bold mt-1">22°</div>
-          <div className="opacity-70 text-xs">נעים</div>
+          <div className="font-bold mt-1" style={{ fontSize: fs(1.6) }}>22°</div>
+          <div className="opacity-70" style={{ fontSize: fs(0.6) }}>נעים</div>
         </div>
       );
     case "media":
       return (
         <div className={cls} style={{ ...style, justifyContent: "center", alignItems: "center" }}>
           <ImageIcon className="h-10 w-10 opacity-30" />
-          <div className="opacity-50 text-xs mt-2">איזור תמונות / PDF</div>
+          <div className="opacity-50 mt-2" style={{ fontSize: fs(0.6) }}>איזור תמונות / PDF</div>
         </div>
       );
     case "text": {

@@ -62,7 +62,7 @@ const WIDGET_META: Record<WidgetType, { label: string; icon: any; defaultW: numb
   shape:         { label: "צורה דקורטיבית",    icon: Square,        defaultW: 400,  defaultH: 200 },
 };
 
-const TEMPLATES: Record<string, { widgets: Widget[]; bg?: string; fg?: string }> = {
+const TEMPLATES: Record<string, { widgets: Widget[]; bg?: string; fg?: string; gradientEnabled?: boolean; gradientColor2?: string; gradientAngle?: number }> = {
   classic: {
     bg: "#F8FAFC", fg: "#1E293B",
     widgets: [
@@ -106,6 +106,32 @@ const TEMPLATES: Record<string, { widgets: Widget[]; bg?: string; fg?: string }>
       { i: "w6", type: "clock",   x: 1570, y: 450,  w: 290,  h: 110, bg: "#1E293B", fg: "#F1F5F9" },
       { i: "w7", type: "topic",   x: 1260, y: 580,  w: 600,  h: 100, bg: "#10B981", fg: "#FFFFFF" },
       { i: "w8", type: "ticker",  x: 60,   y: 700,  w: 1800, h: 80,  bg: "#10B981", fg: "#FFFFFF" },
+    ],
+  },
+  sunrise: {
+    bg: "#FEF3C7", fg: "#7C2D12",
+    gradientEnabled: true, gradientColor2: "#FB923C", gradientAngle: 135,
+    widgets: [
+      { i: "w1", type: "shape",         x: 100,  y: 60,   w: 1720, h: 120, bg: "#FFFFFF", radius: 60, z: 1 },
+      { i: "w2", type: "header",        x: 130,  y: 75,   w: 1660, h: 90,  bg: "transparent", fg: "#7C2D12", z: 2 },
+      { i: "w3", type: "current",       x: 100,  y: 220,  w: 1100, h: 460, bg: "#FFFFFF", fg: "#7C2D12", z: 1 },
+      { i: "w4", type: "topic",         x: 1230, y: 220,  w: 590,  h: 130, bg: "#7C2D12", fg: "#FFFFFF", z: 1 },
+      { i: "w5", type: "next",          x: 1230, y: 370,  w: 590,  h: 220, bg: "#FFFFFF", fg: "#7C2D12", z: 1 },
+      { i: "w6", type: "weather",       x: 1230, y: 610,  w: 290,  h: 70,  bg: "#FFFFFF", fg: "#7C2D12", z: 1 },
+      { i: "w7", type: "clock",         x: 1530, y: 610,  w: 290,  h: 70,  bg: "#FFFFFF", fg: "#7C2D12", z: 1 },
+      { i: "w8", type: "shape",         x: 0,    y: 720,  w: 1920, h: 80,  bg: "#7C2D12", radius: 0, z: 1 },
+      { i: "w9", type: "ticker",        x: 60,   y: 720,  w: 1800, h: 80,  bg: "transparent", fg: "#FFFFFF", z: 2 },
+    ],
+  },
+  ocean: {
+    bg: "#0EA5E9", fg: "#FFFFFF",
+    gradientEnabled: true, gradientColor2: "#1E3A8A", gradientAngle: 180,
+    widgets: [
+      { i: "w1", type: "header",        x: 60,   y: 40,   w: 1800, h: 140, bg: "rgba(255,255,255,0.15)", fg: "#FFFFFF" },
+      { i: "w2", type: "current",       x: 60,   y: 200,  w: 1180, h: 480, bg: "rgba(255,255,255,0.95)", fg: "#0F172A" },
+      { i: "w3", type: "next",          x: 1260, y: 200,  w: 600,  h: 220, bg: "rgba(255,255,255,0.95)", fg: "#0F172A" },
+      { i: "w4", type: "announcements", x: 1260, y: 440,  w: 600,  h: 240, bg: "rgba(255,255,255,0.15)", fg: "#FFFFFF" },
+      { i: "w5", type: "ticker",        x: 60,   y: 700,  w: 1800, h: 80,  bg: "#1E3A8A", fg: "#FFFFFF" },
     ],
   },
 };
@@ -306,6 +332,9 @@ export default function LayoutEditor() {
   const [previewMode, setPreviewMode] = useState(false);
   const [globalBg, setGlobalBg] = useState("#F8FAFC");
   const [globalFg, setGlobalFg] = useState("#1E293B");
+  const [gradientEnabled, setGradientEnabled] = useState(false);
+  const [gradientColor2, setGradientColor2] = useState("#10B981");
+  const [gradientAngle, setGradientAngle] = useState(135);
   const [bgImage, setBgImage] = useState("");
   const [bgImageOpacity, setBgImageOpacity] = useState(0.3);
   const [bgImageFit, setBgImageFit] = useState<"cover" | "contain" | "repeat">("cover");
@@ -371,6 +400,9 @@ export default function LayoutEditor() {
     });
     if (t.bg) setGlobalBg(t.bg);
     if (t.fg) setGlobalFg(t.fg);
+    setGradientEnabled(!!t.gradientEnabled);
+    if (t.gradientColor2) setGradientColor2(t.gradientColor2);
+    if (typeof t.gradientAngle === "number") setGradientAngle(t.gradientAngle);
     setSelectedId(null);
   }
 
@@ -521,7 +553,10 @@ export default function LayoutEditor() {
   }
 
   function getCurrentConfig() {
-    return { widgets: items, globalBg, globalFg, bgImage, bgImageOpacity, bgImageFit };
+    return {
+      widgets: items, globalBg, globalFg, bgImage, bgImageOpacity, bgImageFit,
+      gradientEnabled, gradientColor2, gradientAngle,
+    };
   }
 
   function applyConfig(config: any) {
@@ -535,6 +570,9 @@ export default function LayoutEditor() {
     if (typeof config.bgImage === "string") setBgImage(config.bgImage);
     if (typeof config.bgImageOpacity === "number") setBgImageOpacity(config.bgImageOpacity);
     if (config.bgImageFit) setBgImageFit(config.bgImageFit);
+    setGradientEnabled(!!config.gradientEnabled);
+    if (config.gradientColor2) setGradientColor2(config.gradientColor2);
+    if (typeof config.gradientAngle === "number") setGradientAngle(config.gradientAngle);
     setSelectedId(null);
   }
 
@@ -635,6 +673,8 @@ export default function LayoutEditor() {
             <SelectItem value="weekly_focus">דגש שבועי</SelectItem>
             <SelectItem value="pastel">פסטל</SelectItem>
             <SelectItem value="modern_dark">מודרני כהה</SelectItem>
+            <SelectItem value="sunrise">זריחה ☀️</SelectItem>
+            <SelectItem value="ocean">אוקיינוס 🌊</SelectItem>
           </SelectContent>
         </Select>
 
@@ -751,6 +791,26 @@ export default function LayoutEditor() {
                 <label className="text-xs">צבע רקע</label>
                 <input type="color" value={globalBg} onChange={(e) => setGlobalBg(e.target.value)} className="w-full h-8 rounded border border-white/10 bg-transparent" />
               </div>
+
+              <label className="flex items-center gap-2 text-xs cursor-pointer">
+                <input type="checkbox" checked={gradientEnabled} onChange={(e) => setGradientEnabled(e.target.checked)} />
+                <span>גרדיאנט</span>
+              </label>
+              {gradientEnabled && (
+                <>
+                  <div>
+                    <label className="text-xs">צבע שני</label>
+                    <input type="color" value={gradientColor2} onChange={(e) => setGradientColor2(e.target.value)} className="w-full h-8 rounded border border-white/10 bg-transparent" />
+                  </div>
+                  <div>
+                    <label className="text-xs">זווית: {gradientAngle}°</label>
+                    <input type="range" min={0} max={360} step={5}
+                      value={gradientAngle} onChange={(e) => setGradientAngle(parseInt(e.target.value))}
+                      className="w-full" />
+                  </div>
+                </>
+              )}
+
               <div>
                 <label className="text-xs">צבע טקסט ברירת מחדל</label>
                 <input type="color" value={globalFg} onChange={(e) => setGlobalFg(e.target.value)} className="w-full h-8 rounded border border-white/10 bg-transparent" />
@@ -802,7 +862,9 @@ export default function LayoutEditor() {
             style={{
               width: CANVAS_W * zoom,
               height: CANVAS_H * zoom,
-              backgroundColor: globalBg,
+              background: gradientEnabled
+                ? `linear-gradient(${gradientAngle}deg, ${globalBg}, ${gradientColor2})`
+                : globalBg,
               flexShrink: 0,
               border: previewMode ? "none" : "1px solid #444",
             }}

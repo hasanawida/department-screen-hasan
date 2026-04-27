@@ -520,11 +520,59 @@ export default function LayoutEditor() {
     e.target.value = "";
   }
 
+  function getCurrentConfig() {
+    return { widgets: items, globalBg, globalFg, bgImage, bgImageOpacity, bgImageFit };
+  }
+
+  function applyConfig(config: any) {
+    if (!config) return;
+    if (Array.isArray(config.widgets)) {
+      pushHistory(items);
+      setItems(config.widgets);
+    }
+    if (config.globalBg) setGlobalBg(config.globalBg);
+    if (config.globalFg) setGlobalFg(config.globalFg);
+    if (typeof config.bgImage === "string") setBgImage(config.bgImage);
+    if (typeof config.bgImageOpacity === "number") setBgImageOpacity(config.bgImageOpacity);
+    if (config.bgImageFit) setBgImageFit(config.bgImageFit);
+    setSelectedId(null);
+  }
+
   function exportJson() {
-    const config = { widgets: items, globalBg, globalFg, bgImage, bgImageOpacity, bgImageFit };
-    navigator.clipboard.writeText(JSON.stringify(config, null, 2));
+    navigator.clipboard.writeText(JSON.stringify(getCurrentConfig(), null, 2));
     alert("JSON של הלייאוט הועתק לקליפבורד");
   }
+
+  // local saved designs
+  const STORAGE_KEY = "layout-demo-designs-v1";
+  function getSavedDesigns(): Record<string, any> {
+    if (typeof window === "undefined") return {};
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); } catch { return {}; }
+  }
+  function saveDesign() {
+    const name = window.prompt("שם לעיצוב הזה:");
+    if (!name) return;
+    const all = getSavedDesigns();
+    all[name] = { ...getCurrentConfig(), savedAt: new Date().toISOString() };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
+    setSavedListVersion((n) => n + 1);
+    alert(`נשמר: "${name}"`);
+  }
+  function loadDesign(name: string) {
+    const all = getSavedDesigns();
+    if (!all[name]) return;
+    applyConfig(all[name]);
+  }
+  function deleteDesign(name: string) {
+    const all = getSavedDesigns();
+    delete all[name];
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
+    setSavedListVersion((n) => n + 1);
+  }
+  const [savedListVersion, setSavedListVersion] = useState(0);
+  const savedDesigns = typeof window !== "undefined" ? getSavedDesigns() : {};
+  const savedNames = Object.keys(savedDesigns);
+  void savedListVersion; // ensure rerender on save/delete
 
   // keyboard shortcuts
   useEffect(() => {
@@ -644,8 +692,32 @@ export default function LayoutEditor() {
             className={previewMode ? "" : "text-white hover:bg-white/10"} onClick={() => setPreviewMode(!previewMode)}>
             <Eye className="h-4 w-4 me-1" /> {previewMode ? "חזור לעריכה" : "תצוגה"}
           </Button>
+          {savedNames.length > 0 && (
+            <Select onValueChange={(v) => {
+              if (v.startsWith("__del__:")) deleteDesign(v.replace("__del__:", ""));
+              else loadDesign(v);
+            }}>
+              <SelectTrigger className="w-40 bg-[#1f1f1f] border-white/10 text-white">
+                <SelectValue placeholder="העיצובים שלי..." />
+              </SelectTrigger>
+              <SelectContent>
+                {savedNames.map((n) => (
+                  <SelectItem key={n} value={n}>{n}</SelectItem>
+                ))}
+                <div className="border-t my-1" />
+                {savedNames.map((n) => (
+                  <SelectItem key={"d-" + n} value={"__del__:" + n} className="text-red-500">
+                    🗑 מחק: {n}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          <Button size="sm" onClick={saveDesign} variant="outline" className="bg-transparent border-white/20 text-white hover:bg-white/10 gap-1">
+            <Save className="h-4 w-4" /> שמור עיצוב
+          </Button>
           <Button size="sm" onClick={exportJson} className="bg-emerald-600 hover:bg-emerald-700 gap-1">
-            <Save className="h-4 w-4" /> שמור
+            ייצוא JSON
           </Button>
         </div>
       </div>

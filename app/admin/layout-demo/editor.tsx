@@ -528,8 +528,15 @@ export default function LayoutEditor() {
         .from("screen_settings")
         .insert({ department_id: previewDeptId, display_settings: nextDisplaySettings });
     }
+
+    // טריגר רענון אוטומטי של מסך הטלוויזיה
+    await supabase.from("departments").update({ force_refresh: true }).eq("id", previewDeptId);
+    setTimeout(async () => {
+      await supabase.from("departments").update({ force_refresh: false }).eq("id", previewDeptId);
+    }, 5000);
+
     const dept = departments.find((d) => d.id === previewDeptId);
-    alert(`נשמר עיצוב למחלקה: ${dept?.name || ""}`);
+    alert(`נשמר עיצוב למחלקה: ${dept?.name || ""} (המסך יתעדכן תוך שניות)`);
     fetchSavedLayout(previewDeptId);
   }
 
@@ -561,6 +568,7 @@ export default function LayoutEditor() {
     const config = getCurrentConfig();
     let success = 0;
     let failed = 0;
+    const refreshIds: string[] = [];
     for (const deptId of duplicateTargets) {
       const { data: existing } = await supabase
         .from("screen_settings")
@@ -574,9 +582,19 @@ export default function LayoutEditor() {
       const res = existing
         ? await supabase.from("screen_settings").update({ display_settings: nextDisplaySettings }).eq("id", existing.id)
         : await supabase.from("screen_settings").insert({ department_id: deptId, display_settings: nextDisplaySettings });
-      if (res.error) failed++; else success++;
+      if (res.error) failed++;
+      else { success++; refreshIds.push(deptId); }
     }
-    alert(`שוכפל ל-${success} מחלקות${failed ? ` (נכשלו ${failed})` : ""}`);
+    // טריגר רענון לכל המחלקות שנשמרו
+    for (const id of refreshIds) {
+      await supabase.from("departments").update({ force_refresh: true }).eq("id", id);
+    }
+    setTimeout(async () => {
+      for (const id of refreshIds) {
+        await supabase.from("departments").update({ force_refresh: false }).eq("id", id);
+      }
+    }, 5000);
+    alert(`שוכפל ל-${success} מחלקות${failed ? ` (נכשלו ${failed})` : ""} (המסכים יתעדכנו תוך שניות)`);
     setShowDuplicateDialog(false);
     setDuplicateTargets(new Set());
   }

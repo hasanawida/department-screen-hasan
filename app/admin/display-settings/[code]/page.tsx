@@ -104,7 +104,17 @@ export default function DisplaySettingsPage({ params }: { params: { code: string
 
   async function handleSaveSettings() {
     if (!settingsId) return;
-    await supabase.from("screen_settings").update({ display_settings: settings, welcome_message: welcome }).eq("id", settingsId);
+    // שמור את המפתחות הלא-מנוהלים (כמו layout_config) שלא נדרס אותם
+    const { data: cur } = await supabase
+      .from("screen_settings")
+      .select("display_settings")
+      .eq("id", settingsId)
+      .single();
+    const merged = {
+      ...((cur?.display_settings as any) || {}),
+      ...settings,
+    };
+    await supabase.from("screen_settings").update({ display_settings: merged, welcome_message: welcome }).eq("id", settingsId);
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
   }

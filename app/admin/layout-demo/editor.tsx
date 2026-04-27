@@ -163,12 +163,14 @@ type LiveData = {
   deptName: string;
   date: string;
   time: string;
+  todayIdx?: number;
   currentActivity: { title: string; time: string; instructor?: string } | null;
   nextActivities: { title: string; time: string }[];
   topic: string;
   ticker: string;
   announcements: string;
   weeklyDays: string[];
+  weeklyActivitiesByIdx?: { title: string; time: string }[][];
 };
 
 const SAMPLE_DATA: LiveData = {
@@ -273,12 +275,24 @@ function WidgetRenderer({ w, color, data }: { w: Widget; color: { bg: string; fg
           <div className="font-semibold opacity-70 mb-2 flex items-center gap-1" style={{ fontSize: fs(0.55) }}>
             <Calendar className="h-3 w-3" /> לוח שבועי
           </div>
-          <div className="grid grid-cols-7 gap-1 flex-1" style={{ fontSize: fs(0.55) }}>
-            {data.weeklyDays.map((d, i) => (
-              <div key={d} className={`rounded p-1 text-center ${i === 0 ? "bg-current/20 font-bold" : "bg-current/5"}`}>
-                {d}
-              </div>
-            ))}
+          <div className="grid grid-cols-7 gap-1 flex-1 overflow-hidden" style={{ fontSize: fs(0.55) }}>
+            {data.weeklyDays.map((d, i) => {
+              const today = data.todayIdx ?? new Date().getDay();
+              const acts = data.weeklyActivitiesByIdx?.[i] || [];
+              return (
+                <div key={d} className={`rounded p-1.5 flex flex-col gap-1 overflow-hidden ${i === today ? "bg-current/20 font-bold" : "bg-current/5"}`}>
+                  <div className="text-center pb-1 border-b border-current/10">{d}</div>
+                  <div className="flex-1 overflow-hidden flex flex-col gap-0.5">
+                    {acts.slice(0, 8).map((act, j) => (
+                      <div key={j} className="opacity-80 truncate" style={{ fontSize: fs(0.42), lineHeight: 1.2 }}>
+                        <span className="opacity-60 me-1">{act.time}</span>
+                        {act.title}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       );
@@ -543,22 +557,31 @@ export default function LayoutEditor() {
     const dayOfWeekHe = ["א'", "ב'", "ג'", "ד'", "ה'", "ו'", "ש'"][now.getDay()];
     const greeting = now.getHours() < 12 ? "בוקר טוב" : now.getHours() < 18 ? "צהריים טובים" : "ערב טוב";
 
-    const [acts, anns, tickers, topic] = await Promise.all([
+    const [allActs, anns, tickers, topic] = await Promise.all([
       supabase.from("activities")
         .select("title, start_time, end_time, instructor_name, day_of_week")
-        .eq("department_id", deptId).eq("is_active", true).eq("day_of_week", dayOfWeekHe).order("start_time"),
+        .eq("department_id", deptId).eq("is_active", true).order("start_time"),
       supabase.from("announcements").select("content, title").eq("department_id", deptId).eq("is_active", true).order("created_at", { ascending: false }).limit(3),
       supabase.from("ticker_messages").select("message").or(`department_id.eq.${deptId},is_global.eq.true`).eq("is_active", true).order("display_order"),
       supabase.from("weekly_topics").select("title").eq("department_id", deptId).eq("is_active", true).order("week_start", { ascending: false }).limit(1),
     ]);
 
-    const todayActs = (acts.data || []).map((a: any) => ({
-      title: a.title,
-      time: `${(a.start_time || "").slice(0, 5)}${a.end_time ? " - " + a.end_time.slice(0, 5) : ""}`,
-      startMin: parseInt((a.start_time || "00:00").slice(0, 2)) * 60 + parseInt((a.start_time || "00:00").slice(3, 5)),
-      endMin: parseInt((a.end_time || "23:59").slice(0, 2)) * 60 + parseInt((a.end_time || "23:59").slice(3, 5)),
-      instructor: a.instructor_name,
-    }));
+    const dayCodes = ["א'", "ב'", "ג'", "ד'", "ה'", "ו'", "ש'"];
+    const weeklyByIdx: { title: string; time: string }[][] = dayCodes.map((code) =>
+      (allActs.data || [])
+        .filter((a: any) => a.day_of_week === code)
+        .map((a: any) => ({ title: a.title, time: (a.start_time || "").slice(0, 5) }))
+    );
+
+    const todayActs = (allActs.data || [])
+      .filter((a: any) => a.day_of_week === dayOfWeekHe)
+      .map((a: any) => ({
+        title: a.title,
+        time: `${(a.start_time || "").slice(0, 5)}${a.end_time ? " - " + a.end_time.slice(0, 5) : ""}`,
+        startMin: parseInt((a.start_time || "00:00").slice(0, 2)) * 60 + parseInt((a.start_time || "00:00").slice(3, 5)),
+        endMin: parseInt((a.end_time || "23:59").slice(0, 2)) * 60 + parseInt((a.end_time || "23:59").slice(3, 5)),
+        instructor: a.instructor_name,
+      }));
     const nowMin = now.getHours() * 60 + now.getMinutes();
     const current = todayActs.find((a) => nowMin >= a.startMin && nowMin <= a.endMin);
     const next = todayActs.filter((a) => a.startMin > nowMin).slice(0, 3);
@@ -568,12 +591,14 @@ export default function LayoutEditor() {
       deptName: dept?.name || "",
       date: `יום ${dayOfWeekHe} | ${now.toLocaleDateString("he-IL")}`,
       time: `${hh}:${mm}`,
+      todayIdx: now.getDay(),
       currentActivity: current ? { title: current.title, time: current.time, instructor: current.instructor } : null,
       nextActivities: next.map((a) => ({ title: a.title, time: a.time.split(" - ")[0] })),
       topic: (topic.data?.[0] as any)?.title || "",
       ticker: (tickers.data || []).map((t: any) => t.message).join(" · "),
       announcements: (anns.data || []).map((a: any) => a.content || a.title).join(" · "),
       weeklyDays: ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"],
+      weeklyActivitiesByIdx: weeklyByIdx,
     });
   }
 

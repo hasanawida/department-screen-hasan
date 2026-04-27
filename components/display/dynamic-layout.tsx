@@ -63,13 +63,15 @@ export type DynamicLiveData = {
   deptName: string;
   date: string;
   time: string;
+  todayIdx?: number;        // 0=ראשון
   currentActivity: { title: string; time: string; instructor?: string } | null;
   nextActivities: { title: string; time: string }[];
   topic: string;
   ticker: string;
   announcements: string;
   weeklyDays: string[];
-  weeklyActivities?: Record<string, { title: string; time: string }[]>;
+  /** activities indexed by day-of-week (0=ראשון..6=שבת) */
+  weeklyActivitiesByIdx?: { title: string; time: string }[][];
 };
 
 function WidgetView({ w, color, data }: { w: DynamicWidget; color: { bg: string; fg: string; scale: number }; data: DynamicLiveData }) {
@@ -156,15 +158,24 @@ function WidgetView({ w, color, data }: { w: DynamicWidget; color: { bg: string;
           <div className="font-semibold opacity-70 mb-2 flex items-center gap-1" style={{ fontSize: fs(0.55) }}>
             <Calendar className="h-3 w-3" /> לוח שבועי
           </div>
-          <div className="grid grid-cols-7 gap-1 flex-1" style={{ fontSize: fs(0.55) }}>
-            {data.weeklyDays.map((d, i) => (
-              <div key={d} className={`rounded p-1 text-center ${i === new Date().getDay() ? "bg-current/20 font-bold" : "bg-current/5"}`}>
-                <div>{d}</div>
-                {data.weeklyActivities && data.weeklyActivities[d]?.slice(0, 3).map((act, j) => (
-                  <div key={j} className="opacity-70 truncate" style={{ fontSize: fs(0.45) }}>{act.title}</div>
-                ))}
-              </div>
-            ))}
+          <div className="grid grid-cols-7 gap-1 flex-1 overflow-hidden" style={{ fontSize: fs(0.55) }}>
+            {data.weeklyDays.map((d, i) => {
+              const today = data.todayIdx ?? new Date().getDay();
+              const acts = data.weeklyActivitiesByIdx?.[i] || [];
+              return (
+                <div key={d} className={`rounded p-1.5 flex flex-col gap-1 overflow-hidden ${i === today ? "bg-current/20 font-bold" : "bg-current/5"}`}>
+                  <div className="text-center pb-1 border-b border-current/10">{d}</div>
+                  <div className="flex-1 overflow-hidden flex flex-col gap-0.5">
+                    {acts.slice(0, 8).map((act, j) => (
+                      <div key={j} className="opacity-80 truncate" style={{ fontSize: fs(0.42), lineHeight: 1.2 }}>
+                        <span className="opacity-60 me-1">{act.time}</span>
+                        {act.title}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       );

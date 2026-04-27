@@ -157,11 +157,27 @@ export default async function DisplayPage({ params }: { params: Promise<{ code: 
   const customLayout = (settings?.display_settings as any)?.layout_config as LayoutConfig | undefined;
   if (customLayout && Array.isArray(customLayout.widgets) && customLayout.widgets.length > 0) {
     const dayOfWeekHe = ["א'", "ב'", "ג'", "ד'", "ה'", "ו'", "ש'"][now.getDay()];
+
+    // weeklyActivities by day index 0..6 (Sunday..Saturday in the JS sense, ראשון..שבת)
+    const dayCodes = ["א'", "ב'", "ג'", "ד'", "ה'", "ו'", "ש'"];
+    const weeklyByIdx: { title: string; time: string }[][] = dayCodes.map((code) => {
+      return (weeklyActivities[code] || [])
+        .slice()
+        .sort((a: any, b: any) =>
+          String(a.start_time || "").localeCompare(String(b.start_time || ""))
+        )
+        .map((a: any) => ({
+          title: a.title,
+          time: (a.start_time || "").slice(0, 5),
+        }));
+    });
+
     const liveData: DynamicLiveData = {
       greeting: getGreeting(now.getHours()),
       deptName: department.name,
       date: `יום ${dayOfWeekHe} | ${formatShortDate(now)}`,
       time: formatClock(now),
+      todayIdx: now.getDay(),
       currentActivity: currentActivity ? {
         title: currentActivity.title,
         time: `${(currentActivity.start_time || "").slice(0, 5)}${currentActivity.end_time ? " - " + currentActivity.end_time.slice(0, 5) : ""}`,
@@ -175,6 +191,7 @@ export default async function DisplayPage({ params }: { params: Promise<{ code: 
       ticker: (tickerMessages || []).map((t: any) => t.message || t.content || t.title).join(" · "),
       announcements: (announcements || []).slice(0, 3).map((a: any) => a.content || a.title).join(" · "),
       weeklyDays: ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"],
+      weeklyActivitiesByIdx: weeklyByIdx,
     };
 
     return (

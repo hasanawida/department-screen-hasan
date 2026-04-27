@@ -12,7 +12,7 @@ import {
   Clock, Calendar, Bell, MessageSquare, BookOpen, Image as ImageIcon,
   CloudSun, Trash2, Plus, Save, Eye, Palette, Sparkles, Upload,
   Type, Square, ArrowUp, ArrowDown, RotateCw, Copy as CopyIcon,
-  Layers, ChevronUp, ChevronDown,
+  Layers, ChevronUp, ChevronDown, Undo2, Redo2,
 } from "lucide-react";
 import { Rnd } from "react-rnd";
 
@@ -315,15 +315,60 @@ export default function LayoutEditor() {
   const [zoom, setZoom] = useState(0.5);
   const [showLayers, setShowLayers] = useState(false);
 
+  // undo/redo
+  const historyRef = useRef<Widget[][]>([]);
+  const redoRef = useRef<Widget[][]>([]);
+  const [, force] = useState(0);
+
+  // snap guides
+  const [snapLines, setSnapLines] = useState<{ vertical: number[]; horizontal: number[] }>({ vertical: [], horizontal: [] });
+
   const canvasRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loadTemplate("modern_dark");
   }, []);
 
+  function pushHistory(prev: Widget[]) {
+    historyRef.current.push(prev.map((w) => ({ ...w })));
+    if (historyRef.current.length > 50) historyRef.current.shift();
+    redoRef.current = [];
+    force((n) => n + 1);
+  }
+
+  function commitItems(updater: (prev: Widget[]) => Widget[]) {
+    setItems((prev) => {
+      pushHistory(prev);
+      return updater(prev);
+    });
+  }
+
+  function undo() {
+    const prev = historyRef.current.pop();
+    if (!prev) return;
+    setItems((cur) => {
+      redoRef.current.push(cur.map((w) => ({ ...w })));
+      return prev;
+    });
+    force((n) => n + 1);
+  }
+
+  function redo() {
+    const next = redoRef.current.pop();
+    if (!next) return;
+    setItems((cur) => {
+      historyRef.current.push(cur.map((w) => ({ ...w })));
+      return next;
+    });
+    force((n) => n + 1);
+  }
+
   function loadTemplate(name: keyof typeof TEMPLATES) {
     const t = TEMPLATES[name];
-    setItems(t.widgets.map((w) => ({ ...w })));
+    setItems((prev) => {
+      historyRef.current.push(prev.map((w) => ({ ...w })));
+      return t.widgets.map((w) => ({ ...w }));
+    });
     if (t.bg) setGlobalBg(t.bg);
     if (t.fg) setGlobalFg(t.fg);
     setSelectedId(null);
@@ -336,7 +381,7 @@ export default function LayoutEditor() {
   function addWidget(type: WidgetType) {
     const id = "w" + Date.now() + Math.random().toString(36).slice(2, 5);
     const meta = WIDGET_META[type];
-    setItems((prev) => [
+    commitItems((prev) => [
       ...prev,
       {
         i: id,
@@ -345,33 +390,36 @@ export default function LayoutEditor() {
         y: 100,
         w: meta.defaultW,
         h: meta.defaultH,
-        z: nextZ(),
+        z: prev.reduce((m, w) => Math.max(m, w.z ?? 0), 0) + 1,
       },
     ]);
     setSelectedId(id);
   }
 
   function removeWidget(id: string) {
-    setItems((prev) => prev.filter((w) => w.i !== id));
+    commitItems((prev) => prev.filter((w) => w.i !== id));
     if (selectedId === id) setSelectedId(null);
   }
 
   function duplicateWidget(id: string) {
     const w = items.find((x) => x.i === id);
     if (!w) return;
-    const copy: Widget = {
-      ...w,
-      i: "w" + Date.now() + Math.random().toString(36).slice(2, 5),
-      x: w.x + 30,
-      y: w.y + 30,
-      z: nextZ(),
-    };
-    setItems((prev) => [...prev, copy]);
-    setSelectedId(copy.i);
+    const newId = "w" + Date.now() + Math.random().toString(36).slice(2, 5);
+    commitItems((prev) => [
+      ...prev,
+      {
+        ...w,
+        i: newId,
+        x: w.x + 30,
+        y: w.y + 30,
+        z: prev.reduce((m, x) => Math.max(m, x.z ?? 0), 0) + 1,
+      },
+    ]);
+    setSelectedId(newId);
   }
 
   function updateWidget(id: string, patch: Partial<Widget>) {
-    setItems((prev) => prev.map((w) => (w.i === id ? { ...w, ...patch } : w)));
+    commitItems((prev) => prev.map((w) => (w.i === id ? { ...w, ...patch } : w)));
   }
 
   function bringForward(id: string) {
@@ -381,6 +429,62 @@ export default function LayoutEditor() {
     const cur = items.find((w) => w.i === id);
     if (!cur) return;
     updateWidget(id, { z: Math.max(0, (cur.z ?? 1) - 1) });
+  }
+
+  // snap-to-alignment during drag
+  const SNAP_THRESHOLD = 8; // pixels in canvas coordinates
+  function computeSnap(currentId: string, x: number, y: number, w: number, h: number): { x: number; y: number; vert: number[]; horiz: number[] } {
+    const others = items.filter((it) => it.i !== currentId);
+    const verticalLines: number[] = [];
+    const horizontalLines: number[] = [];
+
+    // canvas edges + center
+    const canvasVerts = [0, CANVAS_W / 2, CANVAS_W];
+    const canvasHorizs = [0, CANVAS_H / 2, CANVAS_H];
+
+    const myCenterX = x + w / 2;
+    const myCenterY = y + h / 2;
+    const myRight = x + w;
+    const myBottom = y + h;
+
+    let snappedX = x;
+    let snappedY = y;
+    let bestVDelta = SNAP_THRESHOLD + 1;
+    let bestHDelta = SNAP_THRESHOLD + 1;
+
+    function tryVerticalSnap(otherX: number) {
+      // align my left
+      let d = Math.abs(otherX - x);
+      if (d <= SNAP_THRESHOLD && d < bestVDelta) { snappedX = otherX; bestVDelta = d; verticalLines.push(otherX); }
+      // align my right
+      d = Math.abs(otherX - myRight);
+      if (d <= SNAP_THRESHOLD && d < bestVDelta) { snappedX = otherX - w; bestVDelta = d; verticalLines.push(otherX); }
+      // align my center
+      d = Math.abs(otherX - myCenterX);
+      if (d <= SNAP_THRESHOLD && d < bestVDelta) { snappedX = otherX - w / 2; bestVDelta = d; verticalLines.push(otherX); }
+    }
+    function tryHorizontalSnap(otherY: number) {
+      let d = Math.abs(otherY - y);
+      if (d <= SNAP_THRESHOLD && d < bestHDelta) { snappedY = otherY; bestHDelta = d; horizontalLines.push(otherY); }
+      d = Math.abs(otherY - myBottom);
+      if (d <= SNAP_THRESHOLD && d < bestHDelta) { snappedY = otherY - h; bestHDelta = d; horizontalLines.push(otherY); }
+      d = Math.abs(otherY - myCenterY);
+      if (d <= SNAP_THRESHOLD && d < bestHDelta) { snappedY = otherY - h / 2; bestHDelta = d; horizontalLines.push(otherY); }
+    }
+
+    canvasVerts.forEach(tryVerticalSnap);
+    canvasHorizs.forEach(tryHorizontalSnap);
+
+    others.forEach((o) => {
+      tryVerticalSnap(o.x);
+      tryVerticalSnap(o.x + o.w);
+      tryVerticalSnap(o.x + o.w / 2);
+      tryHorizontalSnap(o.y);
+      tryHorizontalSnap(o.y + o.h);
+      tryHorizontalSnap(o.y + o.h / 2);
+    });
+
+    return { x: snappedX, y: snappedY, vert: verticalLines, horiz: horizontalLines };
   }
 
   async function uploadFile(file: File): Promise<string | null> {
@@ -425,9 +529,23 @@ export default function LayoutEditor() {
   // keyboard shortcuts
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (!selectedId) return;
       const tag = (e.target as HTMLElement).tagName;
       if (tag === "INPUT" || tag === "TEXTAREA") return;
+
+      // undo/redo (no selection needed)
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
+        e.preventDefault();
+        if (e.shiftKey) redo(); else undo();
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "y") {
+        e.preventDefault();
+        redo();
+        return;
+      }
+
+      if (!selectedId) return;
+
       if (e.key === "Delete" || e.key === "Backspace") removeWidget(selectedId);
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "d") {
         e.preventDefault();
@@ -471,6 +589,17 @@ export default function LayoutEditor() {
             <SelectItem value="modern_dark">מודרני כהה</SelectItem>
           </SelectContent>
         </Select>
+
+        <div className="h-6 w-px bg-white/10" />
+
+        <Button variant="ghost" size="sm" className="text-white hover:bg-white/10 disabled:opacity-30"
+          onClick={undo} disabled={historyRef.current.length === 0} title="Ctrl+Z">
+          <Undo2 className="h-4 w-4" />
+        </Button>
+        <Button variant="ghost" size="sm" className="text-white hover:bg-white/10 disabled:opacity-30"
+          onClick={redo} disabled={redoRef.current.length === 0} title="Ctrl+Shift+Z">
+          <Redo2 className="h-4 w-4" />
+        </Button>
 
         <div className="h-6 w-px bg-white/10" />
 
@@ -634,6 +763,16 @@ export default function LayoutEditor() {
                 />
               )}
 
+              {/* snap guide lines */}
+              {!previewMode && snapLines.vertical.map((vx, i) => (
+                <div key={"v" + i + vx} className="pointer-events-none absolute"
+                  style={{ left: vx - 1, top: 0, width: 2, height: CANVAS_H, background: "#FF3366", zIndex: 9999, opacity: 0.8 }} />
+              ))}
+              {!previewMode && snapLines.horizontal.map((hy, i) => (
+                <div key={"h" + i + hy} className="pointer-events-none absolute"
+                  style={{ top: hy - 1, left: 0, height: 2, width: CANVAS_W, background: "#FF3366", zIndex: 9999, opacity: 0.8 }} />
+              ))}
+
               {[...items].sort((a, b) => (a.z ?? 0) - (b.z ?? 0)).map((w) => {
                 const isSelected = selectedId === w.i;
                 const color = {
@@ -650,8 +789,19 @@ export default function LayoutEditor() {
                     disableDragging={previewMode}
                     enableResizing={previewMode ? false : true}
                     scale={zoom}
-                    onDragStop={(_, d) => updateWidget(w.i, { x: d.x, y: d.y })}
+                    onDrag={(_, d) => {
+                      const snap = computeSnap(w.i, d.x, d.y, w.w, w.h);
+                      setSnapLines({ vertical: snap.vert, horizontal: snap.horiz });
+                      // Rnd respects returned position via setting the dom — simplest: just show guides
+                      // (snap correction happens in onDragStop)
+                    }}
+                    onDragStop={(_, d) => {
+                      const snap = computeSnap(w.i, d.x, d.y, w.w, w.h);
+                      setSnapLines({ vertical: [], horizontal: [] });
+                      updateWidget(w.i, { x: snap.x, y: snap.y });
+                    }}
                     onResizeStop={(_, __, ref, ___, position) => {
+                      setSnapLines({ vertical: [], horizontal: [] });
                       updateWidget(w.i, {
                         w: parseInt(ref.style.width),
                         h: parseInt(ref.style.height),
@@ -880,11 +1030,15 @@ export default function LayoutEditor() {
       </div>
 
       <div className="bg-[#2a2a2a] border-t border-black/40 px-3 py-1 text-[10px] text-slate-400 flex items-center justify-between">
-        <div>
-          <kbd className="bg-white/10 px-1 rounded">Del</kbd> מחק · <kbd className="bg-white/10 px-1 rounded">Ctrl+D</kbd> שכפל ·
-          <kbd className="bg-white/10 px-1 rounded">↑↓→←</kbd> הזז · <kbd className="bg-white/10 px-1 rounded">Shift+↑↓→←</kbd> הזז 10px
+        <div className="flex items-center gap-2 flex-wrap">
+          <kbd className="bg-white/10 px-1 rounded">Ctrl+Z</kbd> בטל ·
+          <kbd className="bg-white/10 px-1 rounded">Ctrl+Shift+Z</kbd> חזור ·
+          <kbd className="bg-white/10 px-1 rounded">Del</kbd> מחק ·
+          <kbd className="bg-white/10 px-1 rounded">Ctrl+D</kbd> שכפל ·
+          <kbd className="bg-white/10 px-1 rounded">↑↓→←</kbd> הזז ·
+          <kbd className="bg-white/10 px-1 rounded">Shift+↑↓→←</kbd> 10px
         </div>
-        <div>1920×1080 · {items.length} widgets</div>
+        <div>1920×1080 · {items.length} widgets · {historyRef.current.length} undo</div>
       </div>
     </div>
   );

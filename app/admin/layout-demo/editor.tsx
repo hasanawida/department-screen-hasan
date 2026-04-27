@@ -136,7 +136,20 @@ const TEMPLATES: Record<string, { widgets: Widget[]; bg?: string; fg?: string; g
   },
 };
 
-const SAMPLE_DATA = {
+type LiveData = {
+  greeting: string;
+  deptName: string;
+  date: string;
+  time: string;
+  currentActivity: { title: string; time: string; instructor?: string } | null;
+  nextActivities: { title: string; time: string }[];
+  topic: string;
+  ticker: string;
+  announcements: string;
+  weeklyDays: string[];
+};
+
+const SAMPLE_DATA: LiveData = {
   greeting: "ערב טוב",
   deptName: "מחלקה ב",
   date: "יום ראשון | 19.04.26",
@@ -148,10 +161,11 @@ const SAMPLE_DATA = {
   ],
   topic: "שבוע האהבה והחברות",
   ticker: "ברוכים הבאים · יום מולדת שמח לרחל · בית הכנסת פתוח 17:00",
+  announcements: "בית הכנסת פתוח היום 17:00 · פעילות מוזיקלית בלובי 16:00",
   weeklyDays: ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"],
 };
 
-function WidgetRenderer({ w, color }: { w: Widget; color: { bg: string; fg: string; scale: number } }) {
+function WidgetRenderer({ w, color, data }: { w: Widget; color: { bg: string; fg: string; scale: number }; data: LiveData }) {
   const cls = "w-full h-full flex flex-col rounded-xl p-3 overflow-hidden shadow-sm border";
   const style = { backgroundColor: color.bg, color: color.fg, fontSize: `${color.scale}rem` };
   const Icon = WIDGET_META[w.type].icon;
@@ -162,12 +176,12 @@ function WidgetRenderer({ w, color }: { w: Widget; color: { bg: string; fg: stri
         <div className={cls} style={style}>
           <div className="flex justify-between items-center w-full h-full">
             <div>
-              <div className="font-bold" style={{ fontSize: `${color.scale * 1.7}rem` }}>{SAMPLE_DATA.greeting}</div>
-              <div className="opacity-70" style={{ fontSize: `${color.scale * 0.9}rem` }}>{SAMPLE_DATA.deptName}</div>
+              <div className="font-bold" style={{ fontSize: `${color.scale * 1.7}rem` }}>{data.greeting}</div>
+              <div className="opacity-70" style={{ fontSize: `${color.scale * 0.9}rem` }}>{data.deptName}</div>
             </div>
             <div className="text-left">
-              <div className="font-bold" style={{ fontSize: `${color.scale * 1.7}rem` }}>{SAMPLE_DATA.time}</div>
-              <div className="opacity-70" style={{ fontSize: `${color.scale * 0.85}rem` }}>{SAMPLE_DATA.date}</div>
+              <div className="font-bold" style={{ fontSize: `${color.scale * 1.7}rem` }}>{data.time}</div>
+              <div className="opacity-70" style={{ fontSize: `${color.scale * 0.85}rem` }}>{data.date}</div>
             </div>
           </div>
         </div>
@@ -178,9 +192,17 @@ function WidgetRenderer({ w, color }: { w: Widget; color: { bg: string; fg: stri
           <div className="text-xs font-semibold opacity-70 mb-1 flex items-center gap-1">
             <Sparkles className="h-3 w-3" /> עכשיו
           </div>
-          <div className="font-bold" style={{ fontSize: `${color.scale * 2}rem` }}>{SAMPLE_DATA.currentActivity.title}</div>
-          <div className="opacity-70 mt-1">{SAMPLE_DATA.currentActivity.time}</div>
-          <div className="opacity-70">מנחה: {SAMPLE_DATA.currentActivity.instructor}</div>
+          {data.currentActivity ? (
+            <>
+              <div className="font-bold" style={{ fontSize: `${color.scale * 2}rem` }}>{data.currentActivity.title}</div>
+              <div className="opacity-70 mt-1">{data.currentActivity.time}</div>
+              {data.currentActivity.instructor && (
+                <div className="opacity-70">מנחה: {data.currentActivity.instructor}</div>
+              )}
+            </>
+          ) : (
+            <div className="opacity-50 text-sm">אין פעילות כעת</div>
+          )}
         </div>
       );
     case "next":
@@ -190,7 +212,9 @@ function WidgetRenderer({ w, color }: { w: Widget; color: { bg: string; fg: stri
             <Calendar className="h-3 w-3" /> בהמשך
           </div>
           <div className="space-y-1.5 text-sm">
-            {SAMPLE_DATA.nextActivities.map((a, i) => (
+            {data.nextActivities.length === 0 ? (
+              <div className="opacity-50">אין פעילויות נוספות</div>
+            ) : data.nextActivities.map((a, i) => (
               <div key={i} className="flex justify-between border-b border-current/10 pb-1">
                 <span>{a.title}</span>
                 <span className="opacity-60">{a.time}</span>
@@ -206,7 +230,7 @@ function WidgetRenderer({ w, color }: { w: Widget; color: { bg: string; fg: stri
             <Calendar className="h-3 w-3" /> לוח שבועי
           </div>
           <div className="grid grid-cols-7 gap-1 flex-1">
-            {SAMPLE_DATA.weeklyDays.map((d, i) => (
+            {data.weeklyDays.map((d, i) => (
               <div key={d} className={`rounded p-1 text-center text-xs ${i === 0 ? "bg-current/20 font-bold" : "bg-current/5"}`}>
                 {d}
               </div>
@@ -219,7 +243,7 @@ function WidgetRenderer({ w, color }: { w: Widget; color: { bg: string; fg: stri
         <div className={cls} style={style}>
           <div className="flex items-center gap-2 h-full">
             <Bell className="h-4 w-4 shrink-0" />
-            <div className="truncate">{SAMPLE_DATA.ticker}</div>
+            <div className="truncate">{data.ticker || "—"}</div>
           </div>
         </div>
       );
@@ -229,7 +253,7 @@ function WidgetRenderer({ w, color }: { w: Widget; color: { bg: string; fg: stri
           <div className="text-xs font-semibold opacity-70 mb-1 flex items-center gap-1">
             <Bell className="h-3 w-3" /> הודעות
           </div>
-          <div className="text-sm">בית הכנסת פתוח היום 17:00 · פעילות מוזיקלית בלובי 16:00</div>
+          <div className="text-sm">{data.announcements || "אין הודעות חדשות"}</div>
         </div>
       );
     case "topic":
@@ -238,14 +262,14 @@ function WidgetRenderer({ w, color }: { w: Widget; color: { bg: string; fg: stri
           <div className="text-xs font-semibold opacity-70 mb-1 flex items-center gap-1">
             <BookOpen className="h-3 w-3" /> נושא השבוע
           </div>
-          <div className="font-bold" style={{ fontSize: `${color.scale * 1.4}rem` }}>{SAMPLE_DATA.topic}</div>
+          <div className="font-bold" style={{ fontSize: `${color.scale * 1.4}rem` }}>{data.topic || "—"}</div>
         </div>
       );
     case "clock":
       return (
         <div className={cls} style={{ ...style, justifyContent: "center", alignItems: "center" }}>
           <Clock className="h-5 w-5 opacity-50" />
-          <div className="font-bold" style={{ fontSize: `${color.scale * 2.4}rem` }}>{SAMPLE_DATA.time}</div>
+          <div className="font-bold" style={{ fontSize: `${color.scale * 2.4}rem` }}>{data.time}</div>
         </div>
       );
     case "weather":
@@ -343,6 +367,69 @@ export default function LayoutEditor() {
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   const [zoom, setZoom] = useState(0.5);
   const [showLayers, setShowLayers] = useState(false);
+
+  // live data preview
+  const [departments, setDepartments] = useState<{ id: string; name: string; code: string }[]>([]);
+  const [previewDeptId, setPreviewDeptId] = useState<string>("sample");
+  const [liveData, setLiveData] = useState<LiveData>(SAMPLE_DATA);
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.from("departments").select("id, name, code").order("name").then(({ data }) => {
+      if (data) setDepartments(data as any);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (previewDeptId === "sample") {
+      setLiveData(SAMPLE_DATA);
+      return;
+    }
+    fetchLiveData(previewDeptId);
+  }, [previewDeptId]);
+
+  async function fetchLiveData(deptId: string) {
+    const supabase = createClient();
+    const dept = departments.find((d) => d.id === deptId);
+    const now = new Date();
+    const hh = String(now.getHours()).padStart(2, "0");
+    const mm = String(now.getMinutes()).padStart(2, "0");
+    const dayOfWeekHe = ["א'", "ב'", "ג'", "ד'", "ה'", "ו'", "ש'"][now.getDay()];
+    const greeting = now.getHours() < 12 ? "בוקר טוב" : now.getHours() < 18 ? "צהריים טובים" : "ערב טוב";
+
+    const [acts, anns, tickers, topic] = await Promise.all([
+      supabase.from("activities")
+        .select("title, start_time, end_time, instructor_name, day_of_week")
+        .eq("department_id", deptId).eq("is_active", true).eq("day_of_week", dayOfWeekHe).order("start_time"),
+      supabase.from("announcements").select("content, title").eq("department_id", deptId).eq("is_active", true).order("created_at", { ascending: false }).limit(3),
+      supabase.from("ticker_messages").select("message").or(`department_id.eq.${deptId},is_global.eq.true`).eq("is_active", true).order("display_order"),
+      supabase.from("weekly_topics").select("title").eq("department_id", deptId).eq("is_active", true).order("week_start", { ascending: false }).limit(1),
+    ]);
+
+    const todayActs = (acts.data || []).map((a: any) => ({
+      title: a.title,
+      time: `${(a.start_time || "").slice(0, 5)}${a.end_time ? " - " + a.end_time.slice(0, 5) : ""}`,
+      startMin: parseInt((a.start_time || "00:00").slice(0, 2)) * 60 + parseInt((a.start_time || "00:00").slice(3, 5)),
+      endMin: parseInt((a.end_time || "23:59").slice(0, 2)) * 60 + parseInt((a.end_time || "23:59").slice(3, 5)),
+      instructor: a.instructor_name,
+    }));
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+    const current = todayActs.find((a) => nowMin >= a.startMin && nowMin <= a.endMin);
+    const next = todayActs.filter((a) => a.startMin > nowMin).slice(0, 3);
+
+    setLiveData({
+      greeting,
+      deptName: dept?.name || "",
+      date: `יום ${dayOfWeekHe} | ${now.toLocaleDateString("he-IL")}`,
+      time: `${hh}:${mm}`,
+      currentActivity: current ? { title: current.title, time: current.time, instructor: current.instructor } : null,
+      nextActivities: next.map((a) => ({ title: a.title, time: a.time.split(" - ")[0] })),
+      topic: (topic.data?.[0] as any)?.title || "",
+      ticker: (tickers.data || []).map((t: any) => t.message).join(" · "),
+      announcements: (anns.data || []).map((a: any) => a.content || a.title).join(" · "),
+      weeklyDays: ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"],
+    });
+  }
 
   // undo/redo
   const historyRef = useRef<Widget[][]>([]);
@@ -664,6 +751,18 @@ export default function LayoutEditor() {
 
         <div className="h-6 w-px bg-white/10" />
 
+        <Select value={previewDeptId} onValueChange={setPreviewDeptId}>
+          <SelectTrigger className="w-44 bg-[#1f1f1f] border-white/10 text-white">
+            <SelectValue placeholder="תצוגה מקדימה..." />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="sample">📋 נתוני דמה</SelectItem>
+            {departments.map((d) => (
+              <SelectItem key={d.id} value={d.id}>🏥 {d.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
         <Select onValueChange={(v) => loadTemplate(v as keyof typeof TEMPLATES)}>
           <SelectTrigger className="w-44 bg-[#1f1f1f] border-white/10 text-white">
             <SelectValue placeholder="טען תבנית..." />
@@ -955,7 +1054,7 @@ export default function LayoutEditor() {
                       if (!previewMode) setSelectedId(w.i);
                     }}
                   >
-                    <WidgetRenderer w={w} color={color} />
+                    <WidgetRenderer w={w} color={color} data={liveData} />
                   </Rnd>
                 );
               })}

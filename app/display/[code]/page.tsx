@@ -203,13 +203,29 @@ export default async function DisplayPage({ params }: { params: Promise<{ code: 
       topicImage: weeklyTopic?.image_url || undefined,
     };
 
+    // build mediaSlides for rotation (if show_media is on)
+    const mediaSlidesForLayout: { url: string; type: string }[] = [];
+    if (displaySettings.show_media) {
+      if (mediaItems.length > 0) {
+        mediaItems.forEach((item: any) => mediaSlidesForLayout.push({ url: item.media_url, type: item.media_type || "image" }));
+      } else if (settings?.media_url) {
+        mediaSlidesForLayout.push({ url: settings.media_url, type: settings.media_type || "image" });
+      }
+    }
+    const intervalSecs = Number(displaySettings.view_interval_seconds) || 20;
+
     return (
       <DisplayScreenWrapper
         departmentId={department.id}
         initialEmergencyActive={department.emergency_active && department.emergency_display}
         initialEmergencyMessage={department.emergency_message ?? ""}
       >
-        <DynamicLayoutRenderer config={customLayout} data={liveData} />
+        <DynamicLayoutRenderer
+          config={customLayout}
+          data={liveData}
+          mediaSlides={mediaSlidesForLayout}
+          intervalSeconds={intervalSecs}
+        />
       </DisplayScreenWrapper>
     );
   }

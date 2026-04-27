@@ -343,6 +343,8 @@ function WidgetView({ w, color, data }: { w: DynamicWidget; color: { bg: string;
 interface Props {
   config: LayoutConfig;
   data: DynamicLiveData;
+  mediaSlides?: { url: string; type: string }[];
+  intervalSeconds?: number;
 }
 
 function formatLiveDateTime(now: Date) {
@@ -367,9 +369,11 @@ function getGreeting(hour: number) {
   return "לילה טוב";
 }
 
-export default function DynamicLayoutRenderer({ config, data }: Props) {
+export default function DynamicLayoutRenderer({ config, data, mediaSlides = [], intervalSeconds = 20 }: Props) {
   const [scale, setScale] = useState(1);
   const [tick, setTick] = useState(() => new Date());
+  // -1 = layout, 0..N = media slide index
+  const [viewIdx, setViewIdx] = useState(-1);
 
   useEffect(() => {
     function compute() {
@@ -388,6 +392,21 @@ export default function DynamicLayoutRenderer({ config, data }: Props) {
     const id = setInterval(() => setTick(new Date()), 15_000);
     return () => clearInterval(id);
   }, []);
+
+  // Rotation: alternate between the designed layout and media slides
+  useEffect(() => {
+    if (mediaSlides.length === 0) return; // no rotation if no media
+    const seconds = Math.max(5, Math.min(120, intervalSeconds));
+    const id = setInterval(() => {
+      setViewIdx((prev) => {
+        // -1 (layout) -> 0 -> 1 -> ... -> N-1 -> -1
+        if (prev === -1) return 0;
+        if (prev >= mediaSlides.length - 1) return -1;
+        return prev + 1;
+      });
+    }, seconds * 1000);
+    return () => clearInterval(id);
+  }, [mediaSlides.length, intervalSeconds]);
 
   // override server-rendered time/date/greeting with live values
   const live = formatLiveDateTime(tick);
@@ -414,6 +433,33 @@ export default function DynamicLayoutRenderer({ config, data }: Props) {
     top: 0,
     left: 0,
   };
+
+  // Media slide overlay (covers everything when active)
+  if (viewIdx >= 0 && mediaSlides[viewIdx]) {
+    const slide = mediaSlides[viewIdx];
+    return (
+      <div style={{ position: "fixed", inset: 0, backgroundColor: "#000", zIndex: 40 }}>
+        {slide.type === "pdf" ? (
+          <iframe src={slide.url} style={{ width: "100%", height: "100%", border: "none" }} title="media" />
+        ) : (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={slide.url} alt=""
+            style={{ width: "100%", height: "100%", objectFit: "contain", backgroundColor: "#000" }} />
+        )}
+        {mediaSlides.length > 1 && (
+          <div style={{ position: "absolute", bottom: 16, left: "50%", transform: "translateX(-50%)", display: "flex", gap: 8 }}>
+            {mediaSlides.map((_, i) => (
+              <div key={i}
+                style={{
+                  width: 12, height: 12, borderRadius: "50%",
+                  backgroundColor: i === viewIdx ? (config.globalBg || "#FFFFFF") : "rgba(255,255,255,0.3)",
+                }} />
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div style={bgStyle}>

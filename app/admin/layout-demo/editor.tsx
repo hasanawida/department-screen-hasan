@@ -443,6 +443,12 @@ export default function LayoutEditor() {
     supabase.from("departments").select("id, name, code").order("name").then(({ data }) => {
       if (data) setDepartments(data as any);
     });
+    // pre-select department from ?dept= URL param
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const deptParam = params.get("dept");
+      if (deptParam) setPreviewDeptId(deptParam);
+    }
   }, []);
 
   useEffect(() => {
@@ -452,6 +458,33 @@ export default function LayoutEditor() {
     }
     fetchLiveData(previewDeptId);
     fetchSavedLayout(previewDeptId);
+  }, [previewDeptId]);
+
+  // tick the clock + recompute greeting every 15s while previewing live data
+  useEffect(() => {
+    if (previewDeptId === "sample") return;
+    const tickClock = () => {
+      const now = new Date();
+      const hh = String(now.getHours()).padStart(2, "0");
+      const mm = String(now.getMinutes()).padStart(2, "0");
+      const dayNamesHe = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"];
+      const dd = String(now.getDate()).padStart(2, "0");
+      const mo = String(now.getMonth() + 1).padStart(2, "0");
+      const yy = String(now.getFullYear()).slice(2);
+      const greeting = now.getHours() < 5 ? "לילה טוב"
+        : now.getHours() < 12 ? "בוקר טוב"
+        : now.getHours() < 17 ? "צהריים טובים"
+        : now.getHours() < 21 ? "ערב טוב" : "לילה טוב";
+      setLiveData((prev) => ({
+        ...prev,
+        time: `${hh}:${mm}`,
+        date: `יום ${dayNamesHe[now.getDay()]} | ${dd}.${mo}.${yy}`,
+        greeting,
+        todayIdx: now.getDay(),
+      }));
+    };
+    const id = setInterval(tickClock, 15_000);
+    return () => clearInterval(id);
   }, [previewDeptId]);
 
   const [savedAtDept, setSavedAtDept] = useState<string | null>(null);

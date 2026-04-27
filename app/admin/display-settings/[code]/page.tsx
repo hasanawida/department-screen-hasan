@@ -9,7 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { CheckCircle, Settings, Bell, MessageSquare, Image as ImageIcon, Plus, Trash2, X } from "lucide-react";
+import { CheckCircle, Settings, Bell, MessageSquare, Image as ImageIcon, Plus, Trash2, X, Palette, ExternalLink } from "lucide-react";
+import Link from "next/link";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -205,8 +206,9 @@ export default function DisplaySettingsPage({ params }: { params: { code: string
         </div>
 
         <Tabs defaultValue="settings" className="w-full">
-          <TabsList className="grid w-full grid-cols-4 h-auto">
+          <TabsList className="grid w-full grid-cols-5 h-auto">
             <TabsTrigger value="settings" className="gap-2 py-2"><Settings className="h-4 w-4" />הגדרות</TabsTrigger>
+            <TabsTrigger value="design" className="gap-2 py-2"><Palette className="h-4 w-4" />עיצוב</TabsTrigger>
             <TabsTrigger value="announcements" className="gap-2 py-2"><Bell className="h-4 w-4" />הודעות</TabsTrigger>
             <TabsTrigger value="ticker" className="gap-2 py-2"><MessageSquare className="h-4 w-4" />שורת רצה</TabsTrigger>
             <TabsTrigger value="media" className="gap-2 py-2"><ImageIcon className="h-4 w-4" />מדיה</TabsTrigger>
@@ -252,6 +254,32 @@ export default function DisplaySettingsPage({ params }: { params: { code: string
             <Button onClick={handleSaveSettings} className="w-full rounded-2xl py-5 text-lg font-bold bg-emerald-600 hover:bg-emerald-700">
               {saved ? <span className="flex items-center gap-2"><CheckCircle className="h-5 w-5" /> נשמר בהצלחה!</span> : "שמור הגדרות"}
             </Button>
+          </TabsContent>
+
+          {/* ===== עיצוב ===== */}
+          <TabsContent value="design" className="mt-4 space-y-4">
+            <Card className="rounded-2xl border-0 shadow-md">
+              <CardContent className="p-6 space-y-4">
+                <div className="flex items-center gap-3">
+                  <Palette className="h-6 w-6 text-emerald-600" />
+                  <h2 className="text-xl font-bold">עורך עיצוב המסך</h2>
+                </div>
+                <p className="text-sm text-slate-600">
+                  עיצוב מותאם אישית של תצוגת ה-TV שלך — מיקום widgets,
+                  צבעים, גופנים, רקע, לוגו ועוד. השמירה תופיע מיד על הטלוויזיה.
+                </p>
+                <Link href={`/admin/layout-demo?dept=${deptId}`}>
+                  <Button className="w-full rounded-2xl py-5 text-lg font-bold bg-emerald-600 hover:bg-emerald-700 gap-2">
+                    <Palette className="h-5 w-5" />
+                    פתח עורך עיצוב למחלקה זו
+                    <ExternalLink className="h-4 w-4" />
+                  </Button>
+                </Link>
+                <p className="text-xs text-slate-500 text-center">
+                  אם אין עיצוב מותאם — המסך מציג את הלייאוט המובנה
+                </p>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* ===== הודעות ===== */}

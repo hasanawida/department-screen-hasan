@@ -292,8 +292,31 @@ interface Props {
   data: DynamicLiveData;
 }
 
+function formatLiveDateTime(now: Date) {
+  const hh = String(now.getHours()).padStart(2, "0");
+  const mm = String(now.getMinutes()).padStart(2, "0");
+  const dayNamesHe = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"];
+  const dd = String(now.getDate()).padStart(2, "0");
+  const mo = String(now.getMonth() + 1).padStart(2, "0");
+  const yy = String(now.getFullYear()).slice(2);
+  return {
+    time: `${hh}:${mm}`,
+    date: `יום ${dayNamesHe[now.getDay()]} | ${dd}.${mo}.${yy}`,
+    todayIdx: now.getDay(),
+  };
+}
+
+function getGreeting(hour: number) {
+  if (hour < 5) return "לילה טוב";
+  if (hour < 12) return "בוקר טוב";
+  if (hour < 17) return "צהריים טובים";
+  if (hour < 21) return "ערב טוב";
+  return "לילה טוב";
+}
+
 export default function DynamicLayoutRenderer({ config, data }: Props) {
   const [scale, setScale] = useState(1);
+  const [tick, setTick] = useState(() => new Date());
 
   useEffect(() => {
     function compute() {
@@ -306,6 +329,22 @@ export default function DynamicLayoutRenderer({ config, data }: Props) {
     window.addEventListener("resize", compute);
     return () => window.removeEventListener("resize", compute);
   }, []);
+
+  useEffect(() => {
+    // tick every 15s — updates clock, greeting, and current/next based on time
+    const id = setInterval(() => setTick(new Date()), 15_000);
+    return () => clearInterval(id);
+  }, []);
+
+  // override server-rendered time/date/greeting with live values
+  const live = formatLiveDateTime(tick);
+  const liveData: DynamicLiveData = {
+    ...data,
+    greeting: getGreeting(tick.getHours()),
+    time: live.time,
+    date: live.date,
+    todayIdx: live.todayIdx,
+  };
 
   const bgStyle: React.CSSProperties = {
     width: "100vw",
@@ -369,7 +408,7 @@ export default function DynamicLayoutRenderer({ config, data }: Props) {
                 transform: w.rotation ? `rotate(${w.rotation}deg)` : undefined,
               }}
             >
-              <WidgetView w={w} color={color} data={data} />
+              <WidgetView w={w} color={color} data={liveData} />
             </div>
           );
         })}

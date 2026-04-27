@@ -11,6 +11,7 @@ import {
 import {
   Clock, Calendar, Bell, MessageSquare, BookOpen, Image as ImageIcon,
   CloudSun, Trash2, Plus, Save, Eye, Palette, Sparkles, Upload,
+  Type, Square, Circle, ArrowUp, ArrowDown,
 } from "lucide-react";
 
 import { Responsive, WidthProvider } from "react-grid-layout";
@@ -21,7 +22,8 @@ const ResponsiveGridLayout = WidthProvider(Responsive);
 
 type WidgetType =
   | "header" | "current" | "next" | "weekly" | "ticker"
-  | "announcements" | "topic" | "clock" | "media" | "weather" | "logo";
+  | "announcements" | "topic" | "clock" | "media" | "weather" | "logo"
+  | "text" | "shape";
 
 type Widget = {
   i: string;             // unique id for grid
@@ -32,6 +34,12 @@ type Widget = {
   imageUrl?: string;     // for logo widget
   imageFit?: "contain" | "cover";
   imageOpacity?: number; // 0..1
+  text?: string;         // for text widget
+  textAlign?: "right" | "center" | "left";
+  fontWeight?: "normal" | "bold";
+  shape?: "rect" | "circle";
+  radius?: number;       // border radius (px)
+  z?: number;            // z-index for layering
 };
 
 type LayoutItem = {
@@ -55,6 +63,8 @@ const WIDGET_META: Record<WidgetType, { label: string; icon: any; defaultW: numb
   media:         { label: "תמונה / מדיה",     icon: ImageIcon,     defaultW: 6,  defaultH: 4 },
   weather:       { label: "מזג אוויר",        icon: CloudSun,      defaultW: 3,  defaultH: 2 },
   logo:          { label: "לוגו",             icon: ImageIcon,     defaultW: 2,  defaultH: 2 },
+  text:          { label: "טקסט חופשי",       icon: Type,          defaultW: 4,  defaultH: 1 },
+  shape:         { label: "צורה דקורטיבית",    icon: Square,        defaultW: 3,  defaultH: 2 },
 };
 
 const TEMPLATES: Record<string, { layout: LayoutItem[], style: Record<string, { bg?: string; fg?: string; fontScale?: number }> }> = {
@@ -226,6 +236,38 @@ function WidgetRenderer({ w, color }: { w: Widget; color: { bg: string; fg: stri
           <div className="opacity-50 text-xs mt-2">איזור תמונות / PDF</div>
         </div>
       );
+    case "text": {
+      const align = w.textAlign || "right";
+      const weight = w.fontWeight || "normal";
+      return (
+        <div
+          className="w-full h-full flex items-center p-2 overflow-hidden"
+          style={{
+            backgroundColor: color.bg,
+            color: color.fg,
+            borderRadius: w.radius != null ? `${w.radius}px` : 12,
+            justifyContent: align === "center" ? "center" : align === "left" ? "flex-start" : "flex-end",
+            textAlign: align,
+            fontWeight: weight,
+            fontSize: `${color.scale * 1.4}rem`,
+          }}
+        >
+          {w.text || "לחץ כאן להוספת טקסט"}
+        </div>
+      );
+    }
+    case "shape": {
+      const isCircle = w.shape === "circle";
+      return (
+        <div
+          className="w-full h-full"
+          style={{
+            backgroundColor: color.bg,
+            borderRadius: isCircle ? "50%" : (w.radius != null ? `${w.radius}px` : 12),
+          }}
+        />
+      );
+    }
     case "logo": {
       const fit = w.imageFit || "contain";
       const opacity = w.imageOpacity ?? 1;
@@ -373,6 +415,12 @@ export default function LayoutDemoPage() {
         if (w.imageUrl) entry.imageUrl = w.imageUrl;
         if (w.imageFit) entry.imageFit = w.imageFit;
         if (w.imageOpacity != null) entry.imageOpacity = w.imageOpacity;
+        if (w.text) entry.text = w.text;
+        if (w.textAlign) entry.textAlign = w.textAlign;
+        if (w.fontWeight) entry.fontWeight = w.fontWeight;
+        if (w.shape) entry.shape = w.shape;
+        if (w.radius != null) entry.radius = w.radius;
+        if (w.z != null) entry.z = w.z;
         if (Object.keys(entry).length > 0) acc[w.i] = entry;
         return acc;
       }, {}),
@@ -554,13 +602,20 @@ export default function LayoutDemoPage() {
                   scale: w.fontScale || 1,
                 };
                 const isSelected = selectedId === l.i;
+                const zIndex = (w as Widget).z ?? 1;
                 return (
-                  <div key={l.i} onClick={() => !previewMode && setSelectedId(l.i)} className={isSelected ? "ring-2 ring-emerald-500 rounded-xl" : ""}>
+                  <div
+                    key={l.i}
+                    onClick={() => !previewMode && setSelectedId(l.i)}
+                    className={isSelected ? "ring-2 ring-emerald-500 rounded-xl" : ""}
+                    style={{ zIndex }}
+                  >
                     <WidgetRenderer w={w as Widget} color={color} />
                     {!previewMode && (
                       <button
                         onClick={(e) => { e.stopPropagation(); removeWidget(l.i); }}
-                        className="no-drag absolute top-1 left-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 z-10"
+                        className="no-drag absolute top-1 left-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                        style={{ zIndex: zIndex + 100 }}
                       >
                         <Trash2 className="h-3 w-3" />
                       </button>
@@ -678,6 +733,80 @@ export default function LayoutDemoPage() {
                   </div>
                 </>
               )}
+
+              {selectedWidget.type === "text" && (
+                <>
+                  <div className="pt-2 border-t">
+                    <label className="text-xs font-medium block mb-1">תוכן הטקסט</label>
+                    <Input
+                      value={selectedWidget.text || ""}
+                      onChange={(e) => updateWidget(selectedWidget.i, { text: e.target.value })}
+                      placeholder="הקלד טקסט..."
+                      className="text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium block mb-1">יישור</label>
+                    <Select value={selectedWidget.textAlign || "right"} onValueChange={(v) => updateWidget(selectedWidget.i, { textAlign: v as any })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="right">לימין</SelectItem>
+                        <SelectItem value="center">למרכז</SelectItem>
+                        <SelectItem value="left">לשמאל</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium block mb-1">משקל</label>
+                    <Select value={selectedWidget.fontWeight || "normal"} onValueChange={(v) => updateWidget(selectedWidget.i, { fontWeight: v as any })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="normal">רגיל</SelectItem>
+                        <SelectItem value="bold">מודגש</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </>
+              )}
+
+              {selectedWidget.type === "shape" && (
+                <div className="pt-2 border-t">
+                  <label className="text-xs font-medium block mb-1">סוג צורה</label>
+                  <Select value={selectedWidget.shape || "rect"} onValueChange={(v) => updateWidget(selectedWidget.i, { shape: v as any })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="rect">מלבן</SelectItem>
+                      <SelectItem value="circle">עיגול</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {selectedWidget.shape !== "circle" && (
+                    <div className="mt-2">
+                      <label className="text-xs font-medium block mb-1">
+                        עיגול פינות: {selectedWidget.radius ?? 12}px
+                      </label>
+                      <input type="range" min={0} max={80} step={1}
+                        value={selectedWidget.radius ?? 12}
+                        onChange={(e) => updateWidget(selectedWidget.i, { radius: parseInt(e.target.value) })}
+                        className="w-full" />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Layer controls */}
+              <div className="pt-2 border-t">
+                <label className="text-xs font-medium block mb-1">שכבה: {selectedWidget.z ?? 1}</label>
+                <div className="flex gap-1">
+                  <Button variant="outline" size="sm" className="flex-1 gap-1"
+                    onClick={() => updateWidget(selectedWidget.i, { z: (selectedWidget.z ?? 1) + 1 })}>
+                    <ArrowUp className="h-3 w-3" /> קדימה
+                  </Button>
+                  <Button variant="outline" size="sm" className="flex-1 gap-1"
+                    onClick={() => updateWidget(selectedWidget.i, { z: Math.max(0, (selectedWidget.z ?? 1) - 1) })}>
+                    <ArrowDown className="h-3 w-3" /> אחורה
+                  </Button>
+                </div>
+              </div>
 
               <div className="text-xs text-slate-400 pt-2 border-t">
                 גרור פינה ימנית-תחתונה לשינוי גודל. גרור את המרכז להזזה.

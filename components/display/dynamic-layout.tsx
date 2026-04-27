@@ -207,14 +207,21 @@ function WidgetView({ w, color, data }: { w: DynamicWidget; color: { bg: string;
                     ) : acts.slice(0, 6).map((act, j) => (
                       <div key={j} className="rounded-lg bg-white p-1.5 shadow-sm" style={{ color: "#1E293B" }}>
                         {act.category && (
-                          <div className="opacity-60 truncate" style={{ fontSize: fs(0.38) }}>
+                          <div className="opacity-60 break-words" style={{ fontSize: fs(0.38) }}>
                             {CATEGORY_LABEL[act.category] || CATEGORY_LABEL.default}
                           </div>
                         )}
-                        <div className="font-bold leading-tight truncate" style={{ fontSize: fs(0.5) }}>{act.title}</div>
+                        <div className="font-bold leading-tight break-words" style={{ fontSize: fs(0.5), wordBreak: "break-word", whiteSpace: "normal" }}>
+                          {act.title}
+                        </div>
                         <div className="opacity-70" dir="ltr" style={{ fontSize: fs(0.38) }}>
                           {act.time}{act.endTime ? ` - ${act.endTime}` : ""}
                         </div>
+                        {act.location && (
+                          <div className="opacity-70 mt-0.5 break-words" style={{ fontSize: fs(0.38), wordBreak: "break-word", whiteSpace: "normal" }}>
+                            📍 {act.location}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>

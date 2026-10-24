@@ -1,5 +1,37 @@
 [
  {
+  "f": "mixkit_1482.mp3",
+  "at": "scene:s0+0.1",
+  "g": -22,
+  "dur": 1.2,
+  "fo": 0.5
+ },
+ {
+  "f": "kenney_drop_003.ogg",
+  "at": "scene:s0+0.62",
+  "g": -20
+ },
+ {
+  "f": "kenney_drop_003.ogg",
+  "at": "scene:s0+0.78",
+  "g": -20
+ },
+ {
+  "f": "kenney_drop_003.ogg",
+  "at": "scene:s0+0.94",
+  "g": -20
+ },
+ {
+  "f": "kenney_select_005.ogg",
+  "at": "scene:s0+1.0",
+  "g": -21
+ },
+ {
+  "f": "mixkit_3109.mp3",
+  "at": "scene:s0+2.3",
+  "g": -15
+ },
+ {
   "f": "kenney_error_004.ogg",
   "at": "word:n1:4",
   "g": -18

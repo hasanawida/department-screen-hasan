@@ -76,12 +76,23 @@
  },
  "scenes": [
   {
+   "id": "s0",
+   "file": "scenes/s0_brand.js",
+   "lines": [],
+   "duration": 6.2,
+   "minDur": 6.2
+  },
+  {
    "id": "s1",
    "file": "scenes/s1_intro.js",
    "lines": [
     "n1",
     "n2"
-   ]
+   ],
+   "transition": {
+    "type": "crossfade",
+    "dur": 0.7
+   }
   },
   {
    "id": "s2",
@@ -125,10 +136,26 @@
   },
   {
    "id": "s5",
-   "file": "scenes/s5_roll.js",
+   "file": "scenes/s5_roll_wrong.js",
    "lines": [
-    "n13",
-    "c1"
+    "r1",
+    "r2",
+    "r3"
+   ],
+   "transition": {
+    "type": "crossfade",
+    "dur": 0.6
+   }
+  },
+  {
+   "id": "s5b",
+   "file": "scenes/s5b_roll_right.js",
+   "lines": [
+    "r4",
+    "r5",
+    "r6",
+    "c1",
+    "r7"
    ],
    "transition": {
     "type": "crossfade",
@@ -236,6 +263,20 @@
   "h6": "assets/h6_lower.jpg",
   "h7": "assets/h7_remove.jpg",
   "h8": "assets/h8_hooks.jpg",
-  "h9": "assets/h9_controls.jpg"
+  "h9": "assets/h9_controls.jpg",
+  "brand_pin0": "assets/brand/pin0.png",
+  "brand_pin1": "assets/brand/pin1.png",
+  "brand_pin2": "assets/brand/pin2.png",
+  "brand_wordmark": "assets/brand/wordmark.png",
+  "brand_tagline": "assets/brand/tagline.png",
+  "r1": "assets/r1_wrong_arm.jpg",
+  "r2": "assets/r2_wrong_leg.jpg",
+  "r3": "assets/r3_right_prep.jpg",
+  "r4": "assets/r4_right_roll.jpg",
+  "grip": "assets/a_grip.jpg",
+  "spiral": "assets/i_spiral.jpg",
+  "bones": "assets/h_bones.jpg",
+  "hem": "assets/e_hematoma.jpg",
+  "bruises": "assets/b_bruises.jpg"
  }
 }

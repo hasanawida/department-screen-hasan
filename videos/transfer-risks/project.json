@@ -76,12 +76,23 @@
  },
  "scenes": [
   {
+   "id": "s0",
+   "file": "scenes/s0_brand.js",
+   "lines": [],
+   "duration": 6.2,
+   "minDur": 6.2
+  },
+  {
    "id": "s1",
    "file": "scenes/s1_hook.js",
    "lines": [
     "l1",
     "l2"
-   ]
+   ],
+   "transition": {
+    "type": "crossfade",
+    "dur": 0.7
+   }
   },
   {
    "id": "s2",
@@ -222,6 +233,11 @@
   "disc": "assets/09_disc.jpg",
   "hern": "assets/10_disc_hern.jpg",
   "vert": "assets/11_vertebra.jpg",
-  "hip": "assets/12_hip.jpg"
+  "hip": "assets/12_hip.jpg",
+  "brand_pin0": "assets/brand/pin0.png",
+  "brand_pin1": "assets/brand/pin1.png",
+  "brand_pin2": "assets/brand/pin2.png",
+  "brand_wordmark": "assets/brand/wordmark.png",
+  "brand_tagline": "assets/brand/tagline.png"
  }
 }

@@ -238,23 +238,6 @@
   "g": -15
  },
  {
-  "f": "mixkit_1489.mp3",
-  "at": "word:n13:3",
-  "g": -22,
-  "dur": 1.4,
-  "fo": 0.6
- },
- {
-  "f": "kenney_select_003.ogg",
-  "at": "word:n13:9",
-  "g": -19
- },
- {
-  "f": "kenney_scroll_002.ogg",
-  "at": "word:n13:11",
-  "g": -20
- },
- {
   "f": "kenney_select_005.ogg",
   "at": "word:n14:3",
   "g": -19
@@ -521,5 +504,139 @@
   "f": "kenney_tick_002.ogg",
   "at": "word:n26:3+0.3",
   "g": -19
+ },
+ {
+  "f": "mixkit_1489.mp3",
+  "at": "word:r1:7",
+  "g": -22,
+  "dur": 1.4,
+  "fo": 0.6
+ },
+ {
+  "f": "kenney_select_005.ogg",
+  "at": "word:r1:12",
+  "g": -18
+ },
+ {
+  "f": "mixkit_1482.mp3",
+  "at": "line:r2-0.4",
+  "g": -21,
+  "dur": 1.2,
+  "fo": 0.5
+ },
+ {
+  "f": "kenney_error_004.ogg",
+  "at": "word:r2:2",
+  "g": -18
+ },
+ {
+  "f": "kenney_error_004.ogg",
+  "at": "word:r2:20",
+  "g": -19
+ },
+ {
+  "f": "kenney_error_004.ogg",
+  "at": "word:r2:29",
+  "g": -19
+ },
+ {
+  "f": "mixkit_2945.mp3",
+  "at": "word:r2:31",
+  "g": -17,
+  "dur": 1.2,
+  "fo": 0.4
+ },
+ {
+  "f": "mixkit_1482.mp3",
+  "at": "line:r3-0.4",
+  "g": -21,
+  "dur": 1.2,
+  "fo": 0.5
+ },
+ {
+  "f": "mixkit_1489.mp3",
+  "at": "word:r3:1",
+  "g": -21,
+  "dur": 1.4,
+  "fo": 0.6
+ },
+ {
+  "f": "kenney_error_004.ogg",
+  "at": "word:r3:13",
+  "g": -19
+ },
+ {
+  "f": "mixkit_2945.mp3",
+  "at": "word:r3:22",
+  "g": -17,
+  "dur": 1.2,
+  "fo": 0.4
+ },
+ {
+  "f": "mixkit_1482.mp3",
+  "at": "scene:s5b-0.4",
+  "g": -21,
+  "dur": 1.2,
+  "fo": 0.5
+ },
+ {
+  "f": "kenney_confirmation_001.ogg",
+  "at": "word:r4:0",
+  "g": -16
+ },
+ {
+  "f": "kenney_confirmation_002.ogg",
+  "at": "word:r4:4",
+  "g": -19
+ },
+ {
+  "f": "kenney_confirmation_002.ogg",
+  "at": "word:r4:7",
+  "g": -19
+ },
+ {
+  "f": "kenney_confirmation_002.ogg",
+  "at": "word:r4:11",
+  "g": -19
+ },
+ {
+  "f": "kenney_confirmation_002.ogg",
+  "at": "word:r5:8",
+  "g": -19
+ },
+ {
+  "f": "kenney_confirmation_002.ogg",
+  "at": "word:r5:10",
+  "g": -19
+ },
+ {
+  "f": "kenney_confirmation_002.ogg",
+  "at": "word:r5:13",
+  "g": -19
+ },
+ {
+  "f": "kenney_confirmation_002.ogg",
+  "at": "word:r6:8",
+  "g": -19
+ },
+ {
+  "f": "kenney_select_003.ogg",
+  "at": "word:r5:3",
+  "g": -19
+ },
+ {
+  "f": "kenney_select_003.ogg",
+  "at": "word:r5:7",
+  "g": -19
+ },
+ {
+  "f": "mixkit_1474.mp3",
+  "at": "word:r6:0",
+  "g": -20
+ },
+ {
+  "f": "kenney_scroll_002.ogg",
+  "at": "word:r7:6",
+  "g": -20
  }
 ]

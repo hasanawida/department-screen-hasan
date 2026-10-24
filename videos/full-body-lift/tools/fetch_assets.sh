@@ -9,7 +9,7 @@ get_font() { # family weight file
 }
 for w in 400 700 800 900; do get_font Heebo $w Heebo-$w.ttf; done
 for w in 500 700 900; do get_font Rubik $w Rubik-$w.ttf; done
-for id in 1461 1474 1482 1489 2232 3109; do
+for id in 1461 1474 1482 1489 2232 2945 3109; do
   curl -s -o "sfx/mixkit_$id.mp3" "https://assets.mixkit.co/active_storage/sfx/$id/$id-preview.mp3"
 done
 echo "assets ready"

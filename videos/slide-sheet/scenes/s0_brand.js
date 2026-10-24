@@ -1,5 +1,5 @@
 // s0 — opening card (no narration): the Eshkolot logo assembles (three drops fall in, wordmark, tagline), the division
-// and the home's name, then the motto in glossy 3D gold letters with a light sweep and sparkles.
+// and the home's name, then the motto in glossy 3D gold letters with a light sweep.
 import { goldText, BRAND } from '../lib/brand.js';
 const PINS = ['brand_pin0', 'brand_pin2', 'brand_pin1'];          // sage (top), yellow (left), coral (right)
 const PX = 100;                                                     // px per world unit at the text plane
@@ -17,7 +17,7 @@ MOTION.scene({
     const fit = Math.min(...this.lines.map(m => 9.7 / m.userData.w), 1.4);
     this.lines.forEach(m => { m.scale.setScalar(fit); this.st.add(m); });
     this.fit = fit;
-    const r = ctx.seeded(7); this.glints = Array.from({ length: 16 }, () => ({ line: r.int(0, 1), u: r.range(-0.48, 0.48), v: r.range(-0.4, 0.4), ph: r.range(0, 6.28), sp: r.range(1.6, 3.2), s: r.range(10, 22) }));
+    const r = ctx.seeded(7);
     this.dust = Array.from({ length: 40 }, () => ({ x: r.range(0, 1080), y: r.range(0, 1920), s: r.range(1.2, 3.2), sp: r.range(8, 26), ph: r.range(0, 6.28) }));
   },
   draw(t, lt, ctx) {
@@ -58,16 +58,5 @@ MOTION.scene({
     });
     const sw = at(t, T(3.3), T(4.6), 'sineInOut'); this.sweep.position.set(-9 + 18 * sw, (960 - 1360) / PX, 4.5); this.sweep.intensity = 14 * Math.sin(Math.PI * sw);
     this.st.draw(X);
-    // sparkles on the letters
-    X.save(); X.globalCompositeOperation = 'lighter';
-    for (const gl of this.glints) {
-      const m = this.lines[gl.line], kL = at(t, T(3.0 + gl.line * 0.35), T(3.6 + gl.line * 0.35)); if (kL <= 0) continue;
-      const a = Math.max(0, Math.sin((t - t0) * gl.sp + gl.ph)) ** 6 * kL; if (a < 0.02) continue;
-      const x = 540 + gl.u * m.userData.w * this.fit * PX, y = ys[gl.line] + gl.v * m.userData.h * this.fit * PX, s = gl.s * (0.6 + 0.4 * a);
-      const rg = X.createRadialGradient(x, y, 0, x, y, s * 1.6); rg.addColorStop(0, `rgba(255,250,230,${a})`); rg.addColorStop(1, 'rgba(255,220,140,0)');
-      X.fillStyle = rg; X.beginPath(); X.arc(x, y, s * 1.6, 0, 6.283); X.fill();
-      X.strokeStyle = `rgba(255,252,240,${a})`; X.lineWidth = 2; X.beginPath(); X.moveTo(x - s * 2.2, y); X.lineTo(x + s * 2.2, y); X.moveTo(x, y - s * 2.2); X.lineTo(x, y + s * 2.2); X.stroke();
-    }
-    X.restore();
   },
 });

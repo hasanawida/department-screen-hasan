@@ -3,7 +3,7 @@ export const THEME = await (await fetch(new URL('../theme.json', import.meta.url
 export const AN = THEME.anatomy;
 
 const PUNCT = /^[—–\-.,:;!?…]+$/;
-export const strip = s => String(s).replace(/[֑-ׇ]/g, '');
+export const strip = s => String(s).replace(/[֑-ׇ]/g, '').replace(/בד-מנציה/g, 'בדמנציה');   // the hyphen only steers the voice
 
 /* caption — the spoken line at the bottom, karaoke-style (spoken words full, upcoming dimmed) */
 const capCache = {};

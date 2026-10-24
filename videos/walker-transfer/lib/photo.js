@@ -1,5 +1,5 @@
 // lib/photo.js — photo plates (Ken Burns) + the overlay "layers": spine chain, pressure heat, lenses, arrows, stage stepper.
-import { AN } from './ui.js';
+import { AN, strip } from './ui.js';
 
 /* Ken Burns state: scale s about focus (cx, cy), plus a pan (dx, dy) */
 export function kb(o) { return { s: o.s ?? 1, cx: o.cx ?? 540, cy: o.cy ?? 960, dx: o.dx ?? 0, dy: o.dy ?? 0, rot: o.rot ?? 0 }; }
@@ -155,7 +155,7 @@ export function bubble(ctx, X, t, id, ax, ay, o = {}) {
   const L = ctx.timeline.vo.find(v => v.id === id); if (!L) return;
   const k = ctx.at(t, L.start - 0.3, L.start + 0.15, 'cubicOut') * (1 - ctx.at(t, L.end + (o.hold ?? 0.9), L.end + (o.hold ?? 0.9) + 0.35, 'cubicIn'));
   if (k <= 0.01) return;
-  const toks = L.text.split(/\s+/).filter(w => w && !/^[—–\-.,:;!?…]+$/.test(w)), str = toks.join(' ');
+  const toks = strip(L.text).split(/\s+/).filter(w => w && !/^[—–\-.,:;!?…]+$/.test(w)), str = toks.join(' ');
   const size = o.size || 52, lay = ctx.text.layout(X, str, { family: 'body', weight: 800, size, maxWidth: o.maxWidth || 760, lineHeight: 1.28 });
   const bw = lay.width + 80, bh = lay.lines.length * lay.lh + 54, bx = o.x ?? 540, by = o.y ?? 560;
   X.save(); X.globalAlpha *= k; X.translate(0, (1 - k) * 20);

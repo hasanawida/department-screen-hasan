@@ -1,0 +1,320 @@
+{
+ "name": "תיקוף בדמנציה — למה לא להתווכח, לא לתקן ולא לשקר",
+ "fps": 60,
+ "width": 1080,
+ "height": 1920,
+ "bpm": 120,
+ "beatsPerBar": 4,
+ "beatOffset": 0,
+ "palette": {
+  "bg": "#0B1626",
+  "ink": "#F2F6FA",
+  "acc": "#2EC4B6",
+  "clay": "#E5484D",
+  "hi": "#F5C26B",
+  "mut": "#8A9BB0"
+ },
+ "fonts": {
+  "display": "Rubik",
+  "body": "Heebo",
+  "num": "Inter"
+ },
+ "extraFonts": [
+  {
+   "family": "Heebo",
+   "file": "fonts/Heebo-400.ttf",
+   "weight": "400"
+  },
+  {
+   "family": "Heebo",
+   "file": "fonts/Heebo-700.ttf",
+   "weight": "700"
+  },
+  {
+   "family": "Heebo",
+   "file": "fonts/Heebo-800.ttf",
+   "weight": "800"
+  },
+  {
+   "family": "Heebo",
+   "file": "fonts/Heebo-900.ttf",
+   "weight": "900"
+  },
+  {
+   "family": "Rubik",
+   "file": "fonts/Rubik-500.ttf",
+   "weight": "500"
+  },
+  {
+   "family": "Rubik",
+   "file": "fonts/Rubik-700.ttf",
+   "weight": "700"
+  },
+  {
+   "family": "Rubik",
+   "file": "fonts/Rubik-900.ttf",
+   "weight": "900"
+  }
+ ],
+ "post": {
+  "grain": 0.025,
+  "vignette": 0.22
+ },
+ "voice": {
+  "name": "he-IL-AvriNeural",
+  "rate": "-12%",
+  "pitch": "+0Hz"
+ },
+ "timing": {
+  "snap": "none",
+  "snapTarget": "line",
+  "snapLines": "all",
+  "leadIn": 0.45,
+  "gap": 0.7,
+  "startPad": 0.5,
+  "tail": 3.2
+ },
+ "scenes": [
+  {
+   "id": "s0",
+   "file": "scenes/s0_brand.js",
+   "lines": [],
+   "duration": 6.2,
+   "minDur": 6.2
+  },
+  {
+   "id": "s1",
+   "file": "scenes/s1_door.js",
+   "lines": [
+    "l1",
+    "l2",
+    "l3"
+   ],
+   "transition": {
+    "type": "crossfade",
+    "dur": 0.7
+   }
+  },
+  {
+   "id": "s2",
+   "file": "scenes/s2_answers.js",
+   "lines": [
+    "l4",
+    "c1",
+    "c2",
+    "c3",
+    "l5",
+    "l6"
+   ],
+   "transition": {
+    "type": "crossfade",
+    "dur": 0.7
+   }
+  },
+  {
+   "id": "s3",
+   "file": "scenes/s3_brain.js",
+   "lines": [
+    "l7",
+    "l8"
+   ],
+   "transition": {
+    "type": "crossfade",
+    "dur": 0.7
+   }
+  },
+  {
+   "id": "s4",
+   "file": "scenes/s4_tissue.js",
+   "lines": [
+    "l9",
+    "l10",
+    "l11",
+    "l12",
+    "l13",
+    "l14"
+   ],
+   "transition": {
+    "type": "crossfade",
+    "dur": 0.7
+   }
+  },
+  {
+   "id": "s5",
+   "file": "scenes/s5_memory.js",
+   "lines": [
+    "l15",
+    "l16",
+    "l17"
+   ],
+   "transition": {
+    "type": "crossfade",
+    "dur": 0.7
+   }
+  },
+  {
+   "id": "s6",
+   "file": "scenes/s6_frontal.js",
+   "lines": [
+    "l18",
+    "l19",
+    "l20",
+    "l21"
+   ],
+   "transition": {
+    "type": "crossfade",
+    "dur": 0.7
+   }
+  },
+  {
+   "id": "s7",
+   "file": "scenes/s7_emotion.js",
+   "lines": [
+    "l22",
+    "l23",
+    "l24",
+    "l25",
+    "l26"
+   ],
+   "transition": {
+    "type": "crossfade",
+    "dur": 0.7
+   }
+  },
+  {
+   "id": "s8",
+   "file": "scenes/s8_contagion.js",
+   "lines": [
+    "l27",
+    "l28"
+   ],
+   "transition": {
+    "type": "crossfade",
+    "dur": 0.7
+   }
+  },
+  {
+   "id": "s9",
+   "file": "scenes/s9_argue.js",
+   "lines": [
+    "l29",
+    "l30",
+    "l31",
+    "l32"
+   ],
+   "transition": {
+    "type": "crossfade",
+    "dur": 0.7
+   }
+  },
+  {
+   "id": "s10",
+   "file": "scenes/s10_correct.js",
+   "lines": [
+    "l33",
+    "l34",
+    "l35"
+   ],
+   "transition": {
+    "type": "crossfade",
+    "dur": 0.7
+   }
+  },
+  {
+   "id": "s11",
+   "file": "scenes/s11_lie.js",
+   "lines": [
+    "l36",
+    "l37",
+    "l38",
+    "l39"
+   ],
+   "transition": {
+    "type": "crossfade",
+    "dur": 0.7
+   }
+  },
+  {
+   "id": "s12",
+   "file": "scenes/s12_validation.js",
+   "lines": [
+    "l40",
+    "l41",
+    "l42",
+    "l43",
+    "l44",
+    "c4"
+   ],
+   "transition": {
+    "type": "crossfade",
+    "dur": 0.7
+   }
+  },
+  {
+   "id": "s13",
+   "file": "scenes/s13_story.js",
+   "lines": [
+    "l45",
+    "c5",
+    "l46",
+    "l47",
+    "l48"
+   ],
+   "transition": {
+    "type": "crossfade",
+    "dur": 0.7
+   }
+  },
+  {
+   "id": "s14",
+   "file": "scenes/s14_calm.js",
+   "lines": [
+    "l49",
+    "l50"
+   ],
+   "transition": {
+    "type": "crossfade",
+    "dur": 0.7
+   }
+  },
+  {
+   "id": "s15",
+   "file": "scenes/s15_end.js",
+   "lines": [
+    "l51",
+    "l52",
+    "l53"
+   ],
+   "transition": {
+    "type": "crossfade",
+    "dur": 0.7
+   }
+  }
+ ],
+ "images": {
+  "brand_pin0": "assets/brand/pin0.png",
+  "brand_pin1": "assets/brand/pin1.png",
+  "brand_pin2": "assets/brand/pin2.png",
+  "brand_wordmark": "assets/brand/wordmark.png",
+  "brand_tagline": "assets/brand/tagline.png",
+  "b0": "assets/b0_head.jpg",
+  "b1": "assets/b1_brain.jpg",
+  "b2": "assets/b2_atrophy.jpg",
+  "b3": "assets/b3_prefrontal.jpg",
+  "b4": "assets/b4_amygdala.jpg",
+  "b6": "assets/b6_tissue.jpg",
+  "b8": "assets/b8_mother.jpg",
+  "d0": "assets/d0_door.jpg",
+  "d10": "assets/d10_tense.jpg",
+  "d11": "assets/d11_calm.jpg",
+  "d1": "assets/d1_argue.jpg",
+  "d2": "assets/d2_correct.jpg",
+  "d3": "assets/d3_lie.jpg",
+  "d4": "assets/d4_angry.jpg",
+  "d5": "assets/d5_grief.jpg",
+  "d6": "assets/d6_center.jpg",
+  "d7": "assets/d7_eyelevel.jpg",
+  "d8": "assets/d8_story.jpg",
+  "d9": "assets/d9_tea.jpg"
+ }
+}

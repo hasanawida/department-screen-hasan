@@ -9,7 +9,7 @@
 - **Kenney** — Impact Sounds, Interface Sounds — CC0: https://kenney.nl/assets
 
 ## קריינות
-- Microsoft Edge neural TTS — `he-IL-AvriNeural` (‎-12%), נבדק בתמלול חוזר (`ivrit-ai/whisper-large-v3-turbo-ct2`).
+- Microsoft Edge neural TTS — `he-IL-AvriNeural` (קריין) ו-`he-IL-HilaNeural` (ההכוונה של המטפלת), ‎-12%, נבדק בתמלול חוזר (`ivrit-ai/whisper-large-v3-turbo-ct2`).
 
 ## גופנים
 - Heebo, Rubik — SIL Open Font License 1.1.

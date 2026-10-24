@@ -1,0 +1,225 @@
+{
+ "name": "מנוף העמדה — Molift Quick Raiser 1",
+ "fps": 60,
+ "width": 1080,
+ "height": 1920,
+ "bpm": 120,
+ "beatsPerBar": 4,
+ "beatOffset": 0,
+ "palette": {
+  "bg": "#0B1626",
+  "ink": "#F2F6FA",
+  "acc": "#2EC4B6",
+  "clay": "#E5484D",
+  "hi": "#F5C26B",
+  "mut": "#8A9BB0"
+ },
+ "fonts": {
+  "display": "Rubik",
+  "body": "Heebo",
+  "num": "Inter"
+ },
+ "extraFonts": [
+  {
+   "family": "Heebo",
+   "file": "fonts/Heebo-400.ttf",
+   "weight": "400"
+  },
+  {
+   "family": "Heebo",
+   "file": "fonts/Heebo-700.ttf",
+   "weight": "700"
+  },
+  {
+   "family": "Heebo",
+   "file": "fonts/Heebo-800.ttf",
+   "weight": "800"
+  },
+  {
+   "family": "Heebo",
+   "file": "fonts/Heebo-900.ttf",
+   "weight": "900"
+  },
+  {
+   "family": "Rubik",
+   "file": "fonts/Rubik-500.ttf",
+   "weight": "500"
+  },
+  {
+   "family": "Rubik",
+   "file": "fonts/Rubik-700.ttf",
+   "weight": "700"
+  },
+  {
+   "family": "Rubik",
+   "file": "fonts/Rubik-900.ttf",
+   "weight": "900"
+  }
+ ],
+ "post": {
+  "grain": 0.025,
+  "vignette": 0.22
+ },
+ "voice": {
+  "name": "he-IL-AvriNeural",
+  "rate": "-12%",
+  "pitch": "+0Hz"
+ },
+ "timing": {
+  "snap": "none",
+  "snapTarget": "line",
+  "snapLines": "all",
+  "leadIn": 0.45,
+  "gap": 0.7,
+  "startPad": 0.5,
+  "tail": 3.2
+ },
+ "scenes": [
+  {
+   "id": "s1",
+   "file": "scenes/s1_intro.js",
+   "lines": [
+    "n1",
+    "n2"
+   ]
+  },
+  {
+   "id": "s2",
+   "file": "scenes/s2_layers.js",
+   "lines": [
+    "n3",
+    "n4",
+    "n5",
+    "n6",
+    "n7",
+    "n8",
+    "n9"
+   ],
+   "transition": {
+    "type": "crossfade",
+    "dur": 0.7
+   }
+  },
+  {
+   "id": "s3",
+   "file": "scenes/s3_who.js",
+   "lines": [
+    "n10",
+    "n11"
+   ],
+   "transition": {
+    "type": "crossfade",
+    "dur": 0.7
+   }
+  },
+  {
+   "id": "s4",
+   "file": "scenes/s4_check.js",
+   "lines": [
+    "n12"
+   ],
+   "transition": {
+    "type": "crossfade",
+    "dur": 0.6
+   }
+  },
+  {
+   "id": "s5",
+   "file": "scenes/s5_place.js",
+   "lines": [
+    "n13",
+    "c1"
+   ],
+   "transition": {
+    "type": "crossfade",
+    "dur": 0.6
+   }
+  },
+  {
+   "id": "s6",
+   "file": "scenes/s6_sling.js",
+   "lines": [
+    "n14",
+    "c2"
+   ],
+   "transition": {
+    "type": "crossfade",
+    "dur": 0.6
+   }
+  },
+  {
+   "id": "s7",
+   "file": "scenes/s7_raise.js",
+   "lines": [
+    "n15",
+    "c3",
+    "n16",
+    "n17"
+   ],
+   "transition": {
+    "type": "crossfade",
+    "dur": 0.6
+   }
+  },
+  {
+   "id": "s8",
+   "file": "scenes/s8_move.js",
+   "lines": [
+    "n18",
+    "n19",
+    "n20"
+   ],
+   "transition": {
+    "type": "crossfade",
+    "dur": 0.6
+   }
+  },
+  {
+   "id": "s9",
+   "file": "scenes/s9_lower.js",
+   "lines": [
+    "n21",
+    "c4"
+   ],
+   "transition": {
+    "type": "crossfade",
+    "dur": 0.6
+   }
+  },
+  {
+   "id": "s10",
+   "file": "scenes/s10_rules.js",
+   "lines": [
+    "n22"
+   ],
+   "transition": {
+    "type": "crossfade",
+    "dur": 0.7
+   }
+  },
+  {
+   "id": "s11",
+   "file": "scenes/s11_end.js",
+   "lines": [
+    "n23"
+   ],
+   "transition": {
+    "type": "dip",
+    "dur": 0.9,
+    "color": "#0B1626"
+   },
+   "minDur": 4.5
+  }
+ ],
+ "images": {
+  "w5": "assets/w5_steps.jpg",
+  "m0": "assets/m0_lift.jpg",
+  "m1": "assets/m1_place.jpg",
+  "m2": "assets/m2_sling.jpg",
+  "m3": "assets/m3_raise.jpg",
+  "m4": "assets/m4_move.jpg",
+  "m5": "assets/m5_lower.jpg",
+  "m6": "assets/m6_wrong.jpg",
+  "m7": "assets/m7_legs.jpg"
+ }
+}

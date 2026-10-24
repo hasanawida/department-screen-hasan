@@ -1,0 +1,240 @@
+{
+ "name": "סדין החלקה",
+ "fps": 60,
+ "width": 1080,
+ "height": 1920,
+ "bpm": 120,
+ "beatsPerBar": 4,
+ "beatOffset": 0,
+ "palette": {
+  "bg": "#0B1626",
+  "ink": "#F2F6FA",
+  "acc": "#2EC4B6",
+  "clay": "#E5484D",
+  "hi": "#F5C26B",
+  "mut": "#8A9BB0"
+ },
+ "fonts": {
+  "display": "Rubik",
+  "body": "Heebo",
+  "num": "Inter"
+ },
+ "extraFonts": [
+  {
+   "family": "Heebo",
+   "file": "fonts/Heebo-400.ttf",
+   "weight": "400"
+  },
+  {
+   "family": "Heebo",
+   "file": "fonts/Heebo-700.ttf",
+   "weight": "700"
+  },
+  {
+   "family": "Heebo",
+   "file": "fonts/Heebo-800.ttf",
+   "weight": "800"
+  },
+  {
+   "family": "Heebo",
+   "file": "fonts/Heebo-900.ttf",
+   "weight": "900"
+  },
+  {
+   "family": "Rubik",
+   "file": "fonts/Rubik-500.ttf",
+   "weight": "500"
+  },
+  {
+   "family": "Rubik",
+   "file": "fonts/Rubik-700.ttf",
+   "weight": "700"
+  },
+  {
+   "family": "Rubik",
+   "file": "fonts/Rubik-900.ttf",
+   "weight": "900"
+  }
+ ],
+ "post": {
+  "grain": 0.025,
+  "vignette": 0.22
+ },
+ "voice": {
+  "name": "he-IL-AvriNeural",
+  "rate": "-12%",
+  "pitch": "+0Hz"
+ },
+ "timing": {
+  "snap": "none",
+  "snapTarget": "line",
+  "snapLines": "all",
+  "leadIn": 0.45,
+  "gap": 0.7,
+  "startPad": 0.5,
+  "tail": 3.2
+ },
+ "scenes": [
+  {
+   "id": "s1",
+   "file": "scenes/s1_intro.js",
+   "lines": [
+    "n1",
+    "n2"
+   ]
+  },
+  {
+   "id": "s2",
+   "file": "scenes/s2_problem.js",
+   "lines": [
+    "n3",
+    "n4"
+   ],
+   "transition": {
+    "type": "crossfade",
+    "dur": 0.7
+   }
+  },
+  {
+   "id": "s3",
+   "file": "scenes/s3_shear.js",
+   "lines": [
+    "n5",
+    "n6",
+    "n7",
+    "n8"
+   ],
+   "transition": {
+    "type": "crossfade",
+    "dur": 0.7
+   }
+  },
+  {
+   "id": "s4",
+   "file": "scenes/s4_sheet.js",
+   "lines": [
+    "n9"
+   ],
+   "transition": {
+    "type": "crossfade",
+    "dur": 0.7
+   }
+  },
+  {
+   "id": "s5",
+   "file": "scenes/s5_uses.js",
+   "lines": [
+    "n10",
+    "n11"
+   ],
+   "transition": {
+    "type": "crossfade",
+    "dur": 0.7
+   }
+  },
+  {
+   "id": "s6",
+   "file": "scenes/s6_prep.js",
+   "lines": [
+    "n12"
+   ],
+   "transition": {
+    "type": "crossfade",
+    "dur": 0.6
+   }
+  },
+  {
+   "id": "s7",
+   "file": "scenes/s7_insert.js",
+   "lines": [
+    "n13",
+    "c1"
+   ],
+   "transition": {
+    "type": "crossfade",
+    "dur": 0.6
+   }
+  },
+  {
+   "id": "s8",
+   "file": "scenes/s8_stance.js",
+   "lines": [
+    "n14",
+    "n15",
+    "c2"
+   ],
+   "transition": {
+    "type": "crossfade",
+    "dur": 0.6
+   }
+  },
+  {
+   "id": "s9",
+   "file": "scenes/s9_slide.js",
+   "lines": [
+    "n16",
+    "c3",
+    "n17",
+    "n18"
+   ],
+   "transition": {
+    "type": "crossfade",
+    "dur": 0.6
+   }
+  },
+  {
+   "id": "s10",
+   "file": "scenes/s10_remove.js",
+   "lines": [
+    "n19",
+    "n20"
+   ],
+   "transition": {
+    "type": "crossfade",
+    "dur": 0.6
+   }
+  },
+  {
+   "id": "s11",
+   "file": "scenes/s11_rules.js",
+   "lines": [
+    "n21"
+   ],
+   "transition": {
+    "type": "crossfade",
+    "dur": 0.7
+   }
+  },
+  {
+   "id": "s12",
+   "file": "scenes/s12_end.js",
+   "lines": [
+    "n22",
+    "n23"
+   ],
+   "transition": {
+    "type": "dip",
+    "dur": 0.9,
+    "color": "#0B1626"
+   },
+   "minDur": 8
+  }
+ ],
+ "images": {
+  "skinO": "assets/d_skin_old.jpg",
+  "hem": "assets/e_hematoma.jpg",
+  "w5": "assets/w5_steps.jpg",
+  "m4": "assets/m4_move.jpg",
+  "h5": "assets/h5_move.jpg",
+  "s0": "assets/s0_down.jpg",
+  "s1": "assets/s1_wrong.jpg",
+  "s2": "assets/s2_sheet.jpg",
+  "s3": "assets/s3_insert.jpg",
+  "s4": "assets/s4_ready.jpg",
+  "s5": "assets/s5_slide.jpg",
+  "s6": "assets/s6_remove.jpg",
+  "s7": "assets/s7_turn.jpg",
+  "s8": "assets/s8_stretcher.jpg",
+  "s9": "assets/s9_heels.jpg"
+ }
+}

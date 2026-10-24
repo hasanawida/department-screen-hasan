@@ -183,8 +183,8 @@ export function buildTissue(ctx) {
 
 export function tissueLights(ctx, st) {
   const T = ctx.THREE;
-  st.add(new T.HemisphereLight(0xcfd8ff, 0x140a24, 0.9));
-  const k = new T.DirectionalLight(0xffffff, 1.6); k.position.set(3, 5, 6); st.add(k);
+  st.add(new T.HemisphereLight(0xdfe4ff, 0x2a1840, 1.7));
+  const k = new T.DirectionalLight(0xffffff, 2.4); k.position.set(3, 5, 6); st.add(k);
   const rim = new T.DirectionalLight(0x7fe8ff, 1.4); rim.position.set(-4, -2, -5); st.add(rim);
   st.scene.fog = new T.Fog(0x0B1626, 9, 24);
 }

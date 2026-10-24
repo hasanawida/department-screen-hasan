@@ -9,8 +9,7 @@ const HIP = [680, 1000];
 MOTION.scene({
   id: 's4',
   setup(ctx) {
-    this.st = ctx.stage3D({ fov: 32, env: 'room', tone: 'neutral', samples: 4, bloom: { strength: 0.9, radius: 0.55, threshold: 0.95 } });
-    this.st.scene.environmentIntensity = 0.35;
+    this.st = ctx.stage3D({ fov: 32, env: null, tone: 'neutral', samples: 2, bloom: { strength: 0.9, radius: 0.55, threshold: 0.95 } });
     tissueLights(ctx, this.st);
     this.ts = buildTissue(ctx); this.st.add(this.ts.root);
   },

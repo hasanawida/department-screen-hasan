@@ -1,0 +1,234 @@
+{
+ "name": "מעבר נכון — תמיכה קלה עם הליכון",
+ "fps": 60,
+ "width": 1080,
+ "height": 1920,
+ "bpm": 120,
+ "beatsPerBar": 4,
+ "beatOffset": 0,
+ "palette": {
+  "bg": "#0B1626",
+  "ink": "#F2F6FA",
+  "acc": "#2EC4B6",
+  "clay": "#E5484D",
+  "hi": "#F5C26B",
+  "mut": "#8A9BB0"
+ },
+ "fonts": {
+  "display": "Rubik",
+  "body": "Heebo",
+  "num": "Inter"
+ },
+ "extraFonts": [
+  {
+   "family": "Heebo",
+   "file": "fonts/Heebo-400.ttf",
+   "weight": "400"
+  },
+  {
+   "family": "Heebo",
+   "file": "fonts/Heebo-700.ttf",
+   "weight": "700"
+  },
+  {
+   "family": "Heebo",
+   "file": "fonts/Heebo-800.ttf",
+   "weight": "800"
+  },
+  {
+   "family": "Heebo",
+   "file": "fonts/Heebo-900.ttf",
+   "weight": "900"
+  },
+  {
+   "family": "Rubik",
+   "file": "fonts/Rubik-500.ttf",
+   "weight": "500"
+  },
+  {
+   "family": "Rubik",
+   "file": "fonts/Rubik-700.ttf",
+   "weight": "700"
+  },
+  {
+   "family": "Rubik",
+   "file": "fonts/Rubik-900.ttf",
+   "weight": "900"
+  }
+ ],
+ "post": {
+  "grain": 0.025,
+  "vignette": 0.22
+ },
+ "voice": {
+  "name": "he-IL-AvriNeural",
+  "rate": "-12%",
+  "pitch": "+0Hz"
+ },
+ "timing": {
+  "snap": "none",
+  "snapTarget": "line",
+  "snapLines": "all",
+  "leadIn": 0.45,
+  "gap": 0.7,
+  "startPad": 0.5,
+  "tail": 3.2
+ },
+ "scenes": [
+  {
+   "id": "s1",
+   "file": "scenes/s1_intro.js",
+   "lines": [
+    "n1",
+    "n2"
+   ]
+  },
+  {
+   "id": "s2",
+   "file": "scenes/s2_who.js",
+   "lines": [
+    "n3",
+    "n4"
+   ],
+   "transition": {
+    "type": "crossfade",
+    "dur": 0.7
+   }
+  },
+  {
+   "id": "s3",
+   "file": "scenes/s3_prep.js",
+   "lines": [
+    "n5",
+    "n6"
+   ],
+   "transition": {
+    "type": "crossfade",
+    "dur": 0.7
+   }
+  },
+  {
+   "id": "s4",
+   "file": "scenes/s4_edge.js",
+   "lines": [
+    "n7",
+    "c1"
+   ],
+   "transition": {
+    "type": "crossfade",
+    "dur": 0.6
+   }
+  },
+  {
+   "id": "s5",
+   "file": "scenes/s5_feet.js",
+   "lines": [
+    "n8",
+    "c2"
+   ],
+   "transition": {
+    "type": "crossfade",
+    "dur": 0.6
+   }
+  },
+  {
+   "id": "s6",
+   "file": "scenes/s6_stand.js",
+   "lines": [
+    "n9",
+    "c3",
+    "n10"
+   ],
+   "transition": {
+    "type": "crossfade",
+    "dur": 0.6
+   }
+  },
+  {
+   "id": "s7",
+   "file": "scenes/s7_steady.js",
+   "lines": [
+    "n11",
+    "c4",
+    "c5",
+    "n12"
+   ],
+   "transition": {
+    "type": "crossfade",
+    "dur": 0.6
+   }
+  },
+  {
+   "id": "s8",
+   "file": "scenes/s8_steps.js",
+   "lines": [
+    "n13",
+    "c6",
+    "n14"
+   ],
+   "transition": {
+    "type": "crossfade",
+    "dur": 0.6
+   }
+  },
+  {
+   "id": "s9",
+   "file": "scenes/s9_sit.js",
+   "lines": [
+    "n15",
+    "c7"
+   ],
+   "transition": {
+    "type": "crossfade",
+    "dur": 0.6
+   }
+  },
+  {
+   "id": "s10",
+   "file": "scenes/s10_compare.js",
+   "lines": [
+    "n16"
+   ],
+   "transition": {
+    "type": "crossfade",
+    "dur": 0.7
+   }
+  },
+  {
+   "id": "s11",
+   "file": "scenes/s11_rules.js",
+   "lines": [
+    "n17"
+   ],
+   "transition": {
+    "type": "crossfade",
+    "dur": 0.7
+   }
+  },
+  {
+   "id": "s12",
+   "file": "scenes/s12_end.js",
+   "lines": [
+    "n18"
+   ],
+   "transition": {
+    "type": "dip",
+    "dur": 0.9,
+    "color": "#0B1626"
+   },
+   "minDur": 4.5
+  }
+ ],
+ "images": {
+  "wrong2": "assets/02_lift.jpg",
+  "w0": "assets/w0_establish.jpg",
+  "w1": "assets/w1_edge.jpg",
+  "w2": "assets/w2_feet.jpg",
+  "w3": "assets/w3_push.jpg",
+  "w4": "assets/w4_steady.jpg",
+  "w5": "assets/w5_steps.jpg",
+  "w6": "assets/w6_back.jpg",
+  "w7": "assets/w7_sit.jpg",
+  "w8": "assets/w8_wrong.jpg"
+ }
+}

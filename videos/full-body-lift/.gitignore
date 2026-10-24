@@ -1,0 +1,9 @@
+# generated / large
+renders/
+samples/
+vo/*.wav
+# fetched by tools/fetch_assets.sh (licensed for use, not for redistribution as raw files)
+fonts/
+sfx/mixkit_*.mp3
+# original 2K PNGs from the generator (the 1080x1920 JPEGs in assets/ are used)
+photos/

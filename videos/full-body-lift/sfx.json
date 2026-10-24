@@ -1,0 +1,493 @@
+[
+ {
+  "f": "mixkit_1474.mp3",
+  "at": "word:n1:5-0.4",
+  "g": -18
+ },
+ {
+  "f": "kenney_confirmation_001.ogg",
+  "at": "word:n1:7",
+  "g": -16
+ },
+ {
+  "f": "kenney_select_005.ogg",
+  "at": "word:n2:7",
+  "g": -18
+ },
+ {
+  "f": "kenney_tick_002.ogg",
+  "at": "word:n2:10",
+  "g": -18
+ },
+ {
+  "f": "mixkit_1482.mp3",
+  "at": "scene:s2-0.4",
+  "g": -21,
+  "dur": 1.4,
+  "fo": 0.6
+ },
+ {
+  "f": "kenney_select_003.ogg",
+  "at": "word:n4:0",
+  "g": -19
+ },
+ {
+  "f": "kenney_select_003.ogg",
+  "at": "word:n4:10",
+  "g": -19
+ },
+ {
+  "f": "kenney_select_003.ogg",
+  "at": "word:n5:1",
+  "g": -19
+ },
+ {
+  "f": "kenney_select_003.ogg",
+  "at": "word:n5:2",
+  "g": -19
+ },
+ {
+  "f": "kenney_select_003.ogg",
+  "at": "word:n6:2",
+  "g": -19
+ },
+ {
+  "f": "kenney_select_003.ogg",
+  "at": "word:n7:0",
+  "g": -19
+ },
+ {
+  "f": "kenney_select_003.ogg",
+  "at": "word:n8:3",
+  "g": -19
+ },
+ {
+  "f": "kenney_select_003.ogg",
+  "at": "word:n9:2",
+  "g": -19
+ },
+ {
+  "f": "kenney_scroll_002.ogg",
+  "at": "word:n4:3",
+  "g": -20
+ },
+ {
+  "f": "synth_motor.wav",
+  "at": "word:n5:5-0.2",
+  "g": -20,
+  "dur": 2.0,
+  "fo": 0.6
+ },
+ {
+  "f": "kenney_tick_002.ogg",
+  "at": "word:n6:5",
+  "g": -18
+ },
+ {
+  "f": "kenney_tick_002.ogg",
+  "at": "word:n6:5+0.15",
+  "g": -18
+ },
+ {
+  "f": "kenney_tick_002.ogg",
+  "at": "word:n7:2",
+  "g": -19
+ },
+ {
+  "f": "kenney_error_004.ogg",
+  "at": "word:n8:3",
+  "g": -20
+ },
+ {
+  "f": "kenney_maximize_003.ogg",
+  "at": "word:n8:3-0.2",
+  "g": -19
+ },
+ {
+  "f": "kenney_maximize_003.ogg",
+  "at": "word:n9:2-0.2",
+  "g": -19
+ },
+ {
+  "f": "mixkit_1482.mp3",
+  "at": "scene:s3-0.4",
+  "g": -21,
+  "dur": 1.4,
+  "fo": 0.6
+ },
+ {
+  "f": "kenney_confirmation_002.ogg",
+  "at": "word:n10:3",
+  "g": -19
+ },
+ {
+  "f": "kenney_confirmation_002.ogg",
+  "at": "word:n10:6",
+  "g": -19
+ },
+ {
+  "f": "kenney_confirmation_002.ogg",
+  "at": "word:n10:11",
+  "g": -19
+ },
+ {
+  "f": "kenney_confirmation_001.ogg",
+  "at": "word:n11:2",
+  "g": -16
+ },
+ {
+  "f": "mixkit_1461.mp3",
+  "at": "scene:s4-0.3",
+  "g": -23
+ },
+ {
+  "f": "mixkit_1461.mp3",
+  "at": "scene:s5-0.3",
+  "g": -23
+ },
+ {
+  "f": "mixkit_1461.mp3",
+  "at": "scene:s6-0.3",
+  "g": -23
+ },
+ {
+  "f": "mixkit_1461.mp3",
+  "at": "scene:s7-0.3",
+  "g": -23
+ },
+ {
+  "f": "mixkit_1461.mp3",
+  "at": "scene:s8-0.3",
+  "g": -23
+ },
+ {
+  "f": "mixkit_1461.mp3",
+  "at": "scene:s9-0.3",
+  "g": -23
+ },
+ {
+  "f": "kenney_drop_003.ogg",
+  "at": "line:c1-0.3",
+  "g": -22
+ },
+ {
+  "f": "kenney_drop_003.ogg",
+  "at": "line:c2-0.3",
+  "g": -22
+ },
+ {
+  "f": "kenney_drop_003.ogg",
+  "at": "line:c3-0.3",
+  "g": -22
+ },
+ {
+  "f": "kenney_drop_003.ogg",
+  "at": "line:c4-0.3",
+  "g": -22
+ },
+ {
+  "f": "kenney_confirmation_002.ogg",
+  "at": "word:n12:5",
+  "g": -19
+ },
+ {
+  "f": "kenney_confirmation_002.ogg",
+  "at": "word:n12:8",
+  "g": -19
+ },
+ {
+  "f": "kenney_confirmation_002.ogg",
+  "at": "word:n12:14",
+  "g": -19
+ },
+ {
+  "f": "kenney_impactMetal_light_002.ogg",
+  "at": "word:n12:15+0.2",
+  "g": -15
+ },
+ {
+  "f": "mixkit_1489.mp3",
+  "at": "word:n13:3",
+  "g": -22,
+  "dur": 1.4,
+  "fo": 0.6
+ },
+ {
+  "f": "kenney_select_003.ogg",
+  "at": "word:n13:9",
+  "g": -19
+ },
+ {
+  "f": "kenney_scroll_002.ogg",
+  "at": "word:n13:11",
+  "g": -20
+ },
+ {
+  "f": "kenney_select_005.ogg",
+  "at": "word:n14:3",
+  "g": -19
+ },
+ {
+  "f": "kenney_impactMetal_light_002.ogg",
+  "at": "word:n14:12",
+  "g": -16
+ },
+ {
+  "f": "kenney_impactMetal_light_002.ogg",
+  "at": "word:n14:16",
+  "g": -16
+ },
+ {
+  "f": "kenney_maximize_003.ogg",
+  "at": "word:n14:18-0.2",
+  "g": -19
+ },
+ {
+  "f": "kenney_select_003.ogg",
+  "at": "word:c2:4",
+  "g": -19
+ },
+ {
+  "f": "synth_motor.wav",
+  "at": "word:n15:3-0.2",
+  "g": -17,
+  "dur": 2.6,
+  "fo": 0.7
+ },
+ {
+  "f": "kenney_tick_002.ogg",
+  "at": "word:n15:7",
+  "g": -17
+ },
+ {
+  "f": "kenney_confirmation_002.ogg",
+  "at": "word:n16:2",
+  "g": -19
+ },
+ {
+  "f": "kenney_confirmation_002.ogg",
+  "at": "word:n16:6",
+  "g": -19
+ },
+ {
+  "f": "kenney_confirmation_002.ogg",
+  "at": "word:n16:8",
+  "g": -19
+ },
+ {
+  "f": "kenney_select_005.ogg",
+  "at": "word:n16:10",
+  "g": -18
+ },
+ {
+  "f": "kenney_select_005.ogg",
+  "at": "word:n17:1",
+  "g": -19
+ },
+ {
+  "f": "mixkit_1482.mp3",
+  "at": "word:n17:6-0.4",
+  "g": -21,
+  "dur": 1.4,
+  "fo": 0.6
+ },
+ {
+  "f": "kenney_error_004.ogg",
+  "at": "word:n17:6",
+  "g": -19
+ },
+ {
+  "f": "kenney_confirmation_001.ogg",
+  "at": "word:n17:9",
+  "g": -17
+ },
+ {
+  "f": "mixkit_1482.mp3",
+  "at": "line:n18-0.5",
+  "g": -22,
+  "dur": 1.2,
+  "fo": 0.5
+ },
+ {
+  "f": "kenney_error_004.ogg",
+  "at": "word:n18:3",
+  "g": -20
+ },
+ {
+  "f": "kenney_error_004.ogg",
+  "at": "word:n18:5",
+  "g": -20
+ },
+ {
+  "f": "kenney_error_004.ogg",
+  "at": "word:n18:7",
+  "g": -20
+ },
+ {
+  "f": "kenney_select_003.ogg",
+  "at": "word:n18:9",
+  "g": -19
+ },
+ {
+  "f": "kenney_tick_002.ogg",
+  "at": "word:n19:4",
+  "g": -18
+ },
+ {
+  "f": "kenney_select_003.ogg",
+  "at": "word:n19:7",
+  "g": -19
+ },
+ {
+  "f": "kenney_select_003.ogg",
+  "at": "word:n20:2",
+  "g": -19
+ },
+ {
+  "f": "kenney_select_003.ogg",
+  "at": "word:n20:6",
+  "g": -19
+ },
+ {
+  "f": "kenney_select_005.ogg",
+  "at": "word:n20:10",
+  "g": -19
+ },
+ {
+  "f": "mixkit_1489.mp3",
+  "at": "word:n21:4",
+  "g": -21,
+  "dur": 1.4,
+  "fo": 0.6
+ },
+ {
+  "f": "kenney_error_004.ogg",
+  "at": "word:n21:8",
+  "g": -19
+ },
+ {
+  "f": "kenney_error_004.ogg",
+  "at": "word:n21:12",
+  "g": -19
+ },
+ {
+  "f": "kenney_impactMetal_light_002.ogg",
+  "at": "word:n22:5",
+  "g": -15
+ },
+ {
+  "f": "synth_motor.wav",
+  "at": "word:n22:6-0.2",
+  "g": -18,
+  "dur": 2.8,
+  "fo": 0.8
+ },
+ {
+  "f": "kenney_confirmation_002.ogg",
+  "at": "word:n22:12",
+  "g": -19
+ },
+ {
+  "f": "mixkit_1482.mp3",
+  "at": "line:n23-0.5",
+  "g": -22,
+  "dur": 1.2,
+  "fo": 0.5
+ },
+ {
+  "f": "kenney_impactMetal_light_002.ogg",
+  "at": "word:n23:2",
+  "g": -17
+ },
+ {
+  "f": "kenney_confirmation_002.ogg",
+  "at": "word:n23:7",
+  "g": -19
+ },
+ {
+  "f": "kenney_error_004.ogg",
+  "at": "word:n23:9",
+  "g": -20
+ },
+ {
+  "f": "mixkit_1482.mp3",
+  "at": "scene:s10-0.4",
+  "g": -21,
+  "dur": 1.4,
+  "fo": 0.6
+ },
+ {
+  "f": "kenney_tick_002.ogg",
+  "at": "word:n24:2",
+  "g": -18
+ },
+ {
+  "f": "kenney_select_003.ogg",
+  "at": "word:n24:5",
+  "g": -19
+ },
+ {
+  "f": "kenney_select_003.ogg",
+  "at": "word:n24:11",
+  "g": -19
+ },
+ {
+  "f": "kenney_confirmation_001.ogg",
+  "at": "word:n24:13",
+  "g": -16
+ },
+ {
+  "f": "mixkit_1482.mp3",
+  "at": "scene:s11-0.4",
+  "g": -21,
+  "dur": 1.4,
+  "fo": 0.6
+ },
+ {
+  "f": "kenney_error_004.ogg",
+  "at": "word:n25:2",
+  "g": -19
+ },
+ {
+  "f": "kenney_confirmation_002.ogg",
+  "at": "word:n25:8",
+  "g": -19
+ },
+ {
+  "f": "kenney_confirmation_002.ogg",
+  "at": "word:n25:15",
+  "g": -19
+ },
+ {
+  "f": "kenney_confirmation_002.ogg",
+  "at": "word:n25:18",
+  "g": -19
+ },
+ {
+  "f": "kenney_error_004.ogg",
+  "at": "word:n25:20",
+  "g": -19
+ },
+ {
+  "f": "kenney_confirmation_002.ogg",
+  "at": "word:n25:25",
+  "g": -19
+ },
+ {
+  "f": "mixkit_1482.mp3",
+  "at": "scene:s12-0.5",
+  "g": -21,
+  "dur": 1.4,
+  "fo": 0.6
+ },
+ {
+  "f": "mixkit_3109.mp3",
+  "at": "scene:s12+0.1",
+  "g": -12
+ },
+ {
+  "f": "kenney_tick_002.ogg",
+  "at": "word:n26:3+0.3",
+  "g": -19
+ }
+]

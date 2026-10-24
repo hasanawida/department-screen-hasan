@@ -1,0 +1,227 @@
+{
+ "name": "מעבר לא נכון — סיכון למטפל ולמטופל",
+ "fps": 60,
+ "width": 1080,
+ "height": 1920,
+ "bpm": 120,
+ "beatsPerBar": 4,
+ "beatOffset": 0,
+ "palette": {
+  "bg": "#0B1626",
+  "ink": "#F2F6FA",
+  "acc": "#2EC4B6",
+  "clay": "#E5484D",
+  "hi": "#F5C26B",
+  "mut": "#8A9BB0"
+ },
+ "fonts": {
+  "display": "Rubik",
+  "body": "Heebo",
+  "num": "Inter"
+ },
+ "extraFonts": [
+  {
+   "family": "Heebo",
+   "file": "fonts/Heebo-400.ttf",
+   "weight": "400"
+  },
+  {
+   "family": "Heebo",
+   "file": "fonts/Heebo-700.ttf",
+   "weight": "700"
+  },
+  {
+   "family": "Heebo",
+   "file": "fonts/Heebo-800.ttf",
+   "weight": "800"
+  },
+  {
+   "family": "Heebo",
+   "file": "fonts/Heebo-900.ttf",
+   "weight": "900"
+  },
+  {
+   "family": "Rubik",
+   "file": "fonts/Rubik-500.ttf",
+   "weight": "500"
+  },
+  {
+   "family": "Rubik",
+   "file": "fonts/Rubik-700.ttf",
+   "weight": "700"
+  },
+  {
+   "family": "Rubik",
+   "file": "fonts/Rubik-900.ttf",
+   "weight": "900"
+  }
+ ],
+ "post": {
+  "grain": 0.025,
+  "vignette": 0.22
+ },
+ "voice": {
+  "name": "he-IL-AvriNeural",
+  "rate": "-12%",
+  "pitch": "+0Hz"
+ },
+ "timing": {
+  "snap": "none",
+  "snapTarget": "line",
+  "snapLines": "all",
+  "leadIn": 0.45,
+  "gap": 0.7,
+  "startPad": 0.5,
+  "tail": 3.2
+ },
+ "scenes": [
+  {
+   "id": "s1",
+   "file": "scenes/s1_hook.js",
+   "lines": [
+    "l1",
+    "l2"
+   ]
+  },
+  {
+   "id": "s2",
+   "file": "scenes/s2_stages.js",
+   "lines": [
+    "l3"
+   ],
+   "transition": {
+    "type": "crossfade",
+    "dur": 0.6
+   }
+  },
+  {
+   "id": "s3",
+   "file": "scenes/s3_grip.js",
+   "lines": [
+    "l4",
+    "l5",
+    "l6",
+    "l7"
+   ],
+   "transition": {
+    "type": "crossfade",
+    "dur": 0.7
+   }
+  },
+  {
+   "id": "s4",
+   "file": "scenes/s4_lift.js",
+   "lines": [
+    "l8",
+    "l9",
+    "l10",
+    "l11"
+   ],
+   "transition": {
+    "type": "crossfade",
+    "dur": 0.6
+   }
+  },
+  {
+   "id": "s5",
+   "file": "scenes/s5_turn.js",
+   "lines": [
+    "l12",
+    "l13"
+   ],
+   "transition": {
+    "type": "crossfade",
+    "dur": 0.7
+   }
+  },
+  {
+   "id": "s6",
+   "file": "scenes/s6_disc.js",
+   "lines": [
+    "l14",
+    "l15"
+   ],
+   "transition": {
+    "type": "crossfade",
+    "dur": 0.7
+   }
+  },
+  {
+   "id": "s7",
+   "file": "scenes/s7_legs.js",
+   "lines": [
+    "l16"
+   ],
+   "transition": {
+    "type": "crossfade",
+    "dur": 0.7
+   }
+  },
+  {
+   "id": "s8",
+   "file": "scenes/s8_lower.js",
+   "lines": [
+    "l17",
+    "l18",
+    "l19"
+   ],
+   "transition": {
+    "type": "crossfade",
+    "dur": 0.7
+   }
+  },
+  {
+   "id": "s9",
+   "file": "scenes/s9_fall.js",
+   "lines": [
+    "l20",
+    "l21"
+   ],
+   "transition": {
+    "type": "crossfade",
+    "dur": 0.6
+   }
+  },
+  {
+   "id": "s10",
+   "file": "scenes/s10_summary.js",
+   "lines": [
+    "l22",
+    "l23",
+    "l24"
+   ],
+   "transition": {
+    "type": "crossfade",
+    "dur": 0.8
+   }
+  },
+  {
+   "id": "s11",
+   "file": "scenes/s11_end.js",
+   "lines": [
+    "l25"
+   ],
+   "transition": {
+    "type": "dip",
+    "dur": 0.9,
+    "color": "#0B1626"
+   },
+   "minDur": 5
+  }
+ ],
+ "images": {
+  "establish": "assets/00_establish.jpg",
+  "grip": "assets/01_grip.jpg",
+  "lift": "assets/02_lift.jpg",
+  "twist": "assets/03_twist.jpg",
+  "shin": "assets/04_shin.jpg",
+  "skin": "assets/05_skin.jpg",
+  "drop": "assets/06_drop.jpg",
+  "fall": "assets/07_fall.jpg",
+  "backpain": "assets/08_backpain.jpg",
+  "disc": "assets/09_disc.jpg",
+  "hern": "assets/10_disc_hern.jpg",
+  "vert": "assets/11_vertebra.jpg",
+  "hip": "assets/12_hip.jpg"
+ }
+}

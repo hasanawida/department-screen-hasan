@@ -1,0 +1,388 @@
+[
+ {
+  "f": "mixkit_1461.mp3",
+  "at": "0.3",
+  "g": -18,
+  "note": "glove comes in"
+ },
+ {
+  "f": "kenney_impactSoft_medium_001.ogg",
+  "at": "1.02",
+  "g": -9,
+  "note": "grip"
+ },
+ {
+  "f": "kenney_impactSoft_heavy_000.ogg",
+  "at": "word:l1:3",
+  "g": -11,
+  "note": "squeeze"
+ },
+ {
+  "f": "mixkit_1482.mp3",
+  "at": "word:l1:3+0.05",
+  "g": -24,
+  "dur": 1.2,
+  "fo": 0.5,
+  "note": "drag"
+ },
+ {
+  "f": "mixkit_1489.mp3",
+  "at": "word:l1:4-0.35",
+  "g": -22,
+  "dur": 1.4,
+  "fo": 0.6,
+  "note": "hand lifts"
+ },
+ {
+  "f": "mixkit_498.mp3",
+  "at": "word:l1:4+0.1",
+  "g": -11,
+  "note": "bruise hit"
+ },
+ {
+  "f": "mixkit_494.mp3",
+  "at": "word:l1:5",
+  "g": -17,
+  "from": 2.0,
+  "dur": 4.6,
+  "fi": 0.6,
+  "fo": 1.4,
+  "note": "slow heartbeat"
+ },
+ {
+  "f": "kenney_tick_002.ogg",
+  "at": "word:l2:7+0.2",
+  "g": -18,
+  "note": "underline"
+ },
+ {
+  "f": "mixkit_1474.mp3",
+  "at": "scene:s2-0.7",
+  "g": -13,
+  "note": "dive under the skin"
+ },
+ {
+  "f": "kenney_maximize_003.ogg",
+  "at": "word:l3:0",
+  "g": -16,
+  "note": "lens"
+ },
+ {
+  "f": "mixkit_1465.mp3",
+  "at": "scene-end:s2-0.8",
+  "g": -19,
+  "note": "lens opens"
+ },
+ {
+  "f": "kenney_select_003.ogg",
+  "at": "word:l4:2+0.1",
+  "g": -15
+ },
+ {
+  "f": "mixkit_1461.mp3",
+  "at": "word:l4:2-0.15",
+  "g": -26
+ },
+ {
+  "f": "kenney_select_003.ogg",
+  "at": "word:l5:2+0.1",
+  "g": -15
+ },
+ {
+  "f": "mixkit_1461.mp3",
+  "at": "word:l5:2-0.15",
+  "g": -26
+ },
+ {
+  "f": "kenney_glass_002.ogg",
+  "at": "word:l5:4",
+  "g": -19,
+  "note": "vessels"
+ },
+ {
+  "f": "kenney_select_003.ogg",
+  "at": "word:l6:2+0.1",
+  "g": -15
+ },
+ {
+  "f": "mixkit_1461.mp3",
+  "at": "word:l6:2-0.15",
+  "g": -26
+ },
+ {
+  "f": "kenney_select_003.ogg",
+  "at": "word:l7:1+0.1",
+  "g": -15
+ },
+ {
+  "f": "kenney_select_005.ogg",
+  "at": "word:l7:3+0.1",
+  "g": -15
+ },
+ {
+  "f": "kenney_minimize_004.ogg",
+  "at": "word:l8:1",
+  "g": -15,
+  "note": "aging"
+ },
+ {
+  "f": "mixkit_1489.mp3",
+  "at": "word:l8:1-0.2",
+  "g": -23,
+  "dur": 1.8,
+  "fo": 0.8
+ },
+ {
+  "f": "kenney_tick_002.ogg",
+  "at": "word:l9:2",
+  "g": -18
+ },
+ {
+  "f": "kenney_tick_002.ogg",
+  "at": "word:l9:4",
+  "g": -18
+ },
+ {
+  "f": "mixkit_1465.mp3",
+  "at": "word:l10:0-0.5",
+  "g": -19,
+  "note": "dolly in"
+ },
+ {
+  "f": "mixkit_2356.mp3",
+  "at": "word:l10:4",
+  "g": -13,
+  "note": "tears"
+ },
+ {
+  "f": "mixkit_2356.mp3",
+  "at": "word:l10:4+0.18",
+  "g": -15
+ },
+ {
+  "f": "mixkit_2356.mp3",
+  "at": "word:l10:4+0.36",
+  "g": -17
+ },
+ {
+  "f": "mixkit_3000.mp3",
+  "at": "word:l10:4+0.3",
+  "g": -20
+ },
+ {
+  "f": "kenney_drop_002.ogg",
+  "at": "word:l11:0",
+  "g": -15,
+  "note": "pill card"
+ },
+ {
+  "f": "kenney_drop_003.ogg",
+  "at": "word:l11:3",
+  "g": -16
+ },
+ {
+  "f": "mixkit_1482.mp3",
+  "at": "scene:s5-0.35",
+  "g": -17,
+  "note": "wipe"
+ },
+ {
+  "f": "kenney_scratch_003.ogg",
+  "at": "word:l12:4-0.4",
+  "g": -19
+ },
+ {
+  "f": "kenney_scroll_002.ogg",
+  "at": "word:l12:4+0.2",
+  "g": -18
+ },
+ {
+  "f": "kenney_tick_002.ogg",
+  "at": "word:l12:5+0.3",
+  "g": -17
+ },
+ {
+  "f": "kenney_impactSoft_heavy_001.ogg",
+  "at": "word:l13:1",
+  "g": -9,
+  "note": "hard grip"
+ },
+ {
+  "f": "kenney_error_004.ogg",
+  "at": "word:l13:2",
+  "g": -15
+ },
+ {
+  "f": "mixkit_1461.mp3",
+  "at": "word:l13:4-0.05",
+  "g": -13,
+  "note": "pull"
+ },
+ {
+  "f": "kenney_error_004.ogg",
+  "at": "word:l13:7",
+  "g": -15
+ },
+ {
+  "f": "mixkit_1461.mp3",
+  "at": "word:l14:0-0.3",
+  "g": -18,
+  "note": "fingers down"
+ },
+ {
+  "f": "kenney_impactSoft_medium_001.ogg",
+  "at": "word:l14:1",
+  "g": -9
+ },
+ {
+  "f": "mixkit_1482.mp3",
+  "at": "word:l14:3",
+  "g": -15,
+  "dur": 1.6,
+  "fo": 0.6,
+  "note": "shear"
+ },
+ {
+  "f": "mixkit_2945.mp3",
+  "at": "word:l15:3-0.02",
+  "g": -19,
+  "note": "tear snap"
+ },
+ {
+  "f": "mixkit_2356.mp3",
+  "at": "word:l15:3",
+  "g": -13
+ },
+ {
+  "f": "mixkit_2356.mp3",
+  "at": "word:l15:3+0.14",
+  "g": -15
+ },
+ {
+  "f": "mixkit_2356.mp3",
+  "at": "word:l15:3+0.28",
+  "g": -17
+ },
+ {
+  "f": "mixkit_3000.mp3",
+  "at": "word:l15:4",
+  "g": -16,
+  "note": "blood out"
+ },
+ {
+  "f": "mixkit_1317.mp3",
+  "at": "word:l15:5",
+  "g": -19
+ },
+ {
+  "f": "mixkit_494.mp3",
+  "at": "line:l16-0.2",
+  "g": -16,
+  "from": 6.0,
+  "dur": 4.6,
+  "fi": 0.5,
+  "fo": 1.2
+ },
+ {
+  "f": "mixkit_498.mp3",
+  "at": "word:l16:5",
+  "g": -11,
+  "note": "hematoma"
+ },
+ {
+  "f": "mixkit_1489.mp3",
+  "at": "scene:s7-0.3",
+  "g": -21,
+  "dur": 1.6,
+  "fo": 0.6
+ },
+ {
+  "f": "kenney_scratch_003.ogg",
+  "at": "word:l18:0-0.2",
+  "g": -16,
+  "note": "cut"
+ },
+ {
+  "f": "kenney_select_005.ogg",
+  "at": "word:l18:0+0.4",
+  "g": -17
+ },
+ {
+  "f": "kenney_impactMining_001.ogg",
+  "at": "word:l18:4",
+  "g": -21,
+  "note": "erosion"
+ },
+ {
+  "f": "kenney_impactMining_001.ogg",
+  "at": "word:l18:5+0.1",
+  "g": -23
+ },
+ {
+  "f": "kenney_impactSoft_heavy_000.ogg",
+  "at": "word:l18:8",
+  "g": -13
+ },
+ {
+  "f": "mixkit_1465.mp3",
+  "at": "word:l19:0-0.1",
+  "g": -14,
+  "note": "twist"
+ },
+ {
+  "f": "mixkit_1461.mp3",
+  "at": "word:l19:6-0.05",
+  "g": -14,
+  "note": "pull"
+ },
+ {
+  "f": "kenney_impactMetal_medium_002.ogg",
+  "at": "word:l19:10",
+  "g": -10,
+  "note": "bed rail"
+ },
+ {
+  "f": "mixkit_2937.mp3",
+  "at": "word:l20:2-0.06",
+  "g": -7,
+  "note": "bone break"
+ },
+ {
+  "f": "kenney_impactPunch_heavy_001.ogg",
+  "at": "word:l20:2-0.04",
+  "g": -13
+ },
+ {
+  "f": "kenney_select_005.ogg",
+  "at": "word:l21:6",
+  "g": -15
+ },
+ {
+  "f": "kenney_select_005.ogg",
+  "at": "word:l21:7",
+  "g": -15
+ },
+ {
+  "f": "kenney_impactSoft_heavy_001.ogg",
+  "at": "word:l21:9",
+  "g": -11
+ },
+ {
+  "f": "mixkit_1482.mp3",
+  "at": "scene:s10-0.5",
+  "g": -21,
+  "dur": 1.4,
+  "fo": 0.6
+ },
+ {
+  "f": "mixkit_3109.mp3",
+  "at": "word:l22:0-0.25",
+  "g": -11,
+  "note": "end chime"
+ },
+ {
+  "f": "kenney_tick_002.ogg",
+  "at": "word:l22:3+0.25",
+  "g": -19
+ }
+]

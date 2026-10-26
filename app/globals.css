@@ -385,3 +385,13 @@
 .animate-ticker {
   animation: ticker 30s linear infinite;
 }
+
+
+/* הדפסה (דוחות): A4, רקע לבן, צבעים נשמרים */
+@media print {
+  @page { size: A4; margin: 12mm 10mm; }
+  html, body { background: #fff !important; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  thead { display: table-header-group; }
+  tr { break-inside: avoid; }
+}

@@ -17,6 +17,8 @@ type Resident = { id: string; name: string; department_id: string | null };
 type Row = {
   id: string; appt_date: string; start_time: string; end_time?: string | null;
   resident_name: string; resident_id: string | null; department_id: string | null; note: string | null;
+  /** הגיע/ה לטיפול: true / false, או null — עוד לא סומן */
+  attended?: boolean | null;
 };
 type Form = { id: string | null; start: string; end: string; name: string; department_id: string; note: string };
 
@@ -166,6 +168,19 @@ export default function PhysioEditor({ screenUrl }: { screenUrl?: string }) {
     load();
   }
 
+  /** סימון הגעה. לחיצה נוספת על אותו כפתור מבטלת את הסימון */
+  async function setArrival(r: Row, v: boolean) {
+    const next = r.attended === v ? null : v;
+    setRows(rs => rs.map(x => (x.id === r.id ? { ...x, attended: next } : x)));
+    const { error } = await supabase.from("physio_appointments").update({ attended: next }).eq("id", r.id);
+    if (error) {
+      setRows(rs => rs.map(x => (x.id === r.id ? { ...x, attended: r.attended ?? null } : x)));
+      setError(/attended/.test(error.message)
+        ? "כדי לסמן הגעה צריך להריץ פעם אחת את scripts/014_physio_attendance.sql ב-Supabase."
+        : "הסימון לא נשמר: " + error.message);
+    }
+  }
+
   async function remove(id: string) {
     await supabase.from("physio_appointments").delete().eq("id", id);
     if (form.id === id) setForm(EMPTY_FORM);
@@ -305,7 +320,14 @@ export default function PhysioEditor({ screenUrl }: { screenUrl?: string }) {
         {/* רשימת היום */}
         <Card title={shown.length
           ? `${shown.length} מוזמנים ל${dayLabel}${chosen ? " מ" + chosen.name : deptFilter === NO_DEPT ? " בלי מחלקה" : ""}`
-          : `אין עדיין טיפולים ל${dayLabel}${chosen ? " מ" + chosen.name : ""}`}>
+          : `אין עדיין טיפולים ל${dayLabel}${chosen ? " מ" + chosen.name : ""}`}
+          aside={shown.length > 0 && date <= today ? (
+            <span className="text-sm text-[#3F2F2D]/65">
+              הגיעו {shown.filter(r => r.attended === true).length}
+              {shown.some(r => r.attended === false) && <>, לא הגיעו {shown.filter(r => r.attended === false).length}</>}
+              {shown.some(r => r.attended == null) && <>, לא סומנו {shown.filter(r => r.attended == null).length}</>}
+            </span>
+          ) : undefined}>
           {shown.length === 0 ? (
             <p className="text-[15px] text-[#3F2F2D]/65">מוסיפים דייר בטופס, או מדביקים רשימה שלמה.</p>
           ) : (
@@ -318,6 +340,18 @@ export default function PhysioEditor({ screenUrl }: { screenUrl?: string }) {
                     <div className="truncate text-[17px] font-bold">{r.resident_name}</div>
                     <div className="truncate text-sm text-[#3F2F2D]/60">{[deptFilter ? null : deptName(r.department_id), r.note].filter(Boolean).join(", ") || " "}</div>
                   </button>
+                  {date <= today && (
+                    <span className="flex shrink-0 gap-1" role="group" aria-label={"הגעה של " + r.resident_name}>
+                      <button type="button" onClick={() => setArrival(r, true)} aria-pressed={r.attended === true}
+                        className={"rounded-lg px-2.5 py-1.5 text-sm font-semibold " + (r.attended === true ? "bg-[#5A826F] text-white" : "bg-[#F6F2EE] text-[#3F2F2D]/70 hover:bg-[#E3ECE7]")}>
+                        הגיע/ה
+                      </button>
+                      <button type="button" onClick={() => setArrival(r, false)} aria-pressed={r.attended === false}
+                        className={"rounded-lg px-2.5 py-1.5 text-sm font-semibold " + (r.attended === false ? "bg-[#B56262] text-white" : "bg-[#F6F2EE] text-[#3F2F2D]/70 hover:bg-[#FDE8E1]")}>
+                        לא הגיע/ה
+                      </button>
+                    </span>
+                  )}
                   <button type="button" aria-label={"מחיקת " + r.resident_name} className="h-9 w-9 shrink-0 rounded-xl text-xl text-[#B56262] hover:bg-[#FDE8E1]" onClick={() => remove(r.id)}>×</button>
                 </li>
               ))}

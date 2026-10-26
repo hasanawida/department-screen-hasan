@@ -5,7 +5,7 @@ import { useEffect, useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import {
-  Building2, CalendarDays, CalendarSync, Compass, GraduationCap, HeartPulse, LayoutDashboard,
+  Building2, CalendarDays, CalendarSync, ClipboardList, Compass, GraduationCap, HeartPulse, LayoutDashboard,
   LogOut, Megaphone, Menu, MessageSquare, Monitor, ShieldCheck, Sparkles, UserRound, Users, UtensilsCrossed, X,
 } from "lucide-react"
 import { EshkolotLogo } from "@/components/orientation/eshkolot-logo"
@@ -43,6 +43,10 @@ const GROUPS: { title?: string; items: Item[] }[] = [
       { href: "/admin/occupation", label: "מדריכות תעסוקה", icon: GraduationCap },
       { href: "/admin/users", label: "מנהלי מערכת", icon: ShieldCheck },
     ],
+  },
+  {
+    title: "דוחות",
+    items: [{ href: "/admin/reports", label: "נוכחות ופיזיותרפיה", icon: ClipboardList }],
   },
 ]
 
@@ -104,7 +108,7 @@ export function AdminSidebar({ userEmail }: { userEmail: string }) {
   return (
     <>
       {/* טלפון / מסך צר */}
-      <div className="sticky top-0 z-30 flex items-center justify-between border-b border-[#3F2F2D]/10 bg-white px-4 py-2.5 md:hidden">
+      <div className="sticky top-0 z-30 flex items-center justify-between border-b border-[#3F2F2D]/10 bg-white px-4 py-2.5 md:hidden print:hidden">
         <Link href="/admin" aria-label="לוח בקרה"><EshkolotLogo className="h-8 w-auto" /></Link>
         <button type="button" aria-label="תפריט" aria-expanded={open} onClick={() => setOpen(true)} className="rounded-xl p-2 hover:bg-[#E3ECE7]">
           <Menu className="h-6 w-6" />
@@ -125,7 +129,7 @@ export function AdminSidebar({ userEmail }: { userEmail: string }) {
       )}
 
       {/* מחשב */}
-      <aside className="sticky top-0 hidden h-screen w-[260px] shrink-0 flex-col border-l border-[#3F2F2D]/10 bg-white md:flex">
+      <aside className="sticky top-0 hidden h-screen w-[260px] shrink-0 flex-col border-l border-[#3F2F2D]/10 bg-white md:flex print:hidden">
         <Link href="/admin" className="block px-6 pb-3 pt-5" aria-label="לוח בקרה">
           <EshkolotLogo className="h-10 w-auto" />
           <div className="mt-1.5 text-sm font-semibold text-[#3F2F2D]/60">ניהול המסכים</div>

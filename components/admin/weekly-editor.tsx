@@ -12,7 +12,7 @@ import TopicCard from "@/components/admin/topic-card";
 import { ensureInstructors, refreshDepartmentScreens } from "@/lib/screens";
 import type { TopicData } from "@/lib/topics";
 import {
-  DAY_CODES, DAY_NAMES, activitiesByDay, addDaysISO, dayCodeIndex, dayIndexOf, displaySettings, israelDateISO, menuFromRows, shortDate,
+  DAY_CODES, DAY_NAMES, activitiesByDay, addDaysISO, dayCodeIndex, dayIndexOf, displaySettings, israelDateISO, menuFromRows, menuNotesFromRows, shortDate,
   weekDatesISO, weekStartISO, weeklyBoardSettings,
   type ActivityRow, type BoardActivity, type DisplaySettings, type MenuRow, type WeeklyBoardSettings,
 } from "@/lib/week";
@@ -446,6 +446,7 @@ export default function WeeklyEditor() {
               board={board}
               topic={previewTopic}
               menu={menuFromRows(menuRows)}
+              menuNotes={menuNotesFromRows(menuRows)}
               messages={[]}
               news={["כאן יופיעו כותרות N12 ו/או הודעות חשובות"]}
               media={[]}
@@ -655,8 +656,9 @@ export default function WeeklyEditor() {
                 <div className="divide-y divide-[#3F2F2D]/10">
                   <Toggle label="1. לוח שבועי" on={display.show_weekly} onChange={v => saveDisplay({ ...display, show_weekly: v })} />
                   <Toggle label="2. היום (עכשיו ובהמשך)" on={display.show_daily} onChange={v => saveDisplay({ ...display, show_daily: v })} />
-                  <Toggle label="3. תפריט שבועי" on={display.show_menu} onChange={v => saveDisplay({ ...display, show_menu: v })} />
-                  <Toggle label="4. תמונות וקבצים" on={display.show_media} onChange={v => saveDisplay({ ...display, show_media: v })} />
+                  <Toggle label="3. תפריט היום" on={display.show_menu_today !== false} onChange={v => saveDisplay({ ...display, show_menu_today: v })} />
+                  <Toggle label="4. תפריט שבועי" on={display.show_menu} onChange={v => saveDisplay({ ...display, show_menu: v })} />
+                  <Toggle label="5. תמונות וקבצים" on={display.show_media} onChange={v => saveDisplay({ ...display, show_media: v })} />
                 </div>
                 <div className="mt-3 grid grid-cols-2 gap-3">
                   <Field label="כל תצוגה (שניות)">

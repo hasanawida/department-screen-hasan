@@ -22,7 +22,7 @@ export async function Dashboard({ supabase, email }: { supabase: SupabaseClient;
   const [depts, acts, menus, physio, cals] = await Promise.all([
     supabase.from("departments").select("id, name, code, color").order("name"),
     supabase.from("activities").select("*").neq("is_active", false),
-    supabase.from("weekly_menus").select("day_index, items").eq("week_start", ws),
+    supabase.from("weekly_menus").select("day_index, meal, items").eq("week_start", ws),
     supabase.from("physio_appointments").select("id").eq("appt_date", today),
     supabase.from("calendar_sources").select("label, last_synced_at, last_status, is_active"),
   ])
@@ -35,7 +35,7 @@ export async function Dashboard({ supabase, email }: { supabase: SupabaseClient;
     perDept.set(d.id, { total: week.length, fromCal: week.filter(a => a.fromCalendar).length })
   }
 
-  const menuDays = new Set((menus.data ?? []).filter(m => String(m.items ?? "").trim()).map(m => m.day_index)).size
+  const menuDays = new Set((menus.data ?? []).filter(m => m.meal !== "notes" && String(m.items ?? "").trim()).map(m => m.day_index)).size
   const physioToday = physio.error ? null : (physio.data ?? []).length
   const calendars = cals.error ? null : (cals.data ?? []).filter(c => c.is_active)
   const calError = calendars?.find(c => String(c.last_status ?? "").startsWith("error"))

@@ -2,7 +2,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
-  activitiesByDay, displaySettings, israelDateISO, menuFromRows, weekDatesISO, weekStartISO, weeklyBoardSettings,
+  activitiesByDay, displaySettings, israelDateISO, menuFromRows, menuNotesFromRows, weekDatesISO, weekStartISO, weeklyBoardSettings,
   type ActivityRow, type MenuRow,
 } from "./week";
 import { getN12Headlines } from "./news";
@@ -54,6 +54,7 @@ export async function loadDepartmentDisplay(supabase: SupabaseClient, code: stri
     board,
     topic: topic.topic ? { title: topic.topic.title, description: topic.topic.description ?? "", image_url: topic.topic.image_url } : null,
     menu: menuFromRows((menuRows.data ?? []) as MenuRow[]),
+    menuNotes: menuNotesFromRows((menuRows.data ?? []) as MenuRow[]),
     messages,
     news,
     media: mediaList,

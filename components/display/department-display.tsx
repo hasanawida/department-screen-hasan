@@ -1,14 +1,14 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Clock3, MapPin, User, Utensils, Megaphone } from "lucide-react";
 import { EshkolotLogo, Pin, BRAND } from "@/components/orientation/eshkolot-logo";
 import WeeklyBoard, { type WeeklyTopic } from "./weekly-board";
 import {
-  DAY_NAMES, MEALS, MEAL_SHORT, dayIndexOf, israelDateISO, israelTimeHM, shortDate, toMinutes,
+  DAY_NAMES, MEAL_SHORT, dayIndexOf, israelDateISO, israelTimeHM, shortDate, toMinutes,
   type BoardActivity, type DisplaySettings, type WeekMenu, type WeeklyBoardSettings,
 } from "@/lib/week";
-import { useFillScale, useUniformGrow } from "./use-fill";
+import { TodayMenu, WeeklyMenu, nextMealsSummary } from "./menu-views";
 import styles from "./board.module.css";
 
 export type DepartmentDisplayProps = {
@@ -19,6 +19,10 @@ export type DepartmentDisplayProps = {
   board: WeeklyBoardSettings;
   topic: WeeklyTopic;
   menu: WeekMenu;
+  /** הערות לתפריט של השבוע (מהדיאטנית) */
+  menuNotes?: string[];
+  /** בעורך התפריט: איזה יום להציג ב"תפריט היום" (במסך — היום עצמו) */
+  menuDayIndex?: number;
   messages: string[];
   news: string[];
   media: { url: string; type: string }[];
@@ -30,10 +34,10 @@ export type DepartmentDisplayProps = {
   editor?: { selectedId?: string | null; onSelect: (a: BoardActivity) => void; onAdd: (dayIndex: number) => void };
 };
 
-export type ViewKind = "weekly" | "daily" | "menu" | "media";
+export type ViewKind = "weekly" | "daily" | "menuToday" | "menu" | "media";
 type View = { kind: ViewKind; media?: { url: string; type: string } };
 
-const VIEW_LABEL: Record<ViewKind, string> = { weekly: "לוח שבועי", daily: "היום", menu: "תפריט", media: "תמונות" };
+const VIEW_LABEL: Record<ViewKind, string> = { weekly: "לוח שבועי", daily: "היום", menuToday: "תפריט היום", menu: "תפריט שבועי", media: "תמונות" };
 
 function useNow() {
   const [now, setNow] = useState<Date | null>(null);
@@ -52,6 +56,7 @@ function useNow() {
 
 export default function DepartmentDisplay(props: DepartmentDisplayProps) {
   const { department, weekDates, days, settings, board, topic, menu, messages, news, media, embeddedCu, fixedView, editor } = props;
+  const menuNotes = props.menuNotes ?? [];
   const now = useNow();
 
   const todayISO = now ? israelDateISO(now) : "";
@@ -60,17 +65,19 @@ export default function DepartmentDisplay(props: DepartmentDisplayProps) {
   const nowMinutes = now ? toMinutes(hm) : -1;
 
   const hasMenu = Object.values(menu).some(d => Object.values(d ?? {}).some(l => (l?.length ?? 0) > 0));
+  const todayHasMenu = todayIndex >= 0 && Object.values(menu[todayIndex] ?? {}).some(l => (l?.length ?? 0) > 0);
 
   /* ── סבב התצוגות: לוח שבועי ← היום ← תפריט ← תמונות ── */
   const views = useMemo<View[]>(() => {
     const v: View[] = [];
     if (settings.show_weekly) v.push({ kind: "weekly" });
     if (settings.show_daily) v.push({ kind: "daily" });
+    if (settings.show_menu_today !== false && todayHasMenu) v.push({ kind: "menuToday" });
     if (settings.show_menu && hasMenu) v.push({ kind: "menu" });
     if (settings.show_media) for (const m of media) v.push({ kind: "media", media: m });
     if (v.length === 0) v.push({ kind: "weekly" });
     return v;
-  }, [settings.show_weekly, settings.show_daily, settings.show_menu, settings.show_media, hasMenu, media]);
+  }, [settings.show_weekly, settings.show_daily, settings.show_menu, settings.show_menu_today, settings.show_media, hasMenu, todayHasMenu, media]);
 
   const [viewIndex, setViewIndex] = useState(0);
   useEffect(() => {
@@ -148,8 +155,13 @@ export default function DepartmentDisplay(props: DepartmentDisplayProps) {
               messages={settings.show_announcements ? messages : []} board={board} />
           )}
 
+          {view.kind === "menuToday" && (
+            <TodayMenu meals={menu[props.menuDayIndex ?? todayIndex] ?? {}} notes={menuNotes}
+              nowMinutes={props.menuDayIndex === undefined || props.menuDayIndex === todayIndex ? nowMinutes : -1} />
+          )}
+
           {view.kind === "menu" && (
-            <MenuBoard menu={menu} weekDates={weekDates} todayIndex={todayIndex} allDays={!!fixedView} />
+            <WeeklyMenu menu={menu} weekDates={weekDates} todayIndex={todayIndex} notes={menuNotes} allDays={!!fixedView} />
           )}
 
           {view.kind === "media" && view.media && (
@@ -200,7 +212,7 @@ function DailyView({ today, nowMinutes, menu, messages, board }: {
   const current = today.find(a => nowMinutes >= toMinutes(a.start) && nowMinutes < end(a));
   const upcoming = today.filter(a => toMinutes(a.start) > nowMinutes).slice(0, current ? 4 : 3);
   const nextOne = !current ? upcoming[0] : undefined;
-  const meals = MEALS.filter(m => (menu?.[m]?.length ?? 0) > 0);
+  const nextMeals = nextMealsSummary(menu, nowMinutes);
 
   return (
     <div className={styles.daily}>
@@ -251,71 +263,18 @@ function DailyView({ today, nowMinutes, menu, messages, board }: {
           ))}
         </section>
 
-        {meals.length > 0 && (
+        {nextMeals.length > 0 && (
           <section className={styles.panel}>
-            <span className={styles.panelTitle}><Utensils aria-hidden="true" />תפריט היום</span>
-            {meals.map(m => (
-              <div key={m} className={styles.mealRow}>
-                <span className={styles.mealLabel}>{MEAL_SHORT[m]}</span>
-                <span className={styles.mealItems}>{menu![m]!.join(", ")}</span>
+            <span className={styles.panelTitle}><Utensils aria-hidden="true" />הארוחה הבאה</span>
+            {nextMeals.map(({ meal, text }) => (
+              <div key={meal} className={styles.mealRow}>
+                <span className={styles.mealLabel}>{MEAL_SHORT[meal]}</span>
+                <span className={styles.mealItems}>{text}</span>
               </div>
             ))}
           </section>
         )}
       </div>
     </div>
-  );
-}
-
-/* ───────────── תפריט שבועי ───────────── */
-
-function MenuBoard({ menu, weekDates, todayIndex, allDays }: { menu: WeekMenu; weekDates: string[]; todayIndex: number; allDays?: boolean }) {
-  const shown = [0, 1, 2, 3, 4, 5, 6].filter(i => allDays || MEALS.some(m => (menu[i]?.[m]?.length ?? 0) > 0) || i === todayIndex);
-  const { grow, report } = useUniformGrow();
-  return (
-    <div className={styles.board} style={{ "--size": 1 } as React.CSSProperties}>
-      <div className={styles.days}>
-        {shown.map(i => (
-          <MenuDay key={i} dayIndex={i} date={weekDates[i]} isToday={i === todayIndex} meals={menu[i] ?? {}} grow={grow} report={report} />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function MenuDay({ dayIndex, date, isToday, meals, grow, report }: {
-  dayIndex: number; date: string; isToday: boolean; meals: Partial<Record<(typeof MEALS)[number], string[]>>;
-  grow: number; report: (id: string, value: number | null) => void;
-}) {
-  const listRef = useRef<HTMLDivElement>(null);
-  const appliedRef = useRef(1);
-  const has = MEALS.some(m => (meals[m]?.length ?? 0) > 0);
-  const desired = useFillScale(listRef, appliedRef, JSON.stringify(meals));
-  const applied = Math.min(desired, grow);
-  appliedRef.current = applied;
-  const id = "menu" + dayIndex;
-  useEffect(() => { report(id, has ? desired : null); }, [report, id, desired, has]);
-  useEffect(() => () => report(id, null), [report, id]);
-
-  return (
-    <section className={styles.day + " " + styles.menuDay + (isToday ? " " + styles.dayToday : "")} style={{ "--bs": applied } as React.CSSProperties}>
-      <header className={styles.dayHead}>
-        <span className={styles.dayName}>
-          {isToday && <Pin color={BRAND.sun} className={styles.dayPin} />}
-          {DAY_NAMES[dayIndex]}
-        </span>
-        <span className={styles.dayDate}>{shortDate(date)}</span>
-      </header>
-      <div ref={listRef} className={styles.list}>
-        {MEALS.map(m => (meals[m]?.length ?? 0) > 0 && (
-          <div key={m} className={styles.meal}>
-            <div className={styles.mealName}>{MEAL_SHORT[m]}</div>
-            <ul className={styles.mealList}>
-              {meals[m]!.map((item, k) => <li key={k}>{item}</li>)}
-            </ul>
-          </div>
-        ))}
-      </div>
-    </section>
   );
 }

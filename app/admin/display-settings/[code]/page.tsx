@@ -24,6 +24,7 @@ type DisplaySettings = {
   show_weekly: boolean;
   show_daily: boolean;
   show_menu: boolean;
+  show_menu_today: boolean;
   show_media: boolean;
   show_ticker: boolean;
   show_announcements: boolean;
@@ -35,6 +36,7 @@ const DEFAULT: DisplaySettings = {
   show_weekly: true,
   show_daily: true,
   show_menu: true,
+  show_menu_today: true,
   show_media: true,
   show_ticker: true,
   show_announcements: true,
@@ -47,6 +49,7 @@ type BoolKey = Exclude<keyof DisplaySettings, "ticker_source" | "view_interval_s
 const SECTION_LABELS: { key: BoolKey; label: string; desc: string }[] = [
   { key: "show_weekly",        label: "לוח שבועי",       desc: "מוצג ראשון בסבב" },
   { key: "show_daily",         label: "לוח יומי",        desc: "מה קורה עכשיו ובהמשך היום" },
+  { key: "show_menu_today",    label: "תפריט היום",      desc: "הארוחות של היום, בגדול" },
   { key: "show_menu",          label: "תפריט שבועי",     desc: "מה שהדיאטנית כתבה לשבוע" },
   { key: "show_media",         label: "תמונות ו-PDF",    desc: "הקבצים שהועלו בלשונית מדיה" },
   { key: "show_ticker",        label: "שורת רצה",        desc: "חדשות N12 והודעות בתחתית המסך" },

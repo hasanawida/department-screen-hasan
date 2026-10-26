@@ -179,7 +179,8 @@ export type TickerSource = "both" | "news" | "messages";
 export type DisplaySettings = {
   show_daily: boolean;
   show_weekly: boolean;
-  show_menu: boolean;
+  show_menu: boolean;        // תפריט שבועי
+  show_menu_today?: boolean; // תפריט היום, בגדול
   show_media: boolean;
   show_ticker: boolean;
   show_announcements: boolean;
@@ -192,6 +193,7 @@ export const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = {
   show_daily: true,
   show_weekly: true,
   show_menu: true,
+  show_menu_today: true,
   show_media: true,
   show_ticker: true,
   show_announcements: true,
@@ -206,25 +208,70 @@ export function displaySettings(raw: unknown): DisplaySettings {
 
 /* ───────────── תפריט ───────────── */
 
-export const MEALS = ["breakfast", "lunch", "dinner"] as const;
+/** הארוחות לפי סדר היום (כמו בתפריט של הדיאטנית) */
+export const MEALS = ["wake", "breakfast", "snack_am", "lunch", "snack_pm", "dinner"] as const;
 export type Meal = (typeof MEALS)[number];
-export const MEAL_LABELS: Record<Meal, string> = { breakfast: "ארוחת בוקר", lunch: "ארוחת צהריים", dinner: "ארוחת ערב" };
-export const MEAL_SHORT: Record<Meal, string> = { breakfast: "בוקר", lunch: "צהריים", dinner: "ערב" };
+export const MAIN_MEALS: Meal[] = ["breakfast", "lunch", "dinner"];
+export const SNACK_MEALS: Meal[] = ["wake", "snack_am", "snack_pm"];
+export const MEAL_LABELS: Record<Meal, string> = {
+  wake: "השכמה", breakfast: "ארוחת בוקר", snack_am: "ארוחת עשר", lunch: "ארוחת צהריים", snack_pm: "ארוחת ארבע", dinner: "ארוחת ערב",
+};
+export const MEAL_SHORT: Record<Meal, string> = {
+  wake: "השכמה", breakfast: "בוקר", snack_am: "עשר", lunch: "צהריים", snack_pm: "ארבע", dinner: "ערב",
+};
+/** שעה משוערת של כל ארוחה — כדי להציג את "הארוחה הבאה" */
+export const MEAL_TIME: Record<Meal, string> = {
+  wake: "06:30", breakfast: "08:00", snack_am: "10:00", lunch: "12:30", snack_pm: "16:00", dinner: "18:00",
+};
+/** הערות לכל השבוע נשמרות כשורה עם meal = "notes" ו-day_index = 0 */
+export const MENU_NOTES = "notes";
 
-export type MenuRow = { week_start: string; day_index: number; meal: Meal; items: string };
+export type MenuRow = { week_start: string; day_index: number; meal: Meal | typeof MENU_NOTES; items: string };
 /** menu[dayIndex][meal] = רשימת מנות */
 export type WeekMenu = Record<number, Partial<Record<Meal, string[]>>>;
+
+const lines = (text: string) => (text || "").split("\n").map(s => s.trim()).filter(Boolean);
 
 export function menuFromRows(rows: MenuRow[]): WeekMenu {
   const menu: WeekMenu = {};
   for (const r of rows) {
-    const items = (r.items || "").split("\n").map(s => s.trim()).filter(Boolean);
+    if (r.meal === MENU_NOTES || !(MEALS as readonly string[]).includes(r.meal)) continue;
+    const items = lines(r.items);
     if (items.length === 0) continue;
-    (menu[r.day_index] ??= {})[r.meal] = items;
+    (menu[r.day_index] ??= {})[r.meal as Meal] = items;
   }
   return menu;
 }
 
+export function menuNotesFromRows(rows: MenuRow[]): string[] {
+  return lines(rows.find(r => r.meal === MENU_NOTES)?.items ?? "");
+}
+
 export function menuHasContent(menu: WeekMenu): boolean {
   return Object.values(menu).some(day => Object.values(day ?? {}).some(list => (list?.length ?? 0) > 0));
+}
+
+/** "מרק: ירקות" ← כותרת קטנה ומנה. שורה בלי נקודתיים — רק מנה */
+export function splitMenuLine(line: string): { label: string | null; text: string } {
+  const m = line.match(/^([^:]{1,16}):\s*(.+)$/);
+  return m ? { label: m[1].trim(), text: m[2].trim() } : { label: null, text: line };
+}
+
+/**
+ * מנות שחוזרות בכל הימים של אותה ארוחה (למשל "דייסה: סולת" בכל בוקר).
+ * בתפריט השבועי הן מוצגות פעם אחת, תחת "בכל יום".
+ */
+export function commonMenuLines(menu: WeekMenu, meal: Meal, minDays = 4): { lines: string[]; except: number | null } {
+  const days = [0, 1, 2, 3, 4, 5, 6].filter(i => (menu[i]?.[meal]?.length ?? 0) > 0);
+  if (days.length < minDays) return { lines: [], except: null };
+  const has = (i: number, line: string) => menu[i]![meal]!.includes(line);
+  const order: string[] = [];
+  for (const i of days) for (const l of menu[i]![meal]!) if (!order.includes(l)) order.push(l);
+  // מה שמוגש בכל הימים
+  const all = order.filter(l => days.every(i => has(i, l)));
+  // ואולי עם יום אחד חריג (למשל ליל שישי) — רק אם זה מוסיף שורות, וכולן חסרות באותו יום
+  const nearly = order.filter(l => days.filter(i => has(i, l)).length >= Math.max(minDays, days.length - 1));
+  const missing = Array.from(new Set(nearly.flatMap(l => days.filter(i => !has(i, l)))));
+  if (nearly.length > all.length && missing.length === 1) return { lines: nearly, except: missing[0] };
+  return { lines: all, except: null };
 }

@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { CalendarDays, ChevronRight, ChevronLeft, Copy, ExternalLink, Loader2, RefreshCw, Repeat, Trash2, Undo2, Users, X, Check, Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import DepartmentDisplay, { type ViewKind } from "@/components/display/department-display";
@@ -20,6 +20,9 @@ import {
 } from "@/lib/week";
 
 type Dept = { id: string; name: string; code: string; color: string | null };
+/** הפעילות שנערכה נשמרת כאן כשעוברים להוסיף מפעיל/ה, וחוזרת כשחוזרים */
+const DRAFT_KEY = "eshkolot-weekly-draft";
+
 type DeptResident = {
   id: string; name: string; room_number: string | null;
   personal_activity: string | null; group_activity: string | null; leisure_activity: string | null;
@@ -58,6 +61,7 @@ export default function WeeklyEditor() {
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
   const search = useSearchParams();
+  const pathname = usePathname();
 
   const [depts, setDepts] = useState<Dept[]>([]);
   const [deptId, setDeptId] = useState<string | null>(null);
@@ -74,6 +78,9 @@ export default function WeeklyEditor() {
   const [residents, setResidents] = useState<DeptResident[]>([]);
   const [registered, setRegistered] = useState<string[]>([]);
   const [regQuery, setRegQuery] = useState("");
+  // שיוך מפעיל/ה (הגיעו מעמוד המפעילים): כל פעילות שנפתחת — עם המפעיל/ה הזה/זו
+  const [assignName, setAssignName] = useState<string | null>(null);
+  const restoreRef = useRef<{ dept: string; weekOffset: number; draft: Draft; registered: string[]; copyDays: number[]; instructor: string } | null>(null);
   const [copyDays, setCopyDays] = useState<number[]>([]);
   const [view, setView] = useState<ViewKind>("weekly");
   const [busy, setBusy] = useState(false);
@@ -106,6 +113,24 @@ export default function WeeklyEditor() {
     });
   }, [supabase, search]);
 
+  /* ── חזרה מהוספת מפעיל/ה, או שיוך מפעיל/ה מעמוד המפעילים ── */
+  useEffect(() => {
+    const instructor = cleanName(search.get("instructor") ?? "");
+    if (search.get("restore") === "1") {
+      try {
+        const raw = sessionStorage.getItem(DRAFT_KEY);
+        sessionStorage.removeItem(DRAFT_KEY);
+        if (raw) {
+          const saved = JSON.parse(raw);
+          restoreRef.current = { ...saved, instructor };
+          setWeekOffset(saved.weekOffset ?? 0);
+        }
+      } catch { /* אין גישה לאחסון — פשוט פותחים את הלוח */ }
+    } else if (instructor) {
+      setAssignName(instructor);
+    }
+  }, [search]);
+
   const loadActivities = useCallback(async () => {
     if (!deptId) return;
     const { data } = await supabase.from("activities").select("*").eq("department_id", deptId);
@@ -135,6 +160,33 @@ export default function WeeklyEditor() {
   const days = useMemo(() => activitiesByDay(rows, weekStart), [rows, weekStart]);
   const visibleRows = rows.filter(r => r.is_active !== false);
 
+  useEffect(() => {
+    const r = restoreRef.current;
+    if (!r || !dept || dept.code !== r.dept || weekOffset !== (r.weekOffset ?? 0)) return;
+    restoreRef.current = null;
+    setView("weekly");
+    setDraft({ ...r.draft, instructor: r.instructor || r.draft.instructor });
+    setRegistered(r.registered ?? []);
+    setCopyDays(r.copyDays ?? []);
+    if (r.instructor) setInstructors(list => (list.includes(r.instructor) ? list : [...list, r.instructor]));
+    router.replace(pathname + "?dept=" + encodeURIComponent(dept.code));
+  }, [dept, weekOffset]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** "+ מפעיל/ה חדש/ה": שומרים את הפעילות שנערכת ועוברים לעמוד המפעילים */
+  const goAddInstructor = () => {
+    if (!draft || !dept) return;
+    try {
+      sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ dept: dept.code, weekOffset, draft, registered, copyDays }));
+    } catch { /* בלי אחסון — הפעילות לא תיפתח מחדש, אבל המפעיל/ה יתווסף/תתווסף */ }
+    const back = `/admin/weekly?dept=${encodeURIComponent(dept.code)}&restore=1`;
+    router.push(`/admin/instructors?add=1&back=${encodeURIComponent(back)}`);
+  };
+
+  const endAssign = () => {
+    setAssignName(null);
+    if (dept) router.replace(pathname + "?dept=" + encodeURIComponent(dept.code));
+  };
+
   /* ── רענון המסכים במחלקה אחרי שינוי ── */
   const refreshScreens = useCallback(() => refreshDepartmentScreens(supabase, deptId), [supabase, deptId]);
 
@@ -161,7 +213,7 @@ export default function WeeklyEditor() {
     const kind: DraftKind = a.fromCalendar ? "calendar" : a.parentId ? "weekcopy" : a.recurring ? "recurring" : "oneoff";
     setDraft({
       id: a.id, kind, title: a.title, dayIndex: a.dayIndex, originalDayIndex: a.dayIndex, start: a.start, end: a.end,
-      location: a.location, instructor: a.instructor, repeat: a.recurring, fromCalendar: a.fromCalendar, parentId: a.parentId,
+      location: a.location, instructor: assignName ?? a.instructor, repeat: a.recurring, fromCalendar: a.fromCalendar, parentId: a.parentId,
     });
   };
   const openNew = (dayIndex: number) => {
@@ -169,7 +221,7 @@ export default function WeeklyEditor() {
     setCopyDays([]);
     setRegQuery("");
     setRegistered([]);
-    setDraft({ id: null, kind: "new", title: "", dayIndex, originalDayIndex: dayIndex, start: "10:00", end: "", location: "", instructor: "", repeat: true, fromCalendar: false, parentId: null });
+    setDraft({ id: null, kind: "new", title: "", dayIndex, originalDayIndex: dayIndex, start: "10:00", end: "", location: "", instructor: assignName ?? "", repeat: true, fromCalendar: false, parentId: null });
   };
 
   /** שם המפעיל לשמירה: בלי רווחים מיותרים, ובכתיב של מפעיל שכבר קיים */
@@ -260,7 +312,10 @@ export default function WeeklyEditor() {
     }
     setBusy(false);
     if (error) { flash("לא נשמר: " + error); return; }
-    flash(mode === "week" && draft.kind === "recurring" ? "נשמר לשבוע הזה בלבד" : copyDays.length ? "נשמר והועתק" : "נשמר");
+    flash(
+      assignName && instructorName === assignName ? `${assignName} שויך/ה לפעילות. אפשר לבחור עוד פעילות, או ״סיום השיוך״.`
+      : mode === "week" && draft.kind === "recurring" ? "נשמר לשבוע הזה בלבד" : copyDays.length ? "נשמר והועתק" : "נשמר"
+    );
     setDraft(null);
     await loadActivities();
     refreshScreens();
@@ -489,6 +544,15 @@ export default function WeeklyEditor() {
               {calendarCount > 0 && <span className="ms-3 whitespace-nowrap"><CalendarDays className="inline h-4 w-4 align-[-3px] text-[#5A826F]" /> {calendarCount} מהיומן</span>}
             </span>
           </div>
+          {assignName && (
+            <div className="mb-3 flex flex-wrap items-center gap-3 rounded-2xl bg-[#E3ECE7] p-4 text-[15px]" role="status">
+              <Users className="h-5 w-5 shrink-0 text-[#5A826F]" />
+              <span className="min-w-0 flex-1">
+                משייכים את <b>{assignName}</b>: לוחצים על פעילות בלוח, או על ״+ הוספה״ לפעילות חדשה. בפעילות בוחרים גם אילו דיירים רשומים, ושומרים.
+              </span>
+              <button onClick={endAssign} className="rounded-xl bg-[#3F2F2D] px-3.5 py-2 text-sm font-semibold text-[#F6F2EE] hover:bg-[#3F2F2D]/90">סיום השיוך</button>
+            </div>
+          )}
           {templateWeek && (
             <div className="mb-3 flex flex-wrap items-center gap-3 rounded-2xl bg-[#FDF0CC] p-4 text-[15px]">
               <span className="min-w-0 flex-1">
@@ -596,8 +660,11 @@ export default function WeeklyEditor() {
                   </datalist>
                 </Field>
                 <Field label="מפעיל/ה">
-                  <InstructorSelect key={draft.id ?? "new"} value={draft.instructor} choices={instructorChoices}
-                    onChange={v => setDraft({ ...draft, instructor: v })} />
+                  <InstructorSelect value={draft.instructor} choices={instructorChoices}
+                    onChange={v => setDraft({ ...draft, instructor: v })} onAddNew={goAddInstructor} />
+                  {assignName && cleanName(draft.instructor) === assignName && draft.id && (
+                    <p className="mt-1 text-xs font-semibold text-[#5A826F]">שומרים כדי לשייך את {assignName} לפעילות הזו.</p>
+                  )}
                 </Field>
                 {(draft.kind === "new" || draft.kind === "oneoff") && <Field label="חזרה">
                   <div className="grid grid-cols-2 gap-1 rounded-xl bg-[#F6F2EE] p-1 text-sm font-semibold">
@@ -732,9 +799,10 @@ export default function WeeklyEditor() {
                 <div className="divide-y divide-[#3F2F2D]/10">
                   <Toggle label="1. לוח שבועי" on={display.show_weekly} onChange={v => saveDisplay({ ...display, show_weekly: v })} />
                   <Toggle label="2. היום (עכשיו ובהמשך)" on={display.show_daily} onChange={v => saveDisplay({ ...display, show_daily: v })} />
-                  <Toggle label="3. תפריט היום" on={display.show_menu_today !== false} onChange={v => saveDisplay({ ...display, show_menu_today: v })} />
-                  <Toggle label="4. תפריט שבועי" on={display.show_menu} onChange={v => saveDisplay({ ...display, show_menu: v })} />
-                  <Toggle label="5. תמונות וקבצים" on={display.show_media} onChange={v => saveDisplay({ ...display, show_media: v })} />
+                  <Toggle label="3. פיזיותרפיה (מי מוזמן היום)" on={display.show_physio !== false} onChange={v => saveDisplay({ ...display, show_physio: v })} />
+                  <Toggle label="4. תפריט היום" on={display.show_menu_today !== false} onChange={v => saveDisplay({ ...display, show_menu_today: v })} />
+                  <Toggle label="5. תפריט שבועי" on={display.show_menu} onChange={v => saveDisplay({ ...display, show_menu: v })} />
+                  <Toggle label="6. תמונות וקבצים" on={display.show_media} onChange={v => saveDisplay({ ...display, show_media: v })} />
                 </div>
                 <div className="mt-3 grid grid-cols-2 gap-3">
                   <Field label="כל תצוגה (שניות)">

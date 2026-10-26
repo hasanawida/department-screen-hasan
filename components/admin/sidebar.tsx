@@ -5,7 +5,7 @@ import { useEffect, useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import {
-  Building2, Calendar, CalendarDays, CalendarSync, Compass, GraduationCap, HeartPulse, LayoutDashboard,
+  Building2, CalendarDays, CalendarSync, Compass, GraduationCap, HeartPulse, LayoutDashboard,
   LogOut, Megaphone, Menu, MessageSquare, Monitor, ShieldCheck, Sparkles, UserRound, Users, UtensilsCrossed, X,
 } from "lucide-react"
 import { EshkolotLogo } from "@/components/orientation/eshkolot-logo"
@@ -28,7 +28,6 @@ const GROUPS: { title?: string; items: Item[] }[] = [
   {
     title: "תוכן",
     items: [
-      { href: "/admin/activities", label: "פעילויות", icon: Calendar },
       { href: "/admin/import", label: "ייבוא מהיומן", icon: CalendarSync },
       { href: "/admin/announcements", label: "הודעות חשובות", icon: Megaphone },
       { href: "/admin/ticker", label: "שורת רצה", icon: MessageSquare },

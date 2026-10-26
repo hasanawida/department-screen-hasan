@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import { Phone, Mail, Edit2, Check, X, ChevronDown, ChevronUp, Users, Trash2, Link, Copy, GitMerge, Loader2 } from "lucide-react"
 import { cleanName, nameKey, similarNames } from "@/lib/participants"
+import { assignHref } from "@/components/admin/add-instructor-button"
 
 interface Participant { id: string; name: string; room_number?: string | null }
 interface Activity { id: string; title: string; day_of_week: string; start_time: string; activity_date?: string | null; departments?: { name: string } | null; participants: Participant[] }
@@ -12,7 +13,7 @@ interface Instructor { name: string; acts: Activity[]; phone: string; email: str
 const actsLabel = (n: number) => (n === 1 ? "פעילות אחת" : `${n} פעילויות`)
 const newToken = () => Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)
 
-export function InstructorsList({ instructors }: { instructors: Instructor[] }) {
+export function InstructorsList({ instructors, departments }: { instructors: Instructor[]; departments: { id: string; name: string; code: string }[] }) {
   const router = useRouter()
   const supabase = useMemo(() => createClient(), [])
   const [data, setData] = useState(instructors)
@@ -25,6 +26,7 @@ export function InstructorsList({ instructors }: { instructors: Instructor[] }) 
   const [copiedToken, setCopiedToken] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [msg, setMsg] = useState("")
+  const [assigning, setAssigning] = useState<string | null>(null)
 
   // אחרי רענון מהשרת — הרשימה המעודכנת
   useEffect(() => { setData(instructors) }, [instructors])
@@ -277,6 +279,24 @@ export function InstructorsList({ instructors }: { instructors: Instructor[] }) 
                         )
                       })}
                     </div>
+                  )}
+
+                  {assigning === inst.name ? (
+                    <div className="rounded-xl bg-[#F6F2EE] p-3">
+                      <div className="mb-2 text-sm font-semibold">לאיזו מחלקה? בלוח שלה לוחצים על פעילות, או מוסיפים חדשה:</div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {departments.map(d => (
+                          <a key={d.id} href={assignHref(d.code, inst.name)}
+                            className="rounded-full bg-[#3F2F2D] px-3 py-1.5 text-sm font-semibold text-[#F6F2EE] hover:bg-[#3F2F2D]/90">{d.name}</a>
+                        ))}
+                        <button onClick={() => setAssigning(null)} className="rounded-full px-3 py-1.5 text-sm font-semibold text-[#3F2F2D]/60 hover:bg-white">ביטול</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button onClick={() => setAssigning(inst.name)}
+                      className="w-full rounded-xl bg-[#3F2F2D] py-2 text-sm font-semibold text-[#F6F2EE] hover:bg-[#3F2F2D]/90">
+                      שיוך לפעילות בלוח השבועי
+                    </button>
                   )}
 
                   {inst.view_token ? (

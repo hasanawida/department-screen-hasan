@@ -1,7 +1,7 @@
 "use client";
 
 // לוח הזמנים של הפיזיותרפיה — מי מוזמן לטיפול, משעה עד שעה.
-// מה שנשמר כאן מופיע מיד במסך הפיזיותרפיה.
+// מה שנשמר כאן מופיע מיד במסך הפיזיותרפיה, ובמסך של כל מחלקה (מי מהמחלקה מוזמן היום).
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -10,7 +10,9 @@ import PhysioBoard, { type PhysioAppt } from "@/components/display/physio-board"
 import { Card, Field, ScreenFrame, btnGhost, btnPrimary, inputCls, textareaCls, usePreviewCu } from "@/components/admin/brand-ui";
 import { DAY_NAMES, addDaysISO, dayIndexOf, israelDateISO, shortDate, toMinutes } from "@/lib/week";
 
-type Dept = { id: string; name: string; code: string | null };
+type Dept = { id: string; name: string; code: string | null; color?: string | null };
+/** "" — כל המחלקות; NO_DEPT — בלי מחלקה; אחרת — מזהה מחלקה */
+const NO_DEPT = "__none";
 type Resident = { id: string; name: string; department_id: string | null };
 type Row = {
   id: string; appt_date: string; start_time: string; end_time?: string | null;
@@ -87,12 +89,14 @@ export default function PhysioEditor({ screenUrl }: { screenUrl?: string }) {
   const [notice, setNotice] = useState("");
   const [paste, setPaste] = useState("");
   const [showPaste, setShowPaste] = useState(false);
+  const [deptFilter, setDeptFilter] = useState("");
+  const [copied, setCopied] = useState("");
   const [cu, frameRef] = usePreviewCu();
 
   useEffect(() => {
     (async () => {
       const [d, r] = await Promise.all([
-        supabase.from("departments").select("id, name, code").order("name"),
+        supabase.from("departments").select("id, name, code, color").order("name"),
         supabase.from("residents").select("id, name, department_id").eq("is_active", true).order("name"),
       ]);
       setDepts((d.data ?? []) as Dept[]);
@@ -107,7 +111,14 @@ export default function PhysioEditor({ screenUrl }: { screenUrl?: string }) {
     setRows((data ?? []) as Row[]);
   }, [supabase, date]);
 
-  useEffect(() => { load(); setForm(EMPTY_FORM); }, [load]);
+  useEffect(() => { load(); setForm({ ...EMPTY_FORM, department_id: deptFilter && deptFilter !== NO_DEPT ? deptFilter : "" }); }, [load]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** מעבר בין מחלקות: טיפול חדש נרשם למחלקה שנבחרה */
+  function chooseDept(id: string) {
+    setDeptFilter(id);
+    if (!form.id) setForm(f => ({ ...f, department_id: id && id !== NO_DEPT ? id : "" }));
+  }
+  const inFilter = (deptId: string | null) => !deptFilter || (deptFilter === NO_DEPT ? !deptId : deptId === deptFilter);
 
   const deptName = (id: string | null) => (id ? depts.find(d => d.id === id)?.name ?? null : null);
   const findResident = (name: string) => residents.find(r => normalize(r.name) === normalize(name)) ?? null;
@@ -146,7 +157,7 @@ export default function PhysioEditor({ screenUrl }: { screenUrl?: string }) {
     if (res.error) { setError("לא נשמר: " + res.error.message); return; }
     if (res.endTimeMissing) setNotice("נשמר בלי שעת הסיום — צריך להריץ את scripts/011_physio_end_time.sql ב-Supabase.");
     // הוספה רצופה: הטיפול הבא מתחיל כשהקודם נגמר, באותו משך ובאותה מחלקה
-    if (form.id) { setForm(EMPTY_FORM); }
+    if (form.id) { setForm({ ...EMPTY_FORM, department_id: deptFilter && deptFilter !== NO_DEPT ? deptFilter : "" }); }
     else {
       const startM = toMinutes(form.start);
       const endM = form.end ? toMinutes(form.end) : startM + DEFAULT_MINUTES;
@@ -171,7 +182,7 @@ export default function PhysioEditor({ screenUrl }: { screenUrl?: string }) {
       const r = findResident(p!.name);
       return {
         appt_date: date, start_time: p!.start, end_time: p!.end || null, resident_name: p!.name,
-        resident_id: r?.id ?? null, department_id: p!.department_id || r?.department_id || null, note: null,
+        resident_id: r?.id ?? null, department_id: p!.department_id || r?.department_id || (deptFilter && deptFilter !== NO_DEPT ? deptFilter : null), note: null,
       };
     });
     const res = await writeAppointments(supabase, { insert: rowsToAdd });
@@ -197,16 +208,30 @@ export default function PhysioEditor({ screenUrl }: { screenUrl?: string }) {
     load();
   }
 
-  const appts: PhysioAppt[] = rows.map(r => ({
+  const deptColor = (id: string | null) => (id ? depts.find(d => d.id === id)?.color ?? null : null);
+  const shown = rows.filter(r => inFilter(r.department_id));
+  const counts = new Map<string, number>();
+  for (const r of rows) counts.set(r.department_id || NO_DEPT, (counts.get(r.department_id || NO_DEPT) ?? 0) + 1);
+  const deptsToday = depts.filter(d => counts.get(d.id));
+  const chosen = deptFilter && deptFilter !== NO_DEPT ? depts.find(d => d.id === deptFilter) ?? null : null;
+
+  const appts: PhysioAppt[] = shown.map(r => ({
     id: r.id, time: hm(r.start_time), end: r.end_time ? hm(r.end_time) : null,
-    name: r.resident_name, department: deptName(r.department_id), note: r.note,
+    name: r.resident_name, department: deptName(r.department_id), departmentColor: deptColor(r.department_id), note: r.note,
   }));
-  if (form.name.trim() && form.start && !form.id) {
-    appts.push({ id: "__draft", time: form.start, end: form.end || null, name: form.name.trim(), department: deptName(form.department_id), note: form.note || null });
+  if (form.name.trim() && form.start && !form.id && inFilter(form.department_id || null)) {
+    appts.push({ id: "__draft", time: form.start, end: form.end || null, name: form.name.trim(), department: deptName(form.department_id), departmentColor: deptColor(form.department_id), note: form.note || null });
   }
   if (form.id) {
     const i = appts.findIndex(a => a.id === form.id);
-    if (i >= 0) appts[i] = { id: form.id, time: form.start || appts[i].time, end: form.end || null, name: form.name || appts[i].name, department: deptName(form.department_id), note: form.note || null };
+    if (i >= 0) appts[i] = { id: form.id, time: form.start || appts[i].time, end: form.end || null, name: form.name || appts[i].name, department: deptName(form.department_id), departmentColor: deptColor(form.department_id), note: form.note || null };
+  }
+  const screenHref = screenUrl ? screenUrl + (chosen?.code ? "?dept=" + encodeURIComponent(chosen.code) : "") : null;
+
+  function copyLink(path: string) {
+    navigator.clipboard.writeText(window.location.origin + path);
+    setCopied(path);
+    setTimeout(() => setCopied(c => (c === path ? "" : c)), 2000);
   }
 
   const dayLabel = date === today ? "היום" : date === addDaysISO(today, 1) ? "מחר" : date === addDaysISO(today, -1) ? "אתמול" : "יום " + DAY_NAMES[dayIndexOf(date)];
@@ -233,9 +258,28 @@ export default function PhysioEditor({ screenUrl }: { screenUrl?: string }) {
           {date !== today && <button type="button" className={btnGhost} onClick={() => setDate(today)}>חזרה להיום</button>}
           <button type="button" className={btnGhost} onClick={copyLastWeek} disabled={missingTable}>העתקה מהשבוע שעבר</button>
           <button type="button" className={btnGhost} onClick={() => setShowPaste(v => !v)} disabled={missingTable}>{showPaste ? "סגירת ההדבקה" : "הדבקת רשימה"}</button>
-          {screenUrl && <a className={btnGhost} href={screenUrl} target="_blank" rel="noreferrer">פתיחת המסך</a>}
+          {screenHref && <a className={btnGhost} href={screenHref} target="_blank" rel="noreferrer">{chosen ? "פתיחת המסך של " + chosen.name : "פתיחת המסך"}</a>}
         </div>
       </div>
+
+      {/* לפי מחלקה */}
+      <div className="flex flex-wrap items-center gap-2" role="tablist" aria-label="מחלקה">
+        {[{ id: "", name: "כל המחלקות", n: rows.length }, ...depts.map(d => ({ id: d.id, name: d.name, n: counts.get(d.id) ?? 0 })),
+          ...(counts.get(NO_DEPT) ? [{ id: NO_DEPT, name: "בלי מחלקה", n: counts.get(NO_DEPT)! }] : [])].map(t => (
+          <button key={t.id || "all"} type="button" role="tab" aria-selected={deptFilter === t.id} onClick={() => chooseDept(t.id)}
+            className={"rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors " + (deptFilter === t.id ? "bg-[#3F2F2D] text-[#F6F2EE]" : "bg-white hover:bg-[#E3ECE7]")}>
+            {t.name} <span className={deptFilter === t.id ? "text-[#F6F2EE]/70" : "text-[#3F2F2D]/50"}>{t.n}</span>
+          </button>
+        ))}
+      </div>
+
+      {rows.length > 0 && !deptFilter && (
+        <p className="text-[15px] text-[#3F2F2D]/75">
+          {dayLabel}: <b>{rows.length}</b> מוזמנים לטיפול
+          {deptsToday.length > 0 && <>, מ-{deptsToday.length === 1 ? "מחלקה אחת" : `${deptsToday.length} מחלקות`}</>}
+          , משעה <b dir="ltr">{hm(rows[0].start_time)}</b> עד <b dir="ltr">{(() => { const last = rows[rows.length - 1]; return last.end_time ? hm(last.end_time) : hm(last.start_time); })()}</b>.
+        </p>
+      )}
 
       {error && <div role="alert" className="rounded-2xl bg-[#FDE8E1] p-3 text-[15px] text-[#7a2e22]">{error}</div>}
       {notice && <div role="status" className="rounded-2xl bg-[#FDF0CC] p-3 text-[15px]">{notice}</div>}
@@ -259,18 +303,20 @@ export default function PhysioEditor({ screenUrl }: { screenUrl?: string }) {
 
       <div className="grid gap-5 lg:grid-cols-[1fr_380px]">
         {/* רשימת היום */}
-        <Card title={rows.length ? `${rows.length} מוזמנים ל${dayLabel}` : `אין עדיין טיפולים ל${dayLabel}`}>
-          {rows.length === 0 ? (
+        <Card title={shown.length
+          ? `${shown.length} מוזמנים ל${dayLabel}${chosen ? " מ" + chosen.name : deptFilter === NO_DEPT ? " בלי מחלקה" : ""}`
+          : `אין עדיין טיפולים ל${dayLabel}${chosen ? " מ" + chosen.name : ""}`}>
+          {shown.length === 0 ? (
             <p className="text-[15px] text-[#3F2F2D]/65">מוסיפים דייר בטופס, או מדביקים רשימה שלמה.</p>
           ) : (
             <ul className="divide-y divide-[#3F2F2D]/10">
-              {rows.map(r => (
+              {shown.map(r => (
                 <li key={r.id} className={"flex items-center gap-4 py-3 " + (form.id === r.id ? "rounded-xl bg-[#E3ECE7] px-2" : "")}>
                   <span className="w-[124px] shrink-0 whitespace-nowrap text-right text-lg font-bold tabular-nums text-[#5A826F]" dir="ltr">{range(hm(r.start_time), r.end_time ? hm(r.end_time) : null)}</span>
                   <button type="button" className="min-w-0 flex-1 text-right"
                     onClick={() => setForm({ id: r.id, start: hm(r.start_time), end: r.end_time ? hm(r.end_time) : "", name: r.resident_name, department_id: r.department_id ?? "", note: r.note ?? "" })}>
                     <div className="truncate text-[17px] font-bold">{r.resident_name}</div>
-                    <div className="truncate text-sm text-[#3F2F2D]/60">{[deptName(r.department_id), r.note].filter(Boolean).join(", ") || " "}</div>
+                    <div className="truncate text-sm text-[#3F2F2D]/60">{[deptFilter ? null : deptName(r.department_id), r.note].filter(Boolean).join(", ") || " "}</div>
                   </button>
                   <button type="button" aria-label={"מחיקת " + r.resident_name} className="h-9 w-9 shrink-0 rounded-xl text-xl text-[#B56262] hover:bg-[#FDE8E1]" onClick={() => remove(r.id)}>×</button>
                 </li>
@@ -293,7 +339,7 @@ export default function PhysioEditor({ screenUrl }: { screenUrl?: string }) {
             <Field label="שם מלא">
               <input className={inputCls} list="physio-residents" value={form.name} onChange={e => setName(e.target.value)} placeholder="שרה כהן" autoComplete="off" />
               <datalist id="physio-residents">
-                {residents.map(r => <option key={r.id} value={r.name}>{deptName(r.department_id) ?? ""}</option>)}
+                {residents.filter(r => !chosen || r.department_id === chosen.id).map(r => <option key={r.id} value={r.name}>{deptName(r.department_id) ?? ""}</option>)}
               </datalist>
             </Field>
             <Field label="מחלקה">
@@ -316,11 +362,32 @@ export default function PhysioEditor({ screenUrl }: { screenUrl?: string }) {
       </div>
 
       <div>
-        <h2 className="mb-2 text-lg font-bold">כך זה ייראה במסך</h2>
+        <h2 className="mb-2 text-lg font-bold">{chosen ? `כך זה ייראה במסך של ${chosen.name}` : "כך זה ייראה במסך בחדר הפיזיותרפיה"}</h2>
         <ScreenFrame frameRef={frameRef}>
-          <PhysioBoard appts={appts} dateISO={date} embeddedCu={cu} />
+          <PhysioBoard appts={appts} dateISO={date} embeddedCu={cu} title={chosen ? "פיזיותרפיה, " + chosen.name : "פיזיותרפיה"} showDepartments={!chosen} />
         </ScreenFrame>
       </div>
+
+      {screenUrl && (
+        <Card title="מסכים וקישורים">
+          <p className="mb-3 text-[15px] text-[#3F2F2D]/70">
+            במסך של כל מחלקה מופיע בסבב מי מהמחלקה מוזמן היום, ומתי. אפשר לשלוח לרכז/ת המחלקה גם קישור למסך של המחלקה בלבד.
+          </p>
+          <ul className="divide-y divide-[#3F2F2D]/10">
+            {[{ key: "all", name: "חדר הפיזיותרפיה (כל המחלקות)", path: screenUrl }, ...depts.filter(d => d.code).map(d => ({ key: d.id, name: "רכז/ת " + d.name, path: screenUrl + "?dept=" + encodeURIComponent(d.code!) }))].map(l => (
+              <li key={l.key} className="flex flex-wrap items-center justify-between gap-2 py-2.5">
+                <span className="font-semibold">{l.name}</span>
+                <span className="flex items-center gap-1.5">
+                  <a href={l.path} target="_blank" rel="noreferrer" className="rounded-lg px-2.5 py-1.5 text-sm font-semibold text-[#5A826F] hover:bg-[#E3ECE7]">פתיחה</a>
+                  <button type="button" onClick={() => copyLink(l.path)} className="rounded-lg px-2.5 py-1.5 text-sm font-semibold text-[#5A826F] hover:bg-[#E3ECE7]">
+                    {copied === l.path ? "הקישור הועתק" : "העתקת קישור"}
+                  </button>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
     </div>
   );
 }

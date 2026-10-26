@@ -10,16 +10,21 @@ function genToken() {
   return Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)
 }
 
-export default async function InstructorsPage() {
+export default async function InstructorsPage({ searchParams }: { searchParams: Promise<{ add?: string; back?: string }> }) {
+  const sp = await searchParams
+  // חזרה רק לעריכת פעילות בלוח השבועי
+  const back = typeof sp?.back === "string" && sp.back.startsWith("/admin/weekly") ? sp.back : null
   const supabase = await createClient()
   const [
     { data: activities },
     { data: instructorsData },
     { data: participants },
+    { data: departments },
   ] = await Promise.all([
     supabase.from("activities").select("id, title, day_of_week, start_time, activity_date, instructor_name, department_id, parent_id, departments(name)").eq("is_active", true).not("instructor_name", "is", null).order("start_time"),
     supabase.from("instructors").select("id, name, phone, email, view_token"),
     supabase.from("activity_participants").select("activity_id, residents(id, name, room_number, department_id)"),
+    supabase.from("departments").select("id, name, code").order("name"),
   ])
 
   // אוטו-יצירת רשומה (כולל view_token) לכל מפעיל מהפעילויות שעדיין אין לו
@@ -94,16 +99,26 @@ export default async function InstructorsPage() {
 
   const allInstructors = [...instructors, ...manualOnly].sort((a, b) => a.name.localeCompare(b.name, "he"))
 
+  const depts = (departments || []) as { id: string; name: string; code: string }[]
   return (
     <div className="p-6" dir="rtl">
-      <div className="flex items-center justify-between mb-6">
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold">מפעילים</h1>
-          <p className="text-muted-foreground mt-1">{allInstructors.length} מפעילים</p>
+          <p className="text-muted-foreground mt-1">
+            {allInstructors.length} מפעילים. מוסיפים כאן מפעיל/ה, ואז משייכים לפעילות בלוח השבועי של המחלקה ובוחרים דיירים.
+          </p>
         </div>
-        <AddInstructorButton />
+        {!(sp?.add === "1" || back) && (
+          <AddInstructorButton existing={allInstructors.map(i => i.name)} departments={depts} />
+        )}
       </div>
-      <InstructorsList instructors={allInstructors} />
+      {(sp?.add === "1" || back) && (
+        <div className="mb-6">
+          <AddInstructorButton existing={allInstructors.map(i => i.name)} departments={depts} autoOpen back={back} />
+        </div>
+      )}
+      <InstructorsList instructors={allInstructors} departments={depts} />
     </div>
   )
 }

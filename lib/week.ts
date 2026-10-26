@@ -181,6 +181,7 @@ export type DisplaySettings = {
   show_weekly: boolean;
   show_menu: boolean;        // תפריט שבועי
   show_menu_today?: boolean; // תפריט היום, בגדול
+  show_physio?: boolean;     // מי מהמחלקה מוזמן היום לפיזיותרפיה
   show_media: boolean;
   show_ticker: boolean;
   show_announcements: boolean;
@@ -194,6 +195,7 @@ export const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = {
   show_weekly: true,
   show_menu: true,
   show_menu_today: true,
+  show_physio: true,
   show_media: true,
   show_ticker: true,
   show_announcements: true,

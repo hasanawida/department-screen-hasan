@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { Clock3, MapPin, User, Utensils, Megaphone } from "lucide-react";
+import { Clock3, MapPin, User, Utensils, Megaphone, HeartPulse } from "lucide-react";
 import { EshkolotLogo, Pin, BRAND } from "@/components/orientation/eshkolot-logo";
 import WeeklyBoard, { type WeeklyTopic } from "./weekly-board";
 import {
@@ -9,6 +9,7 @@ import {
   type BoardActivity, type DisplaySettings, type WeekMenu, type WeeklyBoardSettings,
 } from "@/lib/week";
 import { TodayMenu, WeeklyMenu, nextMealsSummary } from "./menu-views";
+import { PhysioList, PhysioSummary, type PhysioAppt } from "./physio-board";
 import styles from "./board.module.css";
 
 export type DepartmentDisplayProps = {
@@ -26,6 +27,8 @@ export type DepartmentDisplayProps = {
   messages: string[];
   news: string[];
   media: { url: string; type: string }[];
+  /** מי מהמחלקה מוזמן היום לפיזיותרפיה */
+  physio?: PhysioAppt[];
   /** בתוך העורך: --cu נקבע לפי המסגרת ולא לפי החלון */
   embeddedCu?: number;
   /** בעורך: להציג תצוגה מסוימת ולא לסובב */
@@ -34,10 +37,10 @@ export type DepartmentDisplayProps = {
   editor?: { selectedId?: string | null; onSelect: (a: BoardActivity) => void; onAdd: (dayIndex: number) => void };
 };
 
-export type ViewKind = "weekly" | "daily" | "menuToday" | "menu" | "media";
+export type ViewKind = "weekly" | "daily" | "physio" | "menuToday" | "menu" | "media";
 type View = { kind: ViewKind; media?: { url: string; type: string } };
 
-const VIEW_LABEL: Record<ViewKind, string> = { weekly: "לוח שבועי", daily: "היום", menuToday: "תפריט היום", menu: "תפריט שבועי", media: "תמונות" };
+const VIEW_LABEL: Record<ViewKind, string> = { weekly: "לוח שבועי", daily: "היום", physio: "פיזיותרפיה", menuToday: "תפריט היום", menu: "תפריט שבועי", media: "תמונות" };
 
 function useNow() {
   const [now, setNow] = useState<Date | null>(null);
@@ -57,6 +60,7 @@ function useNow() {
 export default function DepartmentDisplay(props: DepartmentDisplayProps) {
   const { department, weekDates, days, settings, board, topic, menu, messages, news, media, embeddedCu, fixedView, editor } = props;
   const menuNotes = props.menuNotes ?? [];
+  const physio = props.physio ?? [];
   const now = useNow();
 
   const todayISO = now ? israelDateISO(now) : "";
@@ -72,12 +76,13 @@ export default function DepartmentDisplay(props: DepartmentDisplayProps) {
     const v: View[] = [];
     if (settings.show_weekly) v.push({ kind: "weekly" });
     if (settings.show_daily) v.push({ kind: "daily" });
+    if (settings.show_physio !== false && physio.length > 0) v.push({ kind: "physio" });
     if (settings.show_menu_today !== false && todayHasMenu) v.push({ kind: "menuToday" });
     if (settings.show_menu && hasMenu) v.push({ kind: "menu" });
     if (settings.show_media) for (const m of media) v.push({ kind: "media", media: m });
     if (v.length === 0) v.push({ kind: "weekly" });
     return v;
-  }, [settings.show_weekly, settings.show_daily, settings.show_menu, settings.show_menu_today, settings.show_media, hasMenu, todayHasMenu, media]);
+  }, [settings.show_weekly, settings.show_daily, settings.show_physio, settings.show_menu, settings.show_menu_today, settings.show_media, hasMenu, todayHasMenu, media, physio.length]);
 
   const [viewIndex, setViewIndex] = useState(0);
   useEffect(() => {
@@ -152,7 +157,15 @@ export default function DepartmentDisplay(props: DepartmentDisplayProps) {
 
           {view.kind === "daily" && (
             <DailyView today={today} nowMinutes={nowMinutes} menu={todayIndex >= 0 ? menu[todayIndex] : undefined}
-              messages={settings.show_announcements ? messages : []} board={board} />
+              messages={settings.show_announcements ? messages : []} board={board}
+              physio={settings.show_physio !== false ? physio : []} />
+          )}
+
+          {view.kind === "physio" && (
+            <div className={styles.physio}>
+              {physio.length > 0 && <PhysioSummary appts={physio} isToday nowMin={nowMinutes} showDepartments={false} />}
+              <PhysioList appts={physio} isToday nowMin={nowMinutes} showDepartments={false} emptyText="אין היום טיפולי פיזיותרפיה במחלקה" />
+            </div>
           )}
 
           {view.kind === "menuToday" && (
@@ -201,18 +214,22 @@ export default function DepartmentDisplay(props: DepartmentDisplayProps) {
 
 /* ───────────── היום ───────────── */
 
-function DailyView({ today, nowMinutes, menu, messages, board }: {
+function DailyView({ today, nowMinutes, menu, messages, board, physio }: {
   today: BoardActivity[];
   nowMinutes: number;
   menu?: WeekMenu[number];
   messages: string[];
   board: WeeklyBoardSettings;
+  physio: PhysioAppt[];
 }) {
   const end = (a: BoardActivity) => (a.end ? toMinutes(a.end) : toMinutes(a.start) + 60);
   const current = today.find(a => nowMinutes >= toMinutes(a.start) && nowMinutes < end(a));
   const upcoming = today.filter(a => toMinutes(a.start) > nowMinutes).slice(0, current ? 4 : 3);
   const nextOne = !current ? upcoming[0] : undefined;
   const nextMeals = nextMealsSummary(menu, nowMinutes);
+  // פיזיותרפיה: מי עוד מוזמן היום (לפי שעה)
+  const physioNext = [...physio].sort((a, b) => a.time.localeCompare(b.time))
+    .filter(a => toMinutes(a.end || a.time) + (a.end ? 0 : 30) > nowMinutes).slice(0, 3);
 
   return (
     <div className={styles.daily}>
@@ -242,6 +259,18 @@ function DailyView({ today, nowMinutes, menu, messages, board }: {
           <section className={styles.panel + " " + styles.notice}>
             <span className={styles.panelTitle}><Megaphone aria-hidden="true" />הודעה חשובה</span>
             {messages.slice(0, 2).map((m, i) => <div key={i} className={styles.noticeText}>{m}</div>)}
+          </section>
+        )}
+
+        {physioNext.length > 0 && (
+          <section className={styles.panel}>
+            <span className={styles.panelTitle}><HeartPulse aria-hidden="true" />פיזיותרפיה היום</span>
+            {physioNext.map(a => (
+              <div key={a.id} className={styles.mealRow}>
+                <span className={styles.mealLabel} dir="ltr">{a.time}</span>
+                <span className={styles.mealItems}>{a.name}</span>
+              </div>
+            ))}
           </section>
         )}
       </div>

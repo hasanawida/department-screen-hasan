@@ -728,9 +728,73 @@
 .physio {
   flex: 1;
   min-height: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: calc(var(--cu) * 2);
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--cu) * 1.6);
+}
+
+.physio > .physioList {
+  flex: 1;
+}
+
+/* כמה מוזמנים, ולפי מחלקה */
+.physioSummary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: calc(var(--cu) * 1.2) calc(var(--cu) * 3);
+  background: #fff;
+  border-radius: calc(var(--cu) * 2.2);
+  padding: calc(var(--cu) * 1.3) calc(var(--cu) * 3);
+}
+
+.physioCount {
+  font-size: calc(var(--cu) * 3);
+  font-weight: 700;
+}
+
+.physioCount b {
+  font-size: 1.35em;
+  font-weight: 800;
+  color: var(--sage);
+}
+
+.physioLeft {
+  margin-inline-start: calc(var(--cu) * 1.6);
+  font-size: 0.8em;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.physioDepts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--cu) * 1);
+  margin-inline-start: auto;
+}
+
+.physioDept {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--cu) * 0.7);
+  font-size: calc(var(--cu) * 2.4);
+  font-weight: 600;
+  background: var(--paper, #F6F2EE);
+  border-radius: 999px;
+  padding: calc(var(--cu) * 0.45) calc(var(--cu) * 1.6);
+}
+
+.physioDept b {
+  font-weight: 800;
+}
+
+.apptDept {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  font-weight: 700;
+  color: var(--ink);
+  margin-inline-end: 0.8em;
 }
 
 .physioList {

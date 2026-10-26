@@ -5,6 +5,7 @@ import { CalendarDays, MapPin, User } from "lucide-react";
 import { Pin, BRAND } from "@/components/orientation/eshkolot-logo";
 import { DAY_NAMES, shortDate, toMinutes, type BoardActivity, type WeeklyBoardSettings } from "@/lib/week";
 import { useFillScale, useUniformGrow } from "./use-fill";
+import { ActivityIcon } from "./icons";
 import styles from "./board.module.css";
 
 export type WeeklyTopic = { title: string; description?: string | null; image_url?: string | null } | null;
@@ -121,7 +122,10 @@ function DayColumn({
                 <bdi>{a.start}{settings.show_end_time && a.end ? "–" + a.end : ""}</bdi>
                 {isNow && <span className={styles.nowTag}>עכשיו</span>}
               </span>
-              <span className={styles.actTitle}>{a.title}</span>
+              <span className={styles.actTitle}>
+                {settings.show_icons !== false && <ActivityIcon title={a.title} className={styles.actIcon} />}
+                {a.title}
+              </span>
               {showMeta && ((settings.show_location && a.location) || (settings.show_instructor && a.instructor)) && (
                 <span className={styles.actMeta}>
                   {settings.show_location && a.location && <span><MapPin aria-hidden="true" />{a.location}</span>}

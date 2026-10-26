@@ -10,6 +10,7 @@ import {
 } from "@/lib/week";
 import { TodayMenu, WeeklyMenu, nextMealsSummary } from "./menu-views";
 import { PhysioList, PhysioSummary, type PhysioAppt } from "./physio-board";
+import { ActivityIcon, MealIcon } from "./icons";
 import styles from "./board.module.css";
 
 export type DepartmentDisplayProps = {
@@ -239,7 +240,10 @@ function DailyView({ today, nowMinutes, menu, messages, board, physio }: {
           {current ? (
             <>
               <span className={styles.nowTime}>{current.start}{current.end ? "–" + current.end : ""}</span>
-              <span className={styles.nowTitle}>{current.title}</span>
+              <span className={styles.nowTitle}>
+                {board.show_icons !== false && <ActivityIcon title={current.title} className={styles.nowIcon} />}
+                {current.title}
+              </span>
               {(current.location || current.instructor) && (
                 <span className={styles.nowMeta}>
                   {board.show_location && current.location && <span><MapPin aria-hidden="true" />{current.location}</span>}
@@ -283,7 +287,10 @@ function DailyView({ today, nowMinutes, menu, messages, board, physio }: {
             <div key={a.id} className={styles.nextRow}>
               <span className={styles.nextTime}>{a.start}</span>
               <div>
-                <div className={styles.nextTitle}>{a.title}</div>
+                <div className={styles.nextTitle}>
+                  {board.show_icons !== false && <ActivityIcon title={a.title} className={styles.actIcon} />}
+                  {a.title}
+                </div>
                 {((board.show_location && a.location) || (board.show_instructor && a.instructor)) && (
                   <div className={styles.nextSub}>{[board.show_location ? a.location : "", board.show_instructor ? a.instructor : ""].filter(Boolean).join(", ")}</div>
                 )}
@@ -297,7 +304,7 @@ function DailyView({ today, nowMinutes, menu, messages, board, physio }: {
             <span className={styles.panelTitle}><Utensils aria-hidden="true" />הארוחה הבאה</span>
             {nextMeals.map(({ meal, text }) => (
               <div key={meal} className={styles.mealRow}>
-                <span className={styles.mealLabel}>{MEAL_SHORT[meal]}</span>
+                <span className={styles.mealLabel}><MealIcon meal={meal} className={styles.mealIcon} />{MEAL_SHORT[meal]}</span>
                 <span className={styles.mealItems}>{text}</span>
               </div>
             ))}

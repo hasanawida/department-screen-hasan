@@ -870,7 +870,7 @@
 }
 
 .apptPast {
-  opacity: 0.42;
+  opacity: 0.6;
 }
 
 .apptTag {
@@ -1106,4 +1106,69 @@
   font-weight: 600;
   color: var(--ink);
   line-height: 1.35;
+}
+
+/* ── אייקונים: ליד שם הפעילות ושם הארוחה ── */
+
+.actIcon,
+.mealIcon {
+  display: inline-block;
+  width: 0.95em;
+  height: 0.95em;
+  vertical-align: -0.13em;
+  margin-inline-end: 0.35em;
+  color: var(--sage);
+  flex-shrink: 0;
+}
+
+.nowIcon {
+  display: inline-block;
+  width: 0.78em;
+  height: 0.78em;
+  vertical-align: -0.06em;
+  margin-inline-end: 0.22em;
+  color: var(--sage);
+  stroke-width: 2.2;
+}
+
+.tmMealName {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+}
+
+.tmMealIcon {
+  width: 1.15em;
+  height: 1.15em;
+  padding: 0.16em;
+  border-radius: 0.35em;
+  background: var(--sage-tint, #E3ECE7);
+  color: var(--sage);
+  flex-shrink: 0;
+}
+
+.tmNow .tmMealIcon {
+  background: #fff;
+}
+
+/* סימון הגעה בפיזיותרפיה */
+.apptCame,
+.apptMissed {
+  display: inline-block;
+  font-size: calc(var(--bu) * 2.4);
+  font-weight: 700;
+  padding: calc(var(--bu) * 0.3) calc(var(--bu) * 1);
+  border-radius: 999px;
+  margin-inline-start: calc(var(--bu) * 1.4);
+  vertical-align: middle;
+}
+
+.apptCame {
+  background: var(--sage-tint);
+  color: #2c4037;
+}
+
+.apptMissed {
+  background: #f3e3df;
+  color: #7a2e22;
 }

@@ -66,6 +66,7 @@ export async function loadDepartmentDisplay(supabase: SupabaseClient, code: stri
       end: r.end_time ? String(r.end_time).slice(0, 5) : null,
       name: r.resident_name,
       note: r.note,
+      attended: r.attended ?? null,
     })),
   };
 }

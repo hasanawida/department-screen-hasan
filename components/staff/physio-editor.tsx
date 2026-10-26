@@ -232,7 +232,7 @@ export default function PhysioEditor({ screenUrl }: { screenUrl?: string }) {
 
   const appts: PhysioAppt[] = shown.map(r => ({
     id: r.id, time: hm(r.start_time), end: r.end_time ? hm(r.end_time) : null,
-    name: r.resident_name, department: deptName(r.department_id), departmentColor: deptColor(r.department_id), note: r.note,
+    name: r.resident_name, department: deptName(r.department_id), departmentColor: deptColor(r.department_id), note: r.note, attended: r.attended ?? null,
   }));
   if (form.name.trim() && form.start && !form.id && inFilter(form.department_id || null)) {
     appts.push({ id: "__draft", time: form.start, end: form.end || null, name: form.name.trim(), department: deptName(form.department_id), departmentColor: deptColor(form.department_id), note: form.note || null });

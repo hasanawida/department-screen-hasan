@@ -777,6 +777,7 @@ export default function WeeklyEditor() {
                 <div className="mt-3 divide-y divide-[#3F2F2D]/10">
                   <Toggle label="מקום הפעילות" on={board.show_location} onChange={v => setBoard({ show_location: v })} />
                   <Toggle label="שם המפעיל/ה" on={board.show_instructor} onChange={v => setBoard({ show_instructor: v })} />
+                  <Toggle label="אייקון ליד כל פעילות" on={board.show_icons !== false} onChange={v => setBoard({ show_icons: v })} />
                   <Toggle label="שעת סיום" on={board.show_end_time} onChange={v => setBoard({ show_end_time: v })} />
                   <Toggle label="נושא השבוע" on={board.show_topic} onChange={v => setBoard({ show_topic: v })} />
                   <Toggle label="ימים שעברו בצבע חלש" on={board.dim_past_days} onChange={v => setBoard({ dim_past_days: v })} />

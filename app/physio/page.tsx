@@ -32,6 +32,7 @@ export default async function PhysioScreen({ searchParams }: { searchParams: Pro
       department: dep(r.department_id)?.name ?? null,
       departmentColor: dep(r.department_id)?.color ?? null,
       note: r.note,
+      attended: r.attended ?? null,
     }));
 
   return (

@@ -148,6 +148,7 @@ export type WeeklyBoardSettings = {
   show_location: boolean;
   show_instructor: boolean;
   show_end_time: boolean;
+  show_icons?: boolean;       // אייקון ליד כל פעילות (לפי השם שלה)
   show_topic: boolean;
   dim_past_days: boolean;
   text_size: "s" | "m" | "l";
@@ -160,6 +161,7 @@ export const DEFAULT_WEEKLY_BOARD: WeeklyBoardSettings = {
   show_location: true,
   show_instructor: true,
   show_end_time: false,
+  show_icons: true,
   show_topic: true,
   dim_past_days: true,
   text_size: "m",

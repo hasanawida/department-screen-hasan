@@ -2,14 +2,15 @@
 
 // מסך הפיזיותרפיה: מי מוזמן היום לטיפול ומתי
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { EshkolotLogo, Pin, BRAND } from "@/components/orientation/eshkolot-logo";
 import { DAY_NAMES, dayIndexOf, israelDateISO, israelTimeHM, toMinutes } from "@/lib/week";
+import { useFillScale } from "./use-fill";
 import styles from "./board.module.css";
 
-export type PhysioAppt = { id: string; time: string; name: string; department?: string | null; note?: string | null };
+export type PhysioAppt = { id: string; time: string; end?: string | null; name: string; department?: string | null; note?: string | null };
 
-/** משך משוער של טיפול, כדי לדעת מי בטיפול עכשיו */
+/** משך משוער של טיפול כשלא נכתבה שעת סיום, כדי לדעת מי בטיפול עכשיו */
 const SLOT_MINUTES = 30;
 
 function useNow() {
@@ -41,7 +42,9 @@ export default function PhysioBoard({ appts, dateISO, embeddedCu, title = "פי�
     if (!isToday || nowMin < 0) return "";
     const start = toMinutes(a.time);
     const nextStart = i + 1 < list.length ? toMinutes(list[i + 1].time) : Infinity;
-    const end = Math.min(start + SLOT_MINUTES, Math.max(nextStart, start + 10));
+    const end = a.end && toMinutes(a.end) > start
+      ? toMinutes(a.end)
+      : Math.min(start + SLOT_MINUTES, Math.max(nextStart, start + 10));
     if (nowMin >= start && nowMin < end) return "now";
     if (nowMin >= end) return "past";
     return "";
@@ -53,7 +56,11 @@ export default function PhysioBoard({ appts, dateISO, embeddedCu, title = "פי�
   const n = list.length;
   const cols = n <= 7 ? 1 : n <= 14 ? 2 : 3;
   const rows = Math.max(1, Math.ceil(n / cols));
-  const bs = Math.min(1, 6.8 / rows);
+  // הרשימה ממלאת את המסך: גדלה כשיש מעט מוזמנים ומתכווצת כשיש הרבה
+  const listRef = useRef<HTMLOListElement>(null);
+  const appliedRef = useRef(1);
+  const bs = useFillScale(listRef, appliedRef, JSON.stringify(list) + "|" + cols);
+  appliedRef.current = bs;
 
   const shownDate = shownISO ? new Date(shownISO + "T12:00:00") : null;
   const dateText = shownDate
@@ -92,13 +99,16 @@ export default function PhysioBoard({ appts, dateISO, embeddedCu, title = "פי�
                 </div>
               </div>
             ) : (
-              <ol className={styles.physioList} style={{ "--rows": rows, "--bs": bs } as React.CSSProperties}>
+              <ol ref={listRef} className={styles.physioList} style={{ "--rows": rows, "--bs": bs } as React.CSSProperties}>
                 {list.map((a, i) => {
                   const s = states[i];
                   const sub = [a.department, a.note].filter(Boolean).join(", ");
                   return (
                     <li key={a.id} className={styles.appt + (i % rows === 0 ? " " + styles.apptFirst : "") + (s === "now" ? " " + styles.apptNow : "") + (s === "past" ? " " + styles.apptPast : "")}>
-                      <span className={styles.apptTime}>{a.time}</span>
+                      <span className={styles.apptTime}>
+                        {a.time}
+                        {a.end && <span className={styles.apptEnd} dir="rtl">עד {a.end}</span>}
+                      </span>
                       <span>
                         <span className={styles.apptName}>
                           {a.name}

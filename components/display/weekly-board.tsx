@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useLayoutEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { CalendarDays, MapPin, User } from "lucide-react";
 import { Pin, BRAND } from "@/components/orientation/eshkolot-logo";
 import { DAY_NAMES, shortDate, toMinutes, type BoardActivity, type WeeklyBoardSettings } from "@/lib/week";
+import { useFillScale, useUniformGrow } from "./use-fill";
 import styles from "./board.module.css";
 
 export type WeeklyTopic = { title: string; description?: string | null; image_url?: string | null } | null;
@@ -27,10 +28,14 @@ const SIZE: Record<WeeklyBoardSettings["text_size"], number> = { s: 0.88, m: 1, 
 /** הלוח השבועי — אותו רכיב במסך במחלקה ובעורך */
 export default function WeeklyBoard(props: Props) {
   const { days, weekDates, todayIndex, settings, topic, editable } = props;
+  // ימים בלי פעילויות לא מוצגים (חוץ מהיום עצמו). בעורך מוצגים כולם, כדי שאפשר יהיה להוסיף.
   const shown = settings.days
     .filter(i => i >= 0 && i <= 6)
     .sort((a, b) => a - b)
     .filter(i => editable || !settings.hide_empty_days || days[i].length > 0 || i === todayIndex);
+
+  // כל הימים גדלים יחד כדי למלא את המסך; יום עמוס מתכווץ לבד
+  const { grow, report } = useUniformGrow();
 
   return (
     <div
@@ -49,42 +54,51 @@ export default function WeeklyBoard(props: Props) {
       <div className={styles.days}>
         {shown.map(i => (
           <DayColumn key={i} {...props} dayIndex={i} date={weekDates[i]} isToday={i === todayIndex}
-            isPast={settings.dim_past_days && todayIndex >= 0 && i < todayIndex} />
+            isPast={settings.dim_past_days && todayIndex >= 0 && i < todayIndex}
+            hiddenOnScreen={!!editable && settings.hide_empty_days && days[i].length === 0 && i !== todayIndex}
+            grow={grow} report={report} />
         ))}
       </div>
     </div>
   );
 }
 
-/** יום אחד בלוח. יום עמוס מתכווץ לבד כדי להיכנס, בלי להקטין את שאר הימים */
+/** יום אחד בלוח: גדל עם שאר הימים כשיש מקום, ומתכווץ לבד כשהוא עמוס */
 function DayColumn({
-  days, dayIndex, date, isToday, isPast, nowMinutes, settings, editable, selectedId, onSelect, onAdd,
-}: Props & { dayIndex: number; date: string; isToday: boolean; isPast: boolean }) {
+  days, dayIndex, date, isToday, isPast, hiddenOnScreen, nowMinutes, settings, editable, selectedId, onSelect, onAdd, grow, report,
+}: Props & {
+  dayIndex: number; date: string; isToday: boolean; isPast: boolean; hiddenOnScreen?: boolean;
+  grow: number; report: (id: string, value: number | null) => void;
+}) {
   const list = days[dayIndex];
   const listRef = useRef<HTMLDivElement>(null);
-  // יום עמוס: קודם מקטינים עד 75%, ואם עדיין לא נכנס — מסתירים מיקום/מפעיל ומקטינים עוד
-  const [fit, setFit] = useState({ scale: 1, compact: false });
-  const key = JSON.stringify([list.map(a => a.id + a.title + a.start + a.end + a.location + a.instructor), settings]);
+  const contentKey = JSON.stringify([list.map(a => a.id + a.title + a.start + a.end + a.location + a.instructor), settings]);
 
-  useLayoutEffect(() => { setFit({ scale: 1, compact: false }); }, [key]);
-  useLayoutEffect(() => {
-    const el = listRef.current;
-    if (!el || el.scrollHeight <= el.clientHeight + 1) return;
-    const ratio = (el.clientHeight / el.scrollHeight) * 0.985;
-    setFit(f => {
-      const next = f.scale * ratio;
-      if (!f.compact && next < 0.75 && !editable) return { scale: 1, compact: true };
-      return { ...f, scale: Math.max(0.5, next) };
-    });
-  });
-  const scale = fit.scale;
-  const showMeta = !fit.compact;
+  // יום עמוס מאוד: מסתירים מיקום ומפעיל כדי שיהיה מקום לשעה ולשם הפעילות
+  const [compact, setCompact] = useState(false);
+  useEffect(() => { setCompact(false); }, [contentKey]);
+
+  const appliedRef = useRef(1);
+  const desired = useFillScale(listRef, appliedRef, contentKey + (compact ? "|c" : ""));
+  const applied = Math.min(desired, grow);
+  appliedRef.current = applied;
+
+  useEffect(() => {
+    if (!compact && !editable && desired < 0.72) setCompact(true);
+  }, [desired, compact, editable]);
+
+  // רק ימים עם פעילויות קובעים כמה הלוח יכול לגדול
+  const id = String(dayIndex);
+  useEffect(() => { report(id, list.length ? desired : null); }, [report, id, desired, list.length]);
+  useEffect(() => () => report(id, null), [report, id]);
+
+  const showMeta = !compact;
 
   return (
     <section
-      className={styles.day + (isToday ? " " + styles.dayToday : "") + (isPast && !editable ? " " + styles.dayPast : "")}
+      className={styles.day + (isToday ? " " + styles.dayToday : "") + (isPast && !editable ? " " + styles.dayPast : "") + (hiddenOnScreen ? " " + styles.dayHiddenPreview : "")}
       aria-current={isToday ? "date" : undefined}
-      style={{ "--bs": scale } as React.CSSProperties}
+      style={{ "--bs": applied } as React.CSSProperties}
     >
       <header className={styles.dayHead}>
         <span className={styles.dayName}>
@@ -96,6 +110,7 @@ function DayColumn({
 
       <div ref={listRef} className={styles.list}>
         {list.length === 0 && !editable && <div className={styles.empty}>אין פעילויות מתוכננות</div>}
+        {hiddenOnScreen && <div className={styles.empty}>יום בלי פעילויות לא מוצג במסך</div>}
         {list.map(a => {
           const isNow = isToday && !!a.start && nowMinutes >= toMinutes(a.start) && nowMinutes < (a.end ? toMinutes(a.end) : toMinutes(a.start) + 60);
           const cls = styles.act + (isNow ? " " + styles.actNow : "") + (selectedId === a.id ? " " + styles.actSelected : "");

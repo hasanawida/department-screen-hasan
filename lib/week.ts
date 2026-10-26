@@ -134,7 +134,7 @@ export type WeeklyBoardSettings = {
 export const DEFAULT_WEEKLY_BOARD: WeeklyBoardSettings = {
   title: "לוח פעילויות שבועי",
   days: [0, 1, 2, 3, 4, 5, 6],
-  hide_empty_days: false,
+  hide_empty_days: true,
   show_location: true,
   show_instructor: true,
   show_end_time: false,

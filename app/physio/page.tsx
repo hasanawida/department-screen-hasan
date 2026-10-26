@@ -13,7 +13,7 @@ export default async function PhysioScreen({ searchParams }: { searchParams: Pro
   const today = israelDateISO();
 
   const [{ data: rows }, { data: depts }] = await Promise.all([
-    supabase.from("physio_appointments").select("id, start_time, resident_name, department_id, note").eq("appt_date", today).order("start_time"),
+    supabase.from("physio_appointments").select("*").eq("appt_date", today).order("start_time"),
     supabase.from("departments").select("id, name, code"),
   ]);
 
@@ -21,7 +21,14 @@ export default async function PhysioScreen({ searchParams }: { searchParams: Pro
   const name = (id: string | null) => (depts ?? []).find(d => d.id === id)?.name ?? null;
   const appts: PhysioAppt[] = (rows ?? [])
     .filter(r => !only || r.department_id === only.id)
-    .map(r => ({ id: r.id, time: String(r.start_time).slice(0, 5), name: r.resident_name, department: only ? null : name(r.department_id), note: r.note }));
+    .map(r => ({
+      id: r.id,
+      time: String(r.start_time).slice(0, 5),
+      end: r.end_time ? String(r.end_time).slice(0, 5) : null,
+      name: r.resident_name,
+      department: only ? null : name(r.department_id),
+      note: r.note,
+    }));
 
   return (
     <>

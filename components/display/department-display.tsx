@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Clock3, MapPin, User, Utensils, Megaphone } from "lucide-react";
 import { EshkolotLogo, Pin, BRAND } from "@/components/orientation/eshkolot-logo";
 import WeeklyBoard, { type WeeklyTopic } from "./weekly-board";
@@ -8,6 +8,7 @@ import {
   DAY_NAMES, MEALS, MEAL_SHORT, dayIndexOf, israelDateISO, israelTimeHM, shortDate, toMinutes,
   type BoardActivity, type DisplaySettings, type WeekMenu, type WeeklyBoardSettings,
 } from "@/lib/week";
+import { useFillScale, useUniformGrow } from "./use-fill";
 import styles from "./board.module.css";
 
 export type DepartmentDisplayProps = {
@@ -270,31 +271,51 @@ function DailyView({ today, nowMinutes, menu, messages, board }: {
 
 function MenuBoard({ menu, weekDates, todayIndex, allDays }: { menu: WeekMenu; weekDates: string[]; todayIndex: number; allDays?: boolean }) {
   const shown = [0, 1, 2, 3, 4, 5, 6].filter(i => allDays || MEALS.some(m => (menu[i]?.[m]?.length ?? 0) > 0) || i === todayIndex);
+  const { grow, report } = useUniformGrow();
   return (
-    <div className={styles.board} style={{ "--bs": 1, "--size": 1 } as React.CSSProperties}>
+    <div className={styles.board} style={{ "--size": 1 } as React.CSSProperties}>
       <div className={styles.days}>
         {shown.map(i => (
-          <section key={i} className={styles.day + " " + styles.menuDay + (i === todayIndex ? " " + styles.dayToday : "")}>
-            <header className={styles.dayHead}>
-              <span className={styles.dayName}>
-                {i === todayIndex && <Pin color={BRAND.sun} className={styles.dayPin} />}
-                {DAY_NAMES[i]}
-              </span>
-              <span className={styles.dayDate}>{shortDate(weekDates[i])}</span>
-            </header>
-            <div className={styles.list}>
-              {MEALS.map(m => (menu[i]?.[m]?.length ?? 0) > 0 && (
-                <div key={m} className={styles.meal}>
-                  <div className={styles.mealName}>{MEAL_SHORT[m]}</div>
-                  <ul className={styles.mealList}>
-                    {menu[i]![m]!.map((item, k) => <li key={k}>{item}</li>)}
-                  </ul>
-                </div>
-              ))}
-            </div>
-          </section>
+          <MenuDay key={i} dayIndex={i} date={weekDates[i]} isToday={i === todayIndex} meals={menu[i] ?? {}} grow={grow} report={report} />
         ))}
       </div>
     </div>
+  );
+}
+
+function MenuDay({ dayIndex, date, isToday, meals, grow, report }: {
+  dayIndex: number; date: string; isToday: boolean; meals: Partial<Record<(typeof MEALS)[number], string[]>>;
+  grow: number; report: (id: string, value: number | null) => void;
+}) {
+  const listRef = useRef<HTMLDivElement>(null);
+  const appliedRef = useRef(1);
+  const has = MEALS.some(m => (meals[m]?.length ?? 0) > 0);
+  const desired = useFillScale(listRef, appliedRef, JSON.stringify(meals));
+  const applied = Math.min(desired, grow);
+  appliedRef.current = applied;
+  const id = "menu" + dayIndex;
+  useEffect(() => { report(id, has ? desired : null); }, [report, id, desired, has]);
+  useEffect(() => () => report(id, null), [report, id]);
+
+  return (
+    <section className={styles.day + " " + styles.menuDay + (isToday ? " " + styles.dayToday : "")} style={{ "--bs": applied } as React.CSSProperties}>
+      <header className={styles.dayHead}>
+        <span className={styles.dayName}>
+          {isToday && <Pin color={BRAND.sun} className={styles.dayPin} />}
+          {DAY_NAMES[dayIndex]}
+        </span>
+        <span className={styles.dayDate}>{shortDate(date)}</span>
+      </header>
+      <div ref={listRef} className={styles.list}>
+        {MEALS.map(m => (meals[m]?.length ?? 0) > 0 && (
+          <div key={m} className={styles.meal}>
+            <div className={styles.mealName}>{MEAL_SHORT[m]}</div>
+            <ul className={styles.mealList}>
+              {meals[m]!.map((item, k) => <li key={k}>{item}</li>)}
+            </ul>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }

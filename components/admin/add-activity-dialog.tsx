@@ -1,6 +1,8 @@
 ﻿"use client"
 
 import { useState } from "react"
+import InstructorSelect from "@/components/admin/instructor-select"
+import { cleanName } from "@/lib/participants"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
@@ -51,7 +53,7 @@ export function AddActivityDialog({ departments }: AddActivityDialogProps) {
     e.preventDefault()
     setIsLoading(true)
     const supabase = createClient()
-    const instructorNameTrimmed = form.instructor_name.trim()
+    const instructorNameTrimmed = cleanName(form.instructor_name)
 
     await supabase.from("activities").insert({
       title: form.title,
@@ -184,8 +186,8 @@ export function AddActivityDialog({ departments }: AddActivityDialogProps) {
               <Input placeholder="לדוגמה: חדר כושר" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} />
             </div>
             <div>
-              <label className="text-sm font-medium">שם המנחה</label>
-              <Input placeholder="לדוגמה: יוסי כהן" value={form.instructor_name} onChange={(e) => setForm({ ...form, instructor_name: e.target.value })} />
+              <label className="text-sm font-medium">מפעיל/ה</label>
+              <InstructorSelect value={form.instructor_name} onChange={(v) => setForm({ ...form, instructor_name: v })} className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm" />
             </div>
             <div>
               <label className="text-sm font-medium">משתתפים</label>

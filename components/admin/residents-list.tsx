@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import { Plus, Trash2, Edit2, Check, X, Upload, Loader2, CheckSquare, Square } from "lucide-react"
 import * as XLSX from "xlsx"
+import { syncResidentRegistrations } from "@/lib/participants"
 
 interface Resident {
   id: string; name: string; department_id: string | null; room_number: string | null
@@ -103,42 +104,16 @@ export function ResidentsList({ residents, departments }: { residents: Resident[
     reader.readAsBinaryString(file)
   }
 
-  const assignParticipants = async (residentId: string, personal: string, group: string, leisure: string) => {
-    const supabase = createClient()
-    const terms = [personal, group, leisure].filter(Boolean)
-    if (!terms.length) return 0
-    const { data: activities } = await supabase.from("activities").select("id, title").eq("is_active", true)
-    if (!activities) return 0
-    let matched = 0
-    const matchedIds = new Set<string>()
-    for (const term of terms) {
-      const termLower = term.toLowerCase().trim()
-      for (const a of activities) {
-        if (!matchedIds.has(a.id) && a.title.toLowerCase().includes(termLower)) {
-          await supabase.from("activity_participants").upsert(
-            { activity_id: a.id, resident_id: residentId },
-            { onConflict: "activity_id,resident_id" }
-          )
-          matchedIds.add(a.id)
-          matched++
-        }
-      }
-    }
-    return matched
-  }
+  // רישום לפעילויות לפי הכרטיס — רק במחלקה של הדייר (ראו lib/participants)
+  const assignParticipants = async (residentId: string, departmentId: string | null, personal: string, group: string, leisure: string) =>
+    syncResidentRegistrations(createClient(), { id: residentId, department_id: departmentId, personal_activity: personal, group_activity: group, leisure_activity: leisure })
 
+  // מוסיף פעילויות מתאימות לכל הדיירים ומנקה רישום ממחלקות אחרות. רישום שנעשה ידנית בלוח נשאר.
   const handleReassignAll = async () => {
     setIsReassigning(true)
-    const supabase = createClient()
-    await supabase.from("activity_participants").delete().in("resident_id", data.map(r => r.id))
     let totalMatched = 0
     for (const r of data) {
-      totalMatched += await assignParticipants(
-        r.id,
-        r.personal_activity || "",
-        r.group_activity || "",
-        r.leisure_activity || ""
-      )
+      totalMatched += await assignParticipants(r.id, r.department_id, r.personal_activity || "", r.group_activity || "", r.leisure_activity || "")
     }
     setReassignStats({ matched: totalMatched })
     setIsReassigning(false)
@@ -152,7 +127,7 @@ export function ResidentsList({ residents, departments }: { residents: Resident[
     let totalSaved = 0, totalMatched = 0
     for (const r of importPreview) {
       const { data: newRes } = await supabase.from("residents").insert({ name: r.name, room_number: r.room_number || null, phone: r.phone || null, personal_activity: r.personal_activity || null, group_activity: r.group_activity || null, leisure_activity: r.leisure_activity || null, department_id: importDept, is_active: true }).select("*, departments(name)").single()
-      if (newRes) { setData(prev => [...prev, newRes]); totalSaved++; totalMatched += await assignParticipants(newRes.id, r.personal_activity, r.group_activity, r.leisure_activity) }
+      if (newRes) { setData(prev => [...prev, newRes]); totalSaved++; totalMatched += await assignParticipants(newRes.id, importDept, r.personal_activity, r.group_activity, r.leisure_activity) }
     }
     setImportStats({ saved: totalSaved, matched: totalMatched })
     setImportPreview([]); setShowImport(false); setIsImporting(false)
@@ -164,7 +139,7 @@ export function ResidentsList({ residents, departments }: { residents: Resident[
     setIsSaving(true)
     const supabase = createClient()
     const { data: newRes } = await supabase.from("residents").insert({ name: addForm.name, room_number: addForm.room_number || null, phone: addForm.phone || null, personal_activity: addForm.personal_activity || null, group_activity: addForm.group_activity || null, leisure_activity: addForm.leisure_activity || null, department_id: addForm.department_id, is_active: true }).select("*, departments(name)").single()
-    if (newRes) { setData([...data, newRes]); await assignParticipants(newRes.id, addForm.personal_activity, addForm.group_activity, addForm.leisure_activity) }
+    if (newRes) { setData([...data, newRes]); await assignParticipants(newRes.id, addForm.department_id, addForm.personal_activity, addForm.group_activity, addForm.leisure_activity) }
     setAddForm({ name: "", room_number: "", phone: "", department_id: "", personal_activity: "", group_activity: "", leisure_activity: "" })
     setShowAdd(false); setIsSaving(false); router.refresh()
   }
@@ -184,7 +159,7 @@ export function ResidentsList({ residents, departments }: { residents: Resident[
     const supabase = createClient()
     await supabase.from("residents").update({ name: editForm.name, room_number: editForm.room_number || null, phone: editForm.phone || null, department_id: editForm.department_id || null, personal_activity: editForm.personal_activity || null, group_activity: editForm.group_activity || null, leisure_activity: editForm.leisure_activity || null }).eq("id", id)
     setData(data.map(r => r.id === id ? { ...r, ...editForm, departments: departments.find(d => d.id === editForm.department_id) ? { name: departments.find(d => d.id === editForm.department_id)!.name } : r.departments } : r))
-    await assignParticipants(id, editForm.personal_activity, editForm.group_activity, editForm.leisure_activity)
+    await assignParticipants(id, editForm.department_id || null, editForm.personal_activity, editForm.group_activity, editForm.leisure_activity)
     setEditing(null); router.refresh()
   }
 
@@ -211,7 +186,7 @@ export function ResidentsList({ residents, departments }: { residents: Resident[
           <Upload className="h-4 w-4" />ייבוא מ-Excel
         </button>
         <button onClick={handleReassignAll} disabled={isReassigning} className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors disabled:opacity-50">
-          {isReassigning ? <><Loader2 className="h-4 w-4 animate-spin" />משייך...</> : <>🔗 שייך מחדש את כל הדיירים</>}
+          {isReassigning ? <><Loader2 className="h-4 w-4 animate-spin" />רושם...</> : <>רישום לפעילויות לפי הכרטיסים</>}
         </button>
       </div>
 
@@ -230,8 +205,8 @@ export function ResidentsList({ residents, departments }: { residents: Resident[
 
       {reassignStats && (
         <div className="bg-purple-50 border border-purple-200 rounded-2xl p-4">
-          <p className="font-bold text-purple-800">✅ שיוך הושלם!</p>
-          <p className="text-sm text-purple-700 mt-1">{reassignStats.matched} שיוכים לפעילויות נוצרו</p>
+          <p className="font-bold text-purple-800">הרישום עודכן</p>
+          <p className="text-sm text-purple-700 mt-1">{reassignStats.matched ? `נוספו ${reassignStats.matched} רישומים לפעילויות במחלקה של כל דייר.` : "לא נמצאו פעילויות חדשות שמתאימות לכרטיסים."} רישום שנעשה ידנית בלוח השבועי נשאר.</p>
           <button onClick={() => setReassignStats(null)} className="text-xs text-purple-600 mt-1 underline">סגור</button>
         </div>
       )}
@@ -239,7 +214,7 @@ export function ResidentsList({ residents, departments }: { residents: Resident[
       {importStats && (
         <div className="bg-green-50 border border-green-200 rounded-2xl p-4">
           <p className="font-bold text-green-800">✅ יובאו בהצלחה!</p>
-          <p className="text-sm text-green-700 mt-1">{importStats.saved} דיירים נשמרו · {importStats.matched} שיוכים לפעילויות נוצרו</p>
+          <p className="text-sm text-green-700 mt-1">{importStats.saved} דיירים נשמרו, {importStats.matched} רישומים לפעילויות נוצרו</p>
           <button onClick={() => setImportStats(null)} className="text-xs text-green-600 mt-1 underline">סגור</button>
         </div>
       )}
@@ -248,7 +223,7 @@ export function ResidentsList({ residents, departments }: { residents: Resident[
         <div className="bg-green-50 border border-green-200 rounded-2xl p-4 space-y-3">
           <h3 className="font-bold text-green-800">ייבוא דיירים מ-Excel</h3>
           <p className="text-sm text-green-700">עמודות: שם | חדר | טלפון | פעילות פרטנית | פעילות קבוצתית | פנאי</p>
-          <p className="text-xs text-green-600 bg-green-100 px-3 py-1.5 rounded-lg">המערכת תשייך אוטומטית דיירים לפעילויות התואמות</p>
+          <p className="text-xs text-green-600 bg-green-100 px-3 py-1.5 rounded-lg">כל דייר יירשם לפעילויות של המחלקה ששמן מכיל את מה שכתוב אצלו (אפשר כמה, מופרדות בפסיק)</p>
           <div className="flex gap-3 flex-wrap items-center">
             <label className="flex items-center gap-2 bg-white border border-green-300 text-green-700 text-sm px-4 py-2 rounded-xl cursor-pointer hover:bg-green-50">
               <Upload className="h-4 w-4" />בחר קובץ Excel
@@ -295,8 +270,8 @@ export function ResidentsList({ residents, departments }: { residents: Resident[
             <input placeholder="מספר חדר" value={addForm.room_number} onChange={e => setAddForm({...addForm, room_number: e.target.value})} className="border rounded-lg px-3 py-2 text-sm" />
             <input placeholder="טלפון" value={addForm.phone} onChange={e => setAddForm({...addForm, phone: e.target.value})} className="border rounded-lg px-3 py-2 text-sm" dir="ltr" />
             <input placeholder="פעילות פרטנית" value={addForm.personal_activity} onChange={e => setAddForm({...addForm, personal_activity: e.target.value})} className="border rounded-lg px-3 py-2 text-sm col-span-2" />
-            <input placeholder="פעילות קבוצתית" value={addForm.group_activity} onChange={e => setAddForm({...addForm, group_activity: e.target.value})} className="border rounded-lg px-3 py-2 text-sm col-span-2" />
-            <input placeholder="פנאי" value={addForm.leisure_activity} onChange={e => setAddForm({...addForm, leisure_activity: e.target.value})} className="border rounded-lg px-3 py-2 text-sm col-span-2" />
+            <input placeholder="פעילות קבוצתית (אפשר כמה, בפסיק: שירה, התעמלות)" value={addForm.group_activity} onChange={e => setAddForm({...addForm, group_activity: e.target.value})} className="border rounded-lg px-3 py-2 text-sm col-span-2" />
+            <input placeholder="פנאי (אפשר כמה, בפסיק)" value={addForm.leisure_activity} onChange={e => setAddForm({...addForm, leisure_activity: e.target.value})} className="border rounded-lg px-3 py-2 text-sm col-span-2" />
             <select value={addForm.department_id} onChange={e => setAddForm({...addForm, department_id: e.target.value})} className="border rounded-lg px-3 py-2 text-sm bg-white col-span-2">
               <option value="">בחר מחלקה *</option>
               {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
@@ -334,8 +309,8 @@ export function ResidentsList({ residents, departments }: { residents: Resident[
                         <input placeholder="חדר" value={editForm.room_number} onChange={e => setEditForm({...editForm, room_number: e.target.value})} className="border rounded-lg px-3 py-1.5 text-sm" />
                         <input placeholder="טלפון" value={editForm.phone} onChange={e => setEditForm({...editForm, phone: e.target.value})} className="border rounded-lg px-3 py-1.5 text-sm" dir="ltr" />
                         <input placeholder="פעילות פרטנית" value={editForm.personal_activity} onChange={e => setEditForm({...editForm, personal_activity: e.target.value})} className="border rounded-lg px-3 py-1.5 text-sm col-span-2" />
-                        <input placeholder="פעילות קבוצתית" value={editForm.group_activity} onChange={e => setEditForm({...editForm, group_activity: e.target.value})} className="border rounded-lg px-3 py-1.5 text-sm col-span-2" />
-                        <input placeholder="פנאי" value={editForm.leisure_activity} onChange={e => setEditForm({...editForm, leisure_activity: e.target.value})} className="border rounded-lg px-3 py-1.5 text-sm col-span-2" />
+                        <input placeholder="פעילות קבוצתית (אפשר כמה, בפסיק: שירה, התעמלות)" value={editForm.group_activity} onChange={e => setEditForm({...editForm, group_activity: e.target.value})} className="border rounded-lg px-3 py-1.5 text-sm col-span-2" />
+                        <input placeholder="פנאי (אפשר כמה, בפסיק)" value={editForm.leisure_activity} onChange={e => setEditForm({...editForm, leisure_activity: e.target.value})} className="border rounded-lg px-3 py-1.5 text-sm col-span-2" />
                         <select value={editForm.department_id} onChange={e => setEditForm({...editForm, department_id: e.target.value})} className="border rounded-lg px-3 py-1.5 text-sm bg-white col-span-2">
                           {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                         </select>

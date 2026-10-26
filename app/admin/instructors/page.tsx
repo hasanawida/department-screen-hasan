@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { InstructorsList } from "@/components/admin/instructors-list"
 import { AddInstructorButton } from "@/components/admin/add-instructor-button"
+import { cleanName } from "@/lib/participants"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -15,18 +16,16 @@ export default async function InstructorsPage() {
     { data: activities },
     { data: instructorsData },
     { data: participants },
-    { data: residents },
   ] = await Promise.all([
-    supabase.from("activities").select("id, title, day_of_week, start_time, activity_date, instructor_name, department_id, departments(name)").eq("is_active", true).not("instructor_name", "is", null).order("start_time"),
+    supabase.from("activities").select("id, title, day_of_week, start_time, activity_date, instructor_name, department_id, parent_id, departments(name)").eq("is_active", true).not("instructor_name", "is", null).order("start_time"),
     supabase.from("instructors").select("id, name, phone, email, view_token"),
-    supabase.from("activity_participants").select("activity_id, residents(id, name, room_number)"),
-    supabase.from("residents").select("id, name, room_number, leisure_activity, department_id").eq("is_active", true).order("name"),
+    supabase.from("activity_participants").select("activity_id, residents(id, name, room_number, department_id)"),
   ])
 
   // אוטו-יצירת רשומה (כולל view_token) לכל מפעיל מהפעילויות שעדיין אין לו
-  const existingNames = new Set((instructorsData || []).map((i: any) => i.name?.trim()).filter(Boolean))
+  const existingNames = new Set((instructorsData || []).map((i: any) => cleanName(i.name ?? "")).filter(Boolean))
   const namesFromActivities = Array.from(new Set(
-    (activities || []).map((a: any) => a.instructor_name?.trim()).filter(Boolean)
+    (activities || []).map((a: any) => cleanName(a.instructor_name ?? "")).filter(Boolean)
   )) as string[]
   const missing = namesFromActivities.filter((n) => !existingNames.has(n))
   let mergedInstructors = instructorsData || []
@@ -53,24 +52,25 @@ export default async function InstructorsPage() {
     if (refetched) mergedInstructors = refetched
   }
 
+  // הרשומים לפעילות: שלה, ובשינוי לשבוע אחד — של הפעילות הקבועה. רק דיירי המחלקה של הפעילות.
   const map: Record<string, any[]> = {}
   for (const a of activities || []) {
-    const name = a.instructor_name?.trim()
+    const name = cleanName(a.instructor_name ?? "")
     if (!name) continue
     if (!map[name]) map[name] = []
+    const ids = [a.id, a.parent_id].filter(Boolean)
+    const seen = new Set<string>()
     map[name].push({
       ...a,
       participants: (participants || [])
-        .filter(p => p.activity_id === a.id)
-        .map(p => p.residents)
-        .filter(Boolean)
+        .filter((p: any) => ids.includes(p.activity_id))
+        .map((p: any) => p.residents)
+        .filter((r: any) => r && r.department_id === a.department_id && !seen.has(r.id) && seen.add(r.id))
     })
   }
 
   const instructors = Object.entries(map).sort((a, b) => a[0].localeCompare(b[0], "he")).map(([name, acts]) => {
-    const saved = mergedInstructors.find((i: any) => i.name === name)
-    const deptIds = Array.from(new Set(acts.map((a: any) => a.department_id).filter(Boolean)))
-    const deptResidents = (residents || []).filter(r => deptIds.includes(r.department_id))
+    const saved = mergedInstructors.find((i: any) => cleanName(i.name ?? "") === name)
     return {
       name,
       acts,
@@ -78,20 +78,18 @@ export default async function InstructorsPage() {
       email: saved?.email || "",
       id: saved?.id || null,
       view_token: saved?.view_token || null,
-      residents: deptResidents,
     }
   })
 
   const manualOnly = mergedInstructors
-    .filter((i: any) => !map[i.name])
+    .filter((i: any) => !map[cleanName(i.name ?? "")])
     .map((i: any) => ({
-      name: i.name,
+      name: cleanName(i.name ?? ""),
       acts: [],
       phone: i.phone || "",
       email: i.email || "",
       id: i.id,
       view_token: i.view_token || null,
-      residents: [],
     }))
 
   const allInstructors = [...instructors, ...manualOnly].sort((a, b) => a.name.localeCompare(b.name, "he"))

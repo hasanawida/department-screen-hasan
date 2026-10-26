@@ -1,6 +1,8 @@
 "use client"
 
 import { useState } from "react"
+import InstructorSelect from "@/components/admin/instructor-select"
+import { cleanName } from "@/lib/participants"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -172,7 +174,7 @@ export function ActivitiesTable({ activities, departments }: ActivitiesTableProp
     if (!editingActivity) return
     setIsSaving(true)
     const supabase = createClient()
-    const instructorNameTrimmed = (editForm.instructor_name || "").trim()
+    const instructorNameTrimmed = cleanName(editForm.instructor_name || "")
 
     await supabase.from("activities").update({
       title: editForm.title,
@@ -458,8 +460,8 @@ export function ActivitiesTable({ activities, departments }: ActivitiesTableProp
               <Input value={editForm.location} onChange={(e) => setEditForm({ ...editForm, location: e.target.value })} />
             </div>
             <div>
-              <label className="text-sm font-medium">שם המנחה</label>
-              <Input value={editForm.instructor_name} onChange={(e) => setEditForm({ ...editForm, instructor_name: e.target.value })} />
+              <label className="text-sm font-medium">מפעיל/ה</label>
+              <InstructorSelect value={editForm.instructor_name} onChange={(v) => setEditForm({ ...editForm, instructor_name: v })} className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm" />
             </div>
             <div>
               <label className="text-sm font-medium">משתתפים</label>

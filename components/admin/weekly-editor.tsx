@@ -3,13 +3,15 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { CalendarDays, ChevronRight, ChevronLeft, Copy, ExternalLink, Loader2, RefreshCw, Repeat, Trash2, Undo2, Users, X, Check } from "lucide-react";
+import { CalendarDays, ChevronRight, ChevronLeft, Copy, ExternalLink, Loader2, RefreshCw, Repeat, Trash2, Undo2, Users, X, Check, Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import DepartmentDisplay, { type ViewKind } from "@/components/display/department-display";
 import { insertActivities, updateActivity } from "@/lib/activities-db";
 import { Field, Toggle, inputCls, usePreviewCu } from "@/components/admin/brand-ui";
 import TopicCard from "@/components/admin/topic-card";
 import { ensureInstructors, refreshDepartmentScreens } from "@/lib/screens";
+import { cleanName, matchesActivity } from "@/lib/participants";
+import InstructorSelect, { resolveInstructorName } from "@/components/admin/instructor-select";
 import type { TopicData } from "@/lib/topics";
 import {
   DAY_CODES, DAY_NAMES, activitiesByDay, addDaysISO, dayCodeIndex, dayIndexOf, displaySettings, israelDateISO, menuFromRows, menuNotesFromRows, shortDate,
@@ -18,6 +20,10 @@ import {
 } from "@/lib/week";
 
 type Dept = { id: string; name: string; code: string; color: string | null };
+type DeptResident = {
+  id: string; name: string; room_number: string | null;
+  personal_activity: string | null; group_activity: string | null; leisure_activity: string | null;
+};
 /**
  * סוג הפעילות שנערכת:
  * new — חדשה; recurring — קבועה, חוזרת כל שבוע; weekcopy — שינוי לשבוע אחד של פעילות קבועה;
@@ -64,6 +70,10 @@ export default function WeeklyEditor() {
   const [menuRows, setMenuRows] = useState<MenuRow[]>([]);
   const [instructors, setInstructors] = useState<string[]>([]);
   const [draft, setDraft] = useState<Draft | null>(null);
+  // דיירי המחלקה, ומי רשום לפעילות שנערכת (בפעילות חדשה — נשמר יחד איתה)
+  const [residents, setResidents] = useState<DeptResident[]>([]);
+  const [registered, setRegistered] = useState<string[]>([]);
+  const [regQuery, setRegQuery] = useState("");
   const [copyDays, setCopyDays] = useState<number[]>([]);
   const [view, setView] = useState<ViewKind>("weekly");
   const [busy, setBusy] = useState(false);
@@ -106,6 +116,9 @@ export default function WeeklyEditor() {
     if (!deptId) return;
     setDraft(null);
     loadActivities();
+    supabase.from("residents").select("id, name, room_number, personal_activity, group_activity, leisure_activity")
+      .eq("department_id", deptId).eq("is_active", true).order("name")
+      .then(({ data }) => setResidents(((data ?? []) as DeptResident[]).sort((a, b) => a.name.localeCompare(b.name, "he"))));
     supabase.from("screen_settings").select("id, display_settings").eq("department_id", deptId).maybeSingle().then(({ data }) => {
       setSettingsId(data?.id ?? null);
       setDisplay(displaySettings(data?.display_settings));
@@ -144,6 +157,7 @@ export default function WeeklyEditor() {
   const openActivity = (a: BoardActivity) => {
     setView("weekly");
     setCopyDays([]);
+    setRegQuery("");
     const kind: DraftKind = a.fromCalendar ? "calendar" : a.parentId ? "weekcopy" : a.recurring ? "recurring" : "oneoff";
     setDraft({
       id: a.id, kind, title: a.title, dayIndex: a.dayIndex, originalDayIndex: a.dayIndex, start: a.start, end: a.end,
@@ -153,8 +167,17 @@ export default function WeeklyEditor() {
   const openNew = (dayIndex: number) => {
     setView("weekly");
     setCopyDays([]);
+    setRegQuery("");
+    setRegistered([]);
     setDraft({ id: null, kind: "new", title: "", dayIndex, originalDayIndex: dayIndex, start: "10:00", end: "", location: "", instructor: "", repeat: true, fromCalendar: false, parentId: null });
   };
+
+  /** שם המפעיל לשמירה: בלי רווחים מיותרים, ובכתיב של מפעיל שכבר קיים */
+  const instructorChoices = useMemo(
+    () => Array.from(new Set([...instructors, ...visibleRows.map(r => cleanName(r.instructor_name ?? "")).filter(Boolean)])).sort((a, b) => a.localeCompare(b, "he")),
+    [instructors, visibleRows],
+  );
+  const resolveInstructor = (raw: string) => resolveInstructorName(raw, instructorChoices);
 
   /** שורה לשמירה. weekly=true — פעילות קבועה (בלי תאריך), אחרת — בתאריך של היום הזה בשבוע המוצג */
   const rowFromDraft = (d: Draft, dayIndex: number, weekly: boolean) => ({
@@ -162,7 +185,7 @@ export default function WeeklyEditor() {
     start_time: d.start,
     end_time: d.end || null,
     location: d.location.trim() || null,
-    instructor_name: d.instructor.trim() || null,
+    instructor_name: resolveInstructor(d.instructor) || null,
     day_of_week: DAY_CODES[dayIndex],
     activity_date: weekly ? null : weekDates[dayIndex],
     is_recurring: weekly,
@@ -189,9 +212,13 @@ export default function WeeklyEditor() {
     let error: string | null = null;
     // האם הפעילות (והעתקים לימים נוספים) נשמרת כקבועה
     let weekly = draft.repeat;
+    // פעילויות חדשות שנוצרו עכשיו — הרשומים נשמרים גם אצלן
+    const createdIds: string[] = [];
 
     if (draft.kind === "new") {
-      error = (await insertActivities(supabase, [{ ...rowFromDraft(draft, draft.dayIndex, weekly), department_id: deptId, source: "manual" }])).error?.message ?? null;
+      const res = await insertActivities(supabase, [{ ...rowFromDraft(draft, draft.dayIndex, weekly), department_id: deptId, source: "manual" }]);
+      error = res.error?.message ?? null;
+      createdIds.push(...(res.data ?? []).map((r: any) => String(r.id)));
     } else if (draft.kind === "recurring" && mode === "week") {
       // שינוי רק לשבוע הזה: הקבועה לא מוצגת השבוע, ובמקומה העתק עם התאריך של השבוע
       weekly = false;
@@ -214,9 +241,23 @@ export default function WeeklyEditor() {
 
     if (!error && copyDays.length) {
       const copies = copyDays.filter(i => i !== draft.dayIndex).map(i => ({ ...rowFromDraft(draft, i, weekly), department_id: deptId, source: "manual" }));
-      if (copies.length) error = (await insertActivities(supabase, copies)).error?.message ?? null;
+      if (copies.length) {
+        const res = await insertActivities(supabase, copies);
+        error = res.error?.message ?? null;
+        createdIds.push(...(res.data ?? []).map((r: any) => String(r.id)));
+      }
     }
-    if (!error && draft.instructor.trim()) await ensureInstructors(supabase, [draft.instructor]); // קישור אישי למפעיל
+    if (!error && createdIds.length && registered.length) {
+      const res = await supabase.from("activity_participants").upsert(
+        createdIds.flatMap(activity_id => registered.map(resident_id => ({ activity_id, resident_id }))), { onConflict: "activity_id,resident_id" },
+      );
+      if (res.error) error = "הפעילות נשמרה, אבל הרישום של הדיירים לא: " + res.error.message;
+    }
+    const instructorName = resolveInstructor(draft.instructor);
+    if (!error && instructorName) {
+      await ensureInstructors(supabase, [instructorName]); // קישור אישי למפעיל
+      if (!instructors.includes(instructorName)) setInstructors(list => [...list, instructorName]);
+    }
     setBusy(false);
     if (error) { flash("לא נשמר: " + error); return; }
     flash(mode === "week" && draft.kind === "recurring" ? "נשמר לשבוע הזה בלבד" : copyDays.length ? "נשמר והועתק" : "נשמר");
@@ -252,6 +293,32 @@ export default function WeeklyEditor() {
     setDraft(null);
     await loadActivities();
     refreshScreens();
+  };
+
+  /* ── דיירים רשומים לפעילות שנערכת ── */
+  // הרישום נשמר על הפעילות הקבועה; שינוי לשבוע אחד משתמש ברשומים שלה
+  const regHome = draft?.id ? (draft.kind === "weekcopy" && draft.parentId ? draft.parentId : draft.id) : null;
+  useEffect(() => {
+    if (!draft?.id) return;
+    const ids = [draft.id, draft.parentId].filter(Boolean) as string[];
+    let alive = true;
+    setRegistered([]);
+    supabase.from("activity_participants").select("resident_id").in("activity_id", ids)
+      .then(({ data }) => { if (alive) setRegistered(Array.from(new Set((data ?? []).map((p: any) => String(p.resident_id))))); });
+    return () => { alive = false; };
+  }, [supabase, draft?.id, draft?.parentId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const setRegistration = async (residentIds: string[], on: boolean) => {
+    if (!draft || !residentIds.length) return;
+    const before = registered;
+    setRegistered(on ? Array.from(new Set([...registered, ...residentIds])) : registered.filter(id => !residentIds.includes(id)));
+    setRegQuery("");
+    if (!regHome) return; // פעילות חדשה — נשמר כשלוחצים "שמירה"
+    const res = on
+      ? await supabase.from("activity_participants").upsert(residentIds.map(resident_id => ({ activity_id: regHome, resident_id })), { onConflict: "activity_id,resident_id" })
+      : await supabase.from("activity_participants").delete().in("activity_id", [draft.id, draft.parentId].filter(Boolean) as string[]).in("resident_id", residentIds);
+    if (res.error) { setRegistered(before); flash("הרישום לא נשמר: " + res.error.message); }
+    else flash(on ? (residentIds.length > 1 ? `נרשמו ${residentIds.length} דיירים` : "נרשם/ה") : "הוסר/ה מהרישום");
   };
 
   /* ── נוכחות בפעילות שנבחרה ── */
@@ -529,10 +596,8 @@ export default function WeeklyEditor() {
                   </datalist>
                 </Field>
                 <Field label="מפעיל/ה">
-                  <input value={draft.instructor} onChange={e => setDraft({ ...draft, instructor: e.target.value })} className={inputCls} placeholder="שם המפעיל/ה" list="weekly-instructors" />
-                  <datalist id="weekly-instructors">
-                    {Array.from(new Set([...instructors, ...visibleRows.map(r => r.instructor_name ?? "").filter(Boolean)])).map(n => <option key={n} value={n} />)}
-                  </datalist>
+                  <InstructorSelect key={draft.id ?? "new"} value={draft.instructor} choices={instructorChoices}
+                    onChange={v => setDraft({ ...draft, instructor: v })} />
                 </Field>
                 {(draft.kind === "new" || draft.kind === "oneoff") && <Field label="חזרה">
                   <div className="grid grid-cols-2 gap-1 rounded-xl bg-[#F6F2EE] p-1 text-sm font-semibold">
@@ -552,6 +617,17 @@ export default function WeeklyEditor() {
                   </div>
                 </Field>
               </div>
+
+              <ResidentsField
+                title={draft.title}
+                residents={residents}
+                registered={registered}
+                query={regQuery}
+                onQuery={setRegQuery}
+                isNew={!draft.id}
+                sharedWithRecurring={draft.kind === "weekcopy" || draft.kind === "recurring"}
+                onChange={setRegistration}
+              />
 
               {attendance && (
                 <div className="mt-4 rounded-xl bg-[#E3ECE7] p-3 text-sm">
@@ -687,5 +763,96 @@ export default function WeeklyEditor() {
         </aside>
       </div>
     </div>
+  );
+}
+
+/** דיירים רשומים לפעילות: הסרה, הוספה בחיפוש, והצעות לפי כרטיס הדייר */
+function ResidentsField({ title, residents, registered, query, onQuery, isNew, sharedWithRecurring, onChange }: {
+  title: string;
+  residents: DeptResident[];
+  registered: string[];
+  query: string;
+  onQuery: (v: string) => void;
+  isNew: boolean;
+  sharedWithRecurring: boolean;
+  onChange: (residentIds: string[], on: boolean) => void;
+}) {
+  const reg = residents.filter(r => registered.includes(r.id));
+  const suggested = cleanName(title).length >= 2 ? residents.filter(r => !registered.includes(r.id) && matchesActivity(title, r)) : [];
+  const q = cleanName(query);
+  const found = q ? residents.filter(r => !registered.includes(r.id) && (r.name.includes(q) || (r.room_number ?? "") === q)).slice(0, 8) : [];
+
+  return (
+    <section className="mt-4 rounded-xl border border-[#3F2F2D]/10 p-3" aria-label="דיירים רשומים">
+      <h3 className="mb-2 flex items-center gap-1.5 font-bold">
+        <Users className="h-4 w-4 text-[#5A826F]" /> דיירים רשומים
+        {reg.length > 0 && <span className="font-semibold text-[#3F2F2D]/55">({reg.length})</span>}
+      </h3>
+
+      {residents.length === 0 ? (
+        <p className="text-sm text-[#3F2F2D]/60">
+          אין עדיין דיירים במחלקה. מוסיפים ב<Link href="/admin/residents" className="font-semibold text-[#5A826F] underline">דיירים</Link>.
+        </p>
+      ) : (
+        <>
+          {reg.length ? (
+            <ul className="mb-2 flex flex-wrap gap-1.5">
+              {reg.map(r => (
+                <li key={r.id} className="inline-flex items-center gap-1 rounded-full bg-[#E3ECE7] py-1 pe-1 ps-2.5 text-sm">
+                  {r.name}
+                  <button type="button" aria-label={"הסרת " + r.name + " מהרישום"} onClick={() => onChange([r.id], false)}
+                    className="rounded-full p-0.5 text-[#3F2F2D]/60 hover:bg-white hover:text-[#9e4f4f]">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mb-2 text-sm text-[#3F2F2D]/60">עוד אין רשומים. בסימון הנוכחות יופיעו כל דיירי המחלקה.</p>
+          )}
+
+          {suggested.length > 0 && (
+            <div className="mb-2 rounded-lg bg-[#FDF0CC] p-2.5 text-sm">
+              <div className="mb-1.5">לפי כרטיס הדייר, מתאימים לפעילות הזו:</div>
+              <div className="flex flex-wrap gap-1.5">
+                {suggested.map(r => (
+                  <button key={r.id} type="button" onClick={() => onChange([r.id], true)}
+                    className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 font-semibold hover:bg-[#E3ECE7]">
+                    <Plus className="h-3.5 w-3.5" /> {r.name}
+                  </button>
+                ))}
+              </div>
+              {suggested.length > 1 && (
+                <button type="button" onClick={() => onChange(suggested.map(r => r.id), true)}
+                  className="mt-2 font-semibold text-[#5A826F] hover:underline">
+                  לרשום את כל ה-{suggested.length}
+                </button>
+              )}
+            </div>
+          )}
+
+          <input value={query} onChange={e => onQuery(e.target.value)} className={inputCls}
+            placeholder="הוספת דייר/ת: שם או מספר חדר" aria-label="חיפוש דייר/ת להוספה" />
+          {found.length > 0 && (
+            <ul className="mt-1 overflow-hidden rounded-xl border border-[#3F2F2D]/10">
+              {found.map(r => (
+                <li key={r.id}>
+                  <button type="button" onClick={() => onChange([r.id], true)}
+                    className="flex w-full items-center justify-between gap-2 px-3 py-2 text-right text-sm hover:bg-[#E3ECE7]">
+                    <span className="font-semibold">{r.name}</span>
+                    {r.room_number && <span className="text-[#3F2F2D]/55">חדר {r.room_number}</span>}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {q && found.length === 0 && <p className="mt-1 text-sm text-[#3F2F2D]/55">לא נמצא/ה דייר/ת כזה/זו במחלקה, או שכבר רשום/ה.</p>}
+          <p className="mt-2 text-xs text-[#3F2F2D]/55">
+            {isNew ? "הרשומים יישמרו יחד עם הפעילות." : sharedWithRecurring ? "נשמר מיד, ומשותף לכל השבועות של הפעילות." : "נשמר מיד."}
+            {" "}הרשומים מופיעים ראשונים אצל המפעיל/ה בסימון הנוכחות.
+          </p>
+        </>
+      )}
+    </section>
   );
 }

@@ -3,16 +3,18 @@ import { useState } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import { Plus, Check, X } from "lucide-react"
+import { cleanName } from "@/lib/participants"
 export function AddInstructorButton() {
   const router = useRouter()
   const [show, setShow] = useState(false)
   const [form, setForm] = useState({ name: "", phone: "", email: "" })
   const [saving, setSaving] = useState(false)
   const save = async () => {
-    if (!form.name) return
+    const name = cleanName(form.name)
+    if (!name) return
     setSaving(true)
     const s = createClient()
-    await s.from("instructors").upsert({ name: form.name, phone: form.phone || null, email: form.email || null }, { onConflict: "name" })
+    await s.from("instructors").upsert({ name, phone: form.phone || null, email: form.email || null }, { onConflict: "name" })
     setForm({ name: "", phone: "", email: "" })
     setShow(false)
     setSaving(false)

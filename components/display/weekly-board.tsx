@@ -29,10 +29,11 @@ const SIZE: Record<WeeklyBoardSettings["text_size"], number> = { s: 0.88, m: 1, 
 export default function WeeklyBoard(props: Props) {
   const { days, weekDates, todayIndex, settings, topic, editable } = props;
   // ימים בלי פעילויות לא מוצגים (חוץ מהיום עצמו). בעורך מוצגים כולם, כדי שאפשר יהיה להוסיף.
-  const shown = settings.days
-    .filter(i => i >= 0 && i <= 6)
-    .sort((a, b) => a - b)
-    .filter(i => editable || !settings.hide_empty_days || days[i].length > 0 || i === todayIndex);
+  // שבוע שאין בו פעילויות בכלל — מציגים את כל הימים, כדי שלא יישאר עמוד ריק אחד ענק.
+  const configured = settings.days.filter(i => i >= 0 && i <= 6).sort((a, b) => a - b);
+  const weekHasActivities = configured.some(i => days[i].length > 0);
+  const hideEmpty = settings.hide_empty_days && weekHasActivities;
+  const shown = configured.filter(i => editable || !hideEmpty || days[i].length > 0 || i === todayIndex);
 
   // כל הימים גדלים יחד כדי למלא את המסך; יום עמוס מתכווץ לבד
   const { grow, report } = useUniformGrow();
@@ -55,7 +56,7 @@ export default function WeeklyBoard(props: Props) {
         {shown.map(i => (
           <DayColumn key={i} {...props} dayIndex={i} date={weekDates[i]} isToday={i === todayIndex}
             isPast={settings.dim_past_days && todayIndex >= 0 && i < todayIndex}
-            hiddenOnScreen={!!editable && settings.hide_empty_days && days[i].length === 0 && i !== todayIndex}
+            hiddenOnScreen={!!editable && hideEmpty && days[i].length === 0 && i !== todayIndex}
             grow={grow} report={report} />
         ))}
       </div>

@@ -370,6 +370,9 @@ export default function OrientationScreen({
     { key: "season", label: t.season, value: t.seasons[getSeason(now.getMonth() + 1)] },
   ];
 
+  // עמודת הכותרות (יום, שעה, תאריך…) ברוחב של הכותרת הארוכה בשפה הנוכחית
+  const labelChars = Math.max(...rows.map(r => r.label.length));
+
   const rowSize = portrait ? 11.5 : 9.5;
   const topSize = portrait ? 7.4 : 6.2;
   const showWeather = s.show_weather && !!weather && !!kind;
@@ -428,7 +431,7 @@ export default function OrientationScreen({
           </section>
 
           {/* לוח ההתמצאות */}
-          <dl className={styles.board} dir="rtl">
+          <dl className={styles.board} dir="rtl" style={{ "--lw": labelChars } as React.CSSProperties}>
             {rows.map(row => (
               <div key={row.key} className={styles.row} dir={t.dir}>
                 <dt className={styles.label}>{row.label}</dt>

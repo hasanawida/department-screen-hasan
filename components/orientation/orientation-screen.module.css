@@ -280,9 +280,15 @@
   column-gap: calc(var(--u) * 6);
 }
 
+.board {
+  /* הכותרות בצד (יום, שעה, תאריך…) — גדולות וברורות */
+  /* כותרת קצרה (עברית, אנגלית) גדלה יותר; ארוכה (רוסית) נשארת כך שתיכנס */
+  --label-fs: clamp(calc(var(--u) * 5.2), calc(var(--u) * 48 / var(--lw, 6)), calc(var(--u) * 7));
+}
+
 .row {
   display: grid;
-  grid-template-columns: calc(var(--u) * 25) minmax(0, 1fr);
+  grid-template-columns: calc(var(--label-fs) * 0.62 * var(--lw, 6) + var(--u) * 1.5) minmax(0, 1fr);
   align-items: baseline;
   align-content: center;
   gap: calc(var(--u) * 2);
@@ -301,7 +307,8 @@
 }
 
 .row .label {
-  font-size: calc(var(--u) * 3.7);
+  font-size: var(--label-fs);
+  font-weight: 700;
   white-space: nowrap;
 }
 
@@ -314,16 +321,12 @@
   padding: calc(var(--u) * 1) calc(var(--u) * 5);
 }
 
-.stage[data-layout="portrait"] .row {
-  grid-template-columns: calc(var(--u) * 27) minmax(0, 1fr);
+.stage[data-layout="portrait"] .board {
+  --label-fs: clamp(calc(var(--u) * 5.8), calc(var(--u) * 52 / var(--lw, 6)), calc(var(--u) * 8));
 }
 
 .stage[data-layout="portrait"] .row:nth-child(2) {
   border-top: 1px solid var(--hair);
-}
-
-.stage[data-layout="portrait"] .row .label {
-  font-size: calc(var(--u) * 4.4);
 }
 
 /* ── מסר מרגיע: פס מרווה לכל רוחב המסך ── */

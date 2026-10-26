@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 import OrientationScreen from "./orientation-screen";
+import ScreenHeartbeat from "@/components/display/screen-heartbeat";
 import "./orientation-fonts.css";
 
 const supabase = createClient(
@@ -131,6 +132,7 @@ export default function OrientationScreenWrapper({
         background: "#F6F2EE",
       }}
     >
+      <ScreenHeartbeat kind="orientation" departmentId={departmentId} />
       <OrientationScreen
         departmentName={departmentName}
         departmentNameAr={departmentNameAr}

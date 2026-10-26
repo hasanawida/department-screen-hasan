@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import DisplayRuntime from "@/components/display/display-runtime";
+import ScreenHeartbeat from "@/components/display/screen-heartbeat";
 import PhysioBoard, { type PhysioAppt } from "@/components/display/physio-board";
 import { israelDateISO } from "@/lib/week";
 
@@ -38,6 +39,7 @@ export default async function PhysioScreen({ searchParams }: { searchParams: Pro
   return (
     <>
       <DisplayRuntime refreshMinutes={2} watchTable="physio_appointments" />
+      <ScreenHeartbeat kind="physio" departmentId={only?.id ?? null} />
       <PhysioBoard appts={appts} title={only ? "פיזיותרפיה, " + only.name : "פיזיותרפיה"} showDepartments={!only} />
     </>
   );

@@ -36,7 +36,11 @@ export default function ScreensPanel({ kind, items, otherKinds = [] }: {
   const supabase = useMemo(() => createClient(), []);
   const [devices, setDevices] = useState<ScreenDevice[]>([]);
   const [missingTable, setMissingTable] = useState(false);
+  // השעון של המחשב בניהול יכול לפגר אחרי השרת (ראינו 3 דקות) — מתקנים לפי שעון השרת
+  const [offset, setOffset] = useState(0);
   const [now, setNow] = useState(() => Date.now());
+  const offsetRef = React.useRef(0);
+  offsetRef.current = offset;
   const [origin, setOrigin] = useState("");
   const [flash, setFlash] = useState<{ key: string; text: string } | null>(null);
   const [copied, setCopied] = useState("");
@@ -51,7 +55,24 @@ export default function ScreensPanel({ kind, items, otherKinds = [] }: {
     if (error) { setMissingTable(/screen_devices|relation|schema cache/i.test(error.message)); return; }
     setMissingTable(false);
     setDevices((data ?? []) as ScreenDevice[]);
+    setNow(Date.now() + offsetRef.current);
   }, [supabase, kinds]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const t0 = Date.now();
+        const res = await fetch("/icon.svg", { method: "HEAD", cache: "no-store" });
+        const t1 = Date.now();
+        const server = Date.parse(res.headers.get("date") ?? "");
+        if (!Number.isNaN(server)) {
+          const off = server + 500 - (t0 + t1) / 2; // הכותרת מעוגלת לשנייה
+          setOffset(off);
+          setNow(Date.now() + off);
+        }
+      } catch { /* בלי תיקון */ }
+    })();
+  }, []);
 
   useEffect(() => {
     setOrigin(window.location.origin);
@@ -63,7 +84,7 @@ export default function ScreensPanel({ kind, items, otherKinds = [] }: {
       .channel("screens-panel-" + kind)
       .on("postgres_changes" as any, { event: "*", schema: "public", table: "screen_devices" }, soon)
       .subscribe();
-    const tick = setInterval(() => { setNow(Date.now()); load(); }, 30 * 1000);
+    const tick = setInterval(() => { setNow(Date.now() + offsetRef.current); load(); }, 30 * 1000);
     return () => { if (t) clearTimeout(t); clearInterval(tick); supabase.removeChannel(channel); };
   }, [supabase, kind, load]);
 

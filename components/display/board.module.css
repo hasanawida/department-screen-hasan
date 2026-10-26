@@ -1172,3 +1172,11 @@
   background: #f3e3df;
   color: #7a2e22;
 }
+
+/* אייקון החושים (ארבעה סמלים קטנים) — קצת גדול יותר בשורות רגילות */
+.actIcon[data-senses],
+.mealIcon[data-senses] {
+  width: 1.22em;
+  height: 1.22em;
+  vertical-align: -0.26em;
+}

@@ -1,25 +1,14 @@
-
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
-  Sun, CloudSun, Sunset, MoonStar, Clock3, CalendarDays,
-  Utensils, Users, Bell, ShieldCheck, Flower2, Brain,
+  Sun, CloudSun, Sunset, MoonStar, HeartHandshake,
+  Moon, CloudMoon, Cloud, CloudFog, CloudDrizzle, CloudRain, CloudSnow, CloudLightning,
 } from "lucide-react";
+import { EshkolotLogo, BRAND } from "./eshkolot-logo";
+import styles from "./orientation-screen.module.css";
 
-type ActivityCategory = "meal" | "group" | "rest" | "therapy" | "free";
-
-type Activity = {
-  id: string;
-  title: string;
-  startTime: string;
-  endTime: string;
-  category?: ActivityCategory;
-  isActive: boolean;
-};
+/* ───────────── טיפוסים ───────────── */
 
 type OrientationSettings = {
   languages: string[];
@@ -35,121 +24,120 @@ type OrientationSettings = {
   display_orientation?: "landscape" | "portrait";
 };
 
+export type WeatherNow = { temp: number; code: number; isDay: boolean };
+
 type OrientationProps = {
   departmentName: string;
   departmentNameAr?: string;
   departmentNameRu?: string;
   departmentNameEn?: string;
   departmentColor?: string;
-  activities: Activity[];
-  staffToday?: string[];
-  menuToday?: string;
-  announcementText?: string;
-  weatherText?: string;
+  activities?: unknown[];
   settings?: Partial<OrientationSettings>;
   isPortrait?: boolean;
+  /** אם לא מועבר — המסך מביא לבד את מזג האוויר בגדרה */
+  weather?: WeatherNow | null;
 };
 
 type Lang = "he" | "ar" | "ru" | "en";
 type TimeOfDay = "morning" | "noon" | "evening" | "night";
 type SeasonKey = "spring" | "summer" | "autumn" | "winter";
+type WeatherKind = "clear" | "partly" | "cloudy" | "fog" | "drizzle" | "rain" | "snow" | "storm";
 
-const HEBREW_MONTHS: Record<Lang, string[]> = {
-  he: ["תשרי","חשון","כסלו","טבת","שבט","אדר","ניסן","אייר","סיון","תמוז","אב","אלול","אדר א׳","אדר ב׳"],
-  ar: ["تشري","حشوان","كسليو","طيبت","شباط","أدار","نيسان","إيار","سيفان","تموز","آب","إيلول","أدار أ","أدار ب"],
-  ru: ["Тишрей","Хешван","Кислев","Тевет","Шват","Адар","Нисан","Ияр","Сиван","Таммуз","Ав","Элул","Адар I","Адар II"],
-  en: ["Tishrei","Cheshvan","Kislev","Tevet","Shevat","Adar","Nisan","Iyar","Sivan","Tammuz","Av","Elul","Adar I","Adar II"],
-};
+/* ───────────── מיקום (מזג אוויר) ───────────── */
 
-const CALMING: Record<Lang, string> = {
-  he: "אתם נמצאים במקום בטוח, הצוות כאן איתכם.",
-  ar: "أنتم في مكان آمن، الفريق هنا معكم.",
-  ru: "Вы находитесь в безопасном месте, персонал здесь с вами.",
-  en: "You are in a safe place, the staff is here with you.",
-};
+// אשכולות אורנים, גדרה
+const LOCATION = { lat: 31.8136, lon: 34.7792 };
+const WEATHER_REFRESH_MS = 20 * 60 * 1000;
 
-const WEATHER_MAP: Record<string, Record<Lang, string>> = {
-  "נעים":  { he: "נעים",  ar: "لطيف",  ru: "Приятно",  en: "Pleasant" },
-  "חם":    { he: "חם",    ar: "حار",   ru: "Жарко",    en: "Hot" },
-  "קר":    { he: "קר",    ar: "بارد",  ru: "Холодно",  en: "Cold" },
-  "גשום":  { he: "גשום",  ar: "ممطر",  ru: "Дождливо", en: "Rainy" },
-  "מעונן": { he: "מעונן", ar: "غائم",  ru: "Облачно",  en: "Cloudy" },
-};
+/* ───────────── תרגומים ───────────── */
 
-const T: Record<Lang, {
+type Copy = {
   dir: "rtl" | "ltr";
-  greetings: Record<TimeOfDay, string>;
-  phases: Record<TimeOfDay, string>;
-  fallback: Record<TimeOfDay, string>;
+  department: string;
+  now: string;
+  weather: string;
+  tod: Record<TimeOfDay, string>;
+  day: string;
+  time: string;
+  date: string;
+  month: string;
+  year: string;
+  season: string;
   days: string[];
-  date: string; hebrewDate: string; season: string;
   seasons: Record<SeasonKey, string>;
-  timeNow: string; now: string; next: string;
-  noNext: string; noNextTime: string;
-  dailyInfo: string; weather: string; staff: string; menu: string; noMenu: string;
-  announcement: string; noAnnouncement: string;
-  anchors: string; anchorsDesc: string;
-  calmingTitle: string; at: string; noChange: string;
-}> = {
+  weatherKinds: Record<WeatherKind, string>;
+  calming: string;
+};
+
+const T: Record<Lang, Copy> = {
   he: {
     dir: "rtl",
-    greetings: { morning: "בוקר טוב", noon: "צהריים טובים", evening: "ערב טוב", night: "לילה טוב" },
-    phases:    { morning: "עכשיו בוקר", noon: "עכשיו צהריים", evening: "עכשיו ערב", night: "עכשיו לילה" },
-    fallback:  { morning: "כעת זמן בוקר רגוע", noon: "כעת זמן צהריים רגוע", evening: "כעת זמן ערב נעים", night: "כעת זמן לילה שקט" },
-    days: ["יום ראשון","יום שני","יום שלישי","יום רביעי","יום חמישי","יום שישי","שבת"],
-    date: "תאריך", hebrewDate: "תאריך עברי", season: "עונה",
+    department: "מחלקה",
+    now: "עכשיו",
+    weather: "מזג אוויר",
+    tod: { morning: "בוקר", noon: "צהריים", evening: "ערב", night: "לילה" },
+    day: "יום",
+    time: "שעה",
+    date: "תאריך",
+    month: "חודש",
+    year: "שנה",
+    season: "עונה",
+    days: ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"],
     seasons: { spring: "אביב", summer: "קיץ", autumn: "סתיו", winter: "חורף" },
-    timeNow: "השעה עכשיו", now: "עכשיו", next: "בהמשך הקרוב",
-    noNext: "בהמשך היום זמן נעים ושקט", noNextTime: "אין שינוי מיוחד כרגע",
-    dailyInfo: "מידע יומי", weather: "מזג אוויר", staff: "הצוות היום", menu: "בתפריט", noMenu: "לא הוזן תפריט",
-    announcement: "הודעה חשובה", noAnnouncement: "אין הודעות מיוחדות להיום",
-    anchors: "עוגנים קבועים", anchorsDesc: "מסך זה בנוי כדי לתת התמצאות ברורה, תחושת ביטחון, והכוונה למה שקורה עכשיו ובהמשך הקרוב.",
-    calmingTitle: "מסר מרגיע", at: "בשעה", noChange: "היום ממשיך בצורה רגועה ונעימה",
+    weatherKinds: { clear: "בהיר", partly: "מעונן חלקית", cloudy: "מעונן", fog: "ערפל", drizzle: "טפטוף", rain: "גשם", snow: "שלג", storm: "סופת רעמים" },
+    calming: "אתם נמצאים במקום בטוח. הצוות כאן איתכם.",
   },
   ar: {
     dir: "rtl",
-    greetings: { morning: "صباح الخير", noon: "نهار سعيد", evening: "مساء الخير", night: "تصبح على خير" },
-    phases:    { morning: "الآن صباح", noon: "الآن ظهر", evening: "الآن مساء", night: "الآن ليل" },
-    fallback:  { morning: "وقت صباح هادئ", noon: "وقت غداء هادئ", evening: "وقت مساء لطيف", night: "وقت ليل هادئ" },
-    days: ["الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"],
-    date: "التاريخ", hebrewDate: "التاريخ العبري", season: "الفصل",
-    seasons: { spring: "ربيع", summer: "صيف", autumn: "خريف", winter: "شتاء" },
-    timeNow: "الساعة الآن", now: "الآن", next: "القادم قريباً",
-    noNext: "بقية اليوم وقت هادئ وممتع", noNextTime: "لا تغيير خاص الآن",
-    dailyInfo: "معلومات اليوم", weather: "الطقس", staff: "الفريق اليوم", menu: "القائمة", noMenu: "لم يُدخل قائمة",
-    announcement: "إعلان مهم", noAnnouncement: "لا إعلانات خاصة اليوم",
-    anchors: "ثوابت اليوم", anchorsDesc: "هذه الشاشة مصممة لتوفير التوجه الواضح والشعور بالأمان.",
-    calmingTitle: "رسالة مطمئنة", at: "الساعة", noChange: "اليوم يسير بهدوء ولطف",
+    department: "القسم",
+    now: "الآن",
+    weather: "الطقس",
+    tod: { morning: "الصباح", noon: "الظهر", evening: "المساء", night: "الليل" },
+    day: "اليوم",
+    time: "الساعة",
+    date: "التاريخ",
+    month: "الشهر",
+    year: "السنة",
+    season: "الفصل",
+    days: ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"],
+    seasons: { spring: "الربيع", summer: "الصيف", autumn: "الخريف", winter: "الشتاء" },
+    weatherKinds: { clear: "صافٍ", partly: "غائم جزئياً", cloudy: "غائم", fog: "ضباب", drizzle: "رذاذ", rain: "ماطر", snow: "ثلج", storm: "عاصفة رعدية" },
+    calming: "أنتم في مكان آمن. الطاقم هنا معكم.",
   },
   ru: {
     dir: "ltr",
-    greetings: { morning: "Доброе утро", noon: "Добрый день", evening: "Добрый вечер", night: "Доброй ночи" },
-    phases:    { morning: "Сейчас утро", noon: "Сейчас полдень", evening: "Сейчас вечер", night: "Сейчас ночь" },
-    fallback:  { morning: "Спокойное утреннее время", noon: "Спокойное дневное время", evening: "Приятный вечер", night: "Тихая ночь" },
-    days: ["Воскресенье","Понедельник","Вторник","Среда","Четверг","Пятница","Суббота"],
-    date: "Дата", hebrewDate: "Еврейская дата", season: "Сезон",
+    department: "Отделение",
+    now: "Сейчас",
+    weather: "Погода",
+    tod: { morning: "Утро", noon: "День", evening: "Вечер", night: "Ночь" },
+    day: "День",
+    time: "Время",
+    date: "Число",
+    month: "Месяц",
+    year: "Год",
+    season: "Время года",
+    days: ["Воскресенье", "Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота"],
     seasons: { spring: "Весна", summer: "Лето", autumn: "Осень", winter: "Зима" },
-    timeNow: "Сейчас", now: "Сейчас", next: "Следующее",
-    noNext: "Остаток дня — тихое время", noNextTime: "Изменений нет",
-    dailyInfo: "Информация дня", weather: "Погода", staff: "Персонал сегодня", menu: "Меню", noMenu: "Меню не указано",
-    announcement: "Важное объявление", noAnnouncement: "Нет особых объявлений на сегодня",
-    anchors: "Ориентиры", anchorsDesc: "Этот экран создан для чёткой ориентации и ощущения безопасности.",
-    calmingTitle: "Успокоительное сообщение", at: "в", noChange: "День проходит спокойно и приятно",
+    weatherKinds: { clear: "Ясно", partly: "Переменная облачность", cloudy: "Облачно", fog: "Туман", drizzle: "Морось", rain: "Дождь", snow: "Снег", storm: "Гроза" },
+    calming: "Вы в безопасном месте. Персонал рядом с вами.",
   },
   en: {
     dir: "ltr",
-    greetings: { morning: "Good Morning", noon: "Good Afternoon", evening: "Good Evening", night: "Good Night" },
-    phases:    { morning: "It's Morning", noon: "It's Noon", evening: "It's Evening", night: "It's Night" },
-    fallback:  { morning: "Calm morning time", noon: "Calm afternoon time", evening: "Pleasant evening", night: "Quiet night" },
-    days: ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"],
-    date: "Date", hebrewDate: "Hebrew Date", season: "Season",
+    department: "Department",
+    now: "Now",
+    weather: "Weather",
+    tod: { morning: "Morning", noon: "Afternoon", evening: "Evening", night: "Night" },
+    day: "Day",
+    time: "Time",
+    date: "Date",
+    month: "Month",
+    year: "Year",
+    season: "Season",
+    days: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
     seasons: { spring: "Spring", summer: "Summer", autumn: "Autumn", winter: "Winter" },
-    timeNow: "Time Now", now: "Now", next: "Coming Up",
-    noNext: "A peaceful rest of the day", noNextTime: "No changes soon",
-    dailyInfo: "Daily Info", weather: "Weather", staff: "Staff Today", menu: "Menu", noMenu: "No menu entered",
-    announcement: "Important Notice", noAnnouncement: "No special announcements today",
-    anchors: "Daily Anchors", anchorsDesc: "This screen provides clear orientation, safety and guidance for what's happening now and next.",
-    calmingTitle: "Calming Message", at: "at", noChange: "The day continues calmly and pleasantly",
+    weatherKinds: { clear: "Clear", partly: "Partly cloudy", cloudy: "Cloudy", fog: "Fog", drizzle: "Drizzle", rain: "Rain", snow: "Snow", storm: "Thunderstorm" },
+    calming: "You are in a safe place. The staff are here with you.",
   },
 };
 
@@ -167,19 +155,7 @@ const DEFAULT_SETTINGS: OrientationSettings = {
   display_orientation: "landscape",
 };
 
-function toMinutes(time: string) {
-  const [h, m] = time.split(":").map(Number);
-  return h * 60 + m;
-}
-
-function formatTime(date: Date) {
-  return new Intl.DateTimeFormat("he-IL", { hour: "2-digit", minute: "2-digit", hour12: false }).format(date);
-}
-
-function formatGregorianDate(date: Date, lang: Lang) {
-  const locales: Record<Lang, string> = { he: "he-IL", ar: "ar-IL", ru: "ru-RU", en: "en-IL" };
-  return new Intl.DateTimeFormat(locales[lang], { day: "numeric", month: "long", year: "numeric" }).format(date);
-}
+/* ───────────── עזרים ───────────── */
 
 function getTimeOfDay(hour: number): TimeOfDay {
   if (hour >= 5 && hour < 12) return "morning";
@@ -195,73 +171,154 @@ function getSeason(month: number): SeasonKey {
   return "winter";
 }
 
-function getHebrewDateText(date: Date, lang: Lang): string {
-  const numericDay = new Intl.DateTimeFormat("he-u-ca-hebrew", { day: "numeric" }).format(date);
-  const monthName  = new Intl.DateTimeFormat("he-u-ca-hebrew", { month: "long" }).format(date);
-  const heYear     = new Intl.DateTimeFormat("en-u-ca-hebrew", { year: "numeric" }).format(date);
-  const monthIndex = HEBREW_MONTHS.he.findIndex(m => monthName.includes(m));
-  const translated = monthIndex >= 0 ? HEBREW_MONTHS[lang][monthIndex] : monthName;
-  if (lang === "he") return numericDay + " ב" + monthName + " " + heYear;
-  return numericDay + " " + translated + " " + heYear;
+function formatClock(date: Date) {
+  return String(date.getHours()).padStart(2, "0") + ":" + String(date.getMinutes()).padStart(2, "0");
 }
 
-function TimeIcon({ tod }: { tod: TimeOfDay }) {
-  const cls = "h-10 w-10";
-  if (tod === "morning") return <Sun className={cls} />;
-  if (tod === "noon")    return <CloudSun className={cls} />;
-  if (tod === "evening") return <Sunset className={cls} />;
-  return <MoonStar className={cls} />;
+function monthName(date: Date, lang: Lang) {
+  const locales: Record<Lang, string> = { he: "he-IL", ar: "ar-u-nu-latn", ru: "ru-RU", en: "en-GB" };
+  const name = new Intl.DateTimeFormat(locales[lang], { month: "long" }).format(date);
+  return name.charAt(0).toUpperCase() + name.slice(1);
 }
 
-function ActivityIcon({ category }: { category?: ActivityCategory }) {
-  const cls = "h-8 w-8";
-  if (category === "meal")    return <Utensils className={cls} />;
-  if (category === "group")   return <Brain className={cls} />;
-  if (category === "therapy") return <ShieldCheck className={cls} />;
-  return <Clock3 className={cls} />;
+// קודי מזג אוויר של WMO (Open-Meteo)
+function weatherKind(code: number): WeatherKind {
+  if (code === 0) return "clear";
+  if (code === 1 || code === 2) return "partly";
+  if (code === 3) return "cloudy";
+  if (code === 45 || code === 48) return "fog";
+  if (code >= 51 && code <= 57) return "drizzle";
+  if ((code >= 61 && code <= 67) || (code >= 80 && code <= 82)) return "rain";
+  if ((code >= 71 && code <= 77) || code === 85 || code === 86) return "snow";
+  if (code >= 95) return "storm";
+  return "cloudy";
 }
 
-function InfoRow({ icon, label, value, color, small }: { icon: React.ReactNode; label: string; value: string; color: string; small?: boolean }) {
+function WeatherIcon({ kind, isDay, className }: { kind: WeatherKind; isDay: boolean; className?: string }) {
+  const p = { className, "aria-hidden": true } as const;
+  switch (kind) {
+    case "clear": return isDay ? <Sun {...p} /> : <Moon {...p} />;
+    case "partly": return isDay ? <CloudSun {...p} /> : <CloudMoon {...p} />;
+    case "fog": return <CloudFog {...p} />;
+    case "drizzle": return <CloudDrizzle {...p} />;
+    case "rain": return <CloudRain {...p} />;
+    case "snow": return <CloudSnow {...p} />;
+    case "storm": return <CloudLightning {...p} />;
+    default: return <Cloud {...p} />;
+  }
+}
+
+function useWeather(enabled: boolean, override: WeatherNow | null | undefined) {
+  const [weather, setWeather] = useState<WeatherNow | null>(null);
+  const useOverride = override !== undefined;
+
+  useEffect(() => {
+    if (useOverride || !enabled) return;
+    let cancelled = false;
+    async function load() {
+      try {
+        const url =
+          "https://api.open-meteo.com/v1/forecast?latitude=" + LOCATION.lat +
+          "&longitude=" + LOCATION.lon +
+          "&current=temperature_2m,weather_code,is_day&timezone=Asia%2FJerusalem";
+        const res = await fetch(url, { cache: "no-store" });
+        if (!res.ok) return;
+        const json = await res.json();
+        const c = json?.current;
+        if (!cancelled && c && typeof c.temperature_2m === "number") {
+          setWeather({ temp: Math.round(c.temperature_2m), code: Number(c.weather_code) || 0, isDay: c.is_day === 1 });
+        }
+      } catch {
+        // בלי אינטרנט — פשוט לא מציגים מזג אוויר (לא מציגים מידע לא נכון)
+      }
+    }
+    load();
+    const id = setInterval(load, WEATHER_REFRESH_MS);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [enabled, useOverride]);
+
+  return useOverride ? override : weather;
+}
+
+function useViewportPortrait() {
+  const [portrait, setPortrait] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(orientation: portrait)");
+    const update = () => setPortrait(mq.matches);
+    update();
+    mq.addEventListener?.("change", update);
+    return () => mq.removeEventListener?.("change", update);
+  }, []);
+  return portrait;
+}
+
+/** טקסט בשורה אחת שמקטין את עצמו אם הוא ארוך מהמקום */
+function FitText({ base, className, children, watch }: { base: number; className?: string; children: React.ReactNode; watch: string }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const [scale, setScale] = useState(1);
+
+  useLayoutEffect(() => { setScale(1); }, [watch, base]);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (el && el.scrollWidth > el.clientWidth + 1) {
+      setScale(s => Math.max(0.4, s * (el.clientWidth / el.scrollWidth) * 0.98));
+    }
+  });
+
   return (
-    <div className="flex items-start gap-3 rounded-2xl border bg-white/70 p-4 shadow-sm">
-      <div className="mt-1" style={{ color }}>{icon}</div>
-      <div className="flex-1 min-w-0">
-        <div className={small ? "text-xl font-semibold text-slate-700" : "text-2xl font-semibold text-slate-700"}>{label}</div>
-        <div className={small ? "mt-1 text-2xl font-bold text-slate-900" : "mt-1 text-3xl font-bold text-slate-900"}>{value}</div>
-      </div>
-    </div>
+    <span ref={ref} className={styles.fit + (className ? " " + className : "")} style={{ "--fs": base * scale } as React.CSSProperties}>
+      {children}
+    </span>
   );
 }
 
+/* ───────────── המסך ───────────── */
+
 export default function OrientationScreen({
   departmentName, departmentNameAr, departmentNameRu, departmentNameEn,
-  departmentColor = "#10B981",
-  activities, staffToday = [], menuToday, announcementText = "",
-  weatherText = "נעים", settings: settingsProp,
+  departmentColor,
+  settings: settingsProp,
   isPortrait: isPortraitProp,
+  weather: weatherProp,
 }: OrientationProps) {
   const s = { ...DEFAULT_SETTINGS, ...settingsProp };
-  const isPortrait = isPortraitProp ?? s.display_orientation === "portrait";
+  const viewportPortrait = useViewportPortrait();
+  // לאורך: אם נבחר בהגדרות, או אם המסך עצמו עומד לאורך
+  const portrait = !!isPortraitProp || s.display_orientation === "portrait" || viewportPortrait;
+  const layout = portrait ? "portrait" : "landscape";
 
-  const activeLangs = (s.languages.filter(l => ["he","ar","ru","en"].includes(l)) as Lang[]);
-  const langs = activeLangs.length > 0 ? activeLangs : ["he" as Lang];
+  const langs = useMemo(() => {
+    const valid = (s.languages ?? []).filter((l): l is Lang => ["he", "ar", "ru", "en"].includes(l));
+    return valid.length > 0 ? valid : (["he"] as Lang[]);
+  }, [s.languages]);
 
-  const [now, setNow] = useState(new Date());
+  // השעון מתחיל רק בדפדפן — כך השעה תמיד לפי השעון של המסך עצמו
+  const [now, setNow] = useState<Date | null>(null);
   const [langIndex, setLangIndex] = useState(0);
 
   useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 60_000);
+    setNow(new Date());
+    const id = setInterval(() => {
+      setNow(prev => {
+        const d = new Date();
+        return prev && prev.getMinutes() === d.getMinutes() && prev.getHours() === d.getHours() ? prev : d;
+      });
+    }, 1000);
     return () => clearInterval(id);
   }, []);
 
   useEffect(() => {
+    setLangIndex(0);
     if (langs.length <= 1) return;
-    const id = setInterval(() => setLangIndex(i => (i + 1) % langs.length), s.lang_interval_seconds * 1000);
+    const seconds = Math.max(5, Number(s.lang_interval_seconds) || 20);
+    const id = setInterval(() => setLangIndex(i => (i + 1) % langs.length), seconds * 1000);
     return () => clearInterval(id);
   }, [langs.length, s.lang_interval_seconds]);
 
-  const lang = langs[langIndex] ?? "he";
-  const t    = T[lang];
+  const weather = useWeather(s.show_weather, weatherProp);
+
+  const lang: Lang = langs[langIndex % langs.length] ?? "he";
+  const t = T[lang];
 
   const deptNameByLang: Record<Lang, string> = {
     he: departmentName,
@@ -270,221 +327,127 @@ export default function OrientationScreen({
     en: departmentNameEn || departmentName,
   };
 
-  const currentTime    = formatTime(now);
-  const tod            = getTimeOfDay(now.getHours());
-  const dayName        = t.days[now.getDay()];
-  const gregorianTxt   = formatGregorianDate(now, lang);
-  const hebrewDateTxt  = getHebrewDateText(now, lang);
-  const season         = t.seasons[getSeason(now.getMonth() + 1)];
-  const nowMinutes     = now.getHours() * 60 + now.getMinutes();
-  const weatherDisplay = WEATHER_MAP[weatherText]?.[lang] ?? weatherText;
+  /* ── התאמה למסך: אם משהו גולש לגובה — מקטינים הכול יחד, בלי גלילה ── */
+  const mainRef = useRef<HTMLElement>(null);
+  const [fit, setFit] = useState(1);
+  const minuteKey = now ? now.getHours() * 60 + now.getMinutes() : -1;
+  const fitKey = lang + "|" + layout + "|" + minuteKey + "|" + (weather ? weather.temp + "/" + weather.code : "-");
 
-  const currentActivity = useMemo(
-    () => activities.find(a => a.isActive && nowMinutes >= toMinutes(a.startTime) && nowMinutes <= toMinutes(a.endTime)),
-    [activities, nowMinutes],
-  );
-  const nextActivity = useMemo(
-    () => activities.filter(a => a.isActive).find(a => toMinutes(a.startTime) > nowMinutes),
-    [activities, nowMinutes],
-  );
+  useLayoutEffect(() => { setFit(1); }, [fitKey]);
+  useLayoutEffect(() => {
+    const main = mainRef.current;
+    if (!main) return;
+    let over = main.scrollHeight - main.clientHeight;
+    for (const child of Array.from(main.children) as HTMLElement[]) {
+      over = Math.max(over, child.scrollHeight - child.clientHeight);
+    }
+    if (over > 1) {
+      const ratio = main.clientHeight / (main.clientHeight + over);
+      setFit(f => Math.max(0.7, f * ratio * 0.99));
+    }
+  });
 
-  const hasRightColumn = !isPortrait && (s.show_weather || s.show_staff || s.show_menu || s.show_announcement || s.show_anchors);
-  const colorLight = departmentColor + "20";
+  const stageStyle = { "--fit": fit } as React.CSSProperties;
 
-  // גדלי טקסט — portrait קטן יותר
-  const G = isPortrait ? {
-    greeting: "text-6xl",
-    day: "text-4xl",
-    dept: "text-2xl",
-    time: "text-6xl",
-    timeLabel: "text-xl",
-    actMain: "text-5xl",
-    actSub: "text-2xl",
-    phase: "text-2xl",
-    info: "text-3xl",
-    calming: "text-3xl",
-    pad: "p-6",
-    badge: "px-5 py-2 text-2xl",
-  } : {
-    greeting: "text-6xl xl:text-7xl",
-    day: "text-4xl xl:text-5xl",
-    dept: "text-2xl xl:text-3xl",
-    time: "text-6xl xl:text-7xl",
-    timeLabel: "text-2xl",
-    actMain: "text-5xl xl:text-6xl",
-    actSub: "text-2xl",
-    phase: "text-2xl",
-    info: "text-3xl",
-    calming: "text-3xl xl:text-4xl",
-    pad: "p-6 xl:p-7",
-    badge: "px-5 py-2 text-2xl",
-  };
+  if (!now) {
+    return (
+      <div className={styles.stage} data-layout={layout} style={stageStyle} dir="rtl">
+        <EshkolotLogo className={styles.logo} />
+      </div>
+    );
+  }
 
-  const sideInfo = (
-    <div className="space-y-3">
-      {(s.show_weather || s.show_staff || s.show_menu) && (
-        <Card className="rounded-[2rem] border-0 shadow-xl">
-          <CardContent className={G.pad}>
-            <div className={"mb-4 font-black text-slate-900 " + G.info}>{t.dailyInfo}</div>
-            <div className="space-y-3">
-              {s.show_weather && <InfoRow icon={<CloudSun className="h-6 w-6" />} label={t.weather} value={weatherDisplay} color={departmentColor} small={isPortrait} />}
-              {s.show_staff && staffToday.length > 0 && <InfoRow icon={<Users className="h-6 w-6" />} label={t.staff} value={staffToday.join(", ")} color={departmentColor} small={isPortrait} />}
-              {s.show_menu && <InfoRow icon={<Utensils className="h-6 w-6" />} label={t.menu} value={menuToday || t.noMenu} color={departmentColor} small={isPortrait} />}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-      {s.show_announcement && (
-        <Card className="rounded-[2rem] border-0 shadow-xl">
-          <CardContent className={G.pad}>
-            <div className={"mb-4 flex items-center gap-3 text-amber-700"}>
-              <Bell className="h-6 w-6" />
-              <div className={"font-bold " + G.info}>{t.announcement}</div>
-            </div>
-            <div className={"rounded-2xl bg-amber-50 p-4 font-bold leading-relaxed text-slate-900 " + (isPortrait ? "text-xl" : "text-2xl")}>
-              {announcementText || t.noAnnouncement}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-      {s.show_anchors && (
-        <Card className="rounded-[2rem] border-0 shadow-xl">
-          <CardContent className={G.pad}>
-            <div className={"mb-3 font-black text-slate-900 " + G.info}>{t.anchors}</div>
-            <div className="flex flex-wrap gap-2">
-              <Badge className={"rounded-full text-white " + G.badge} style={{ backgroundColor: departmentColor }}>{dayName}</Badge>
-              <Badge className={"rounded-full text-white " + G.badge} style={{ backgroundColor: departmentColor }}>{season}</Badge>
-              <Badge className={"rounded-full text-white " + G.badge} style={{ backgroundColor: departmentColor }}>{currentTime}</Badge>
-            </div>
-            {!isPortrait && <p className={"mt-4 leading-relaxed text-slate-600 " + G.actSub}>{t.anchorsDesc}</p>}
-          </CardContent>
-        </Card>
-      )}
-    </div>
-  );
+  const tod = getTimeOfDay(now.getHours());
+  const TodIcon = tod === "morning" ? Sun : tod === "noon" ? CloudSun : tod === "evening" ? Sunset : MoonStar;
+  const kind = weather ? weatherKind(weather.code) : null;
+
+  const rows: { key: string; label: string; value: string; ltr?: boolean }[] = [
+    { key: "day", label: t.day, value: t.days[now.getDay()] },
+    { key: "time", label: t.time, value: formatClock(now), ltr: true },
+    { key: "date", label: t.date, value: String(now.getDate()), ltr: true },
+    { key: "month", label: t.month, value: monthName(now, lang) },
+    { key: "year", label: t.year, value: String(now.getFullYear()), ltr: true },
+    { key: "season", label: t.season, value: t.seasons[getSeason(now.getMonth() + 1)] },
+  ];
+
+  const rowSize = portrait ? 11.5 : 9.5;
+  const topSize = portrait ? 7.4 : 6.2;
+  const showWeather = s.show_weather && !!weather && !!kind;
 
   return (
-    <div
-      dir={t.dir}
-      className="min-h-full w-full transition-all duration-700"
-      style={{
-        background: "linear-gradient(to bottom, " + departmentColor + "15, white, #f8fafc)",
-        padding: isPortrait ? "16px" : "24px 32px",
-      }}
-    >
-      {langs.length > 1 && (
-        <div className="mb-3 flex justify-center gap-2">
-          {langs.map((l, i) => (
-            <div
-              key={l}
-              className={"h-2 rounded-full transition-all duration-500 " + (i === langIndex ? "w-6" : "w-2 bg-slate-300")}
-              style={i === langIndex ? { backgroundColor: departmentColor } : {}}
-            />
-          ))}
-        </div>
-      )}
+    <div className={styles.stage} data-layout={layout} style={stageStyle} dir="rtl">
+      <div className={styles.canvas}>
 
-      <div className="mx-auto w-full max-w-none">
-        <div className={isPortrait ? "flex flex-col gap-3" : "grid gap-4 " + (hasRightColumn ? "xl:grid-cols-[1.35fr_0.85fr]" : "")}>
+        {/* לוגו ושם המחלקה */}
+        <header className={styles.header}>
+          <EshkolotLogo className={styles.logo} />
+          <span className={styles.headerRule} aria-hidden="true" />
+          <div className={styles.dept} dir={t.dir} lang={lang}>
+            <span className={styles.label}>{t.department}</span>
+            <span className={styles.deptValue}>
+              <span className={styles.deptDot} style={{ backgroundColor: departmentColor || BRAND.sage }} aria-hidden="true" />
+              {deptNameByLang[lang]}
+            </span>
+          </div>
+          {langs.length > 1 && (
+            <div className={styles.langDots} aria-hidden="true">
+              {langs.map((l, i) => (
+                <span key={l} className={styles.langDot + (i === langIndex % langs.length ? " " + styles.langDotOn : "")} />
+              ))}
+            </div>
+          )}
+        </header>
 
-          {/* עמודה ראשית */}
-          <div className="space-y-3">
+        <main key={lang} ref={mainRef} className={styles.main} dir={t.dir} lang={lang}>
 
-            {/* Header */}
-            <Card className="rounded-[2rem] border-0 shadow-xl">
-              <CardContent className={G.pad}>
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <div
-                      className={"mb-3 inline-flex items-center gap-2 rounded-full font-semibold " + G.phase}
-                      style={{ backgroundColor: colorLight, color: departmentColor, padding: "6px 14px" }}
-                    >
-                      <TimeIcon tod={tod} />
-                      <span>{t.phases[tod]}</span>
-                    </div>
-                    <h1 className={"font-black tracking-tight text-slate-900 " + G.greeting}>{t.greetings[tod]}</h1>
-                    <p className={"mt-2 font-bold text-slate-700 " + G.day}>{dayName}</p>
-                    <p className={"mt-3 text-slate-600 " + G.dept}>{deptNameByLang[lang]}</p>
-                  </div>
-                  <div
-                    className="rounded-[2rem] px-4 py-4 text-center shadow-inner flex-shrink-0"
-                    style={{ backgroundColor: colorLight }}
-                  >
-                    <div className={"font-semibold text-slate-600 " + G.timeLabel}>{t.timeNow}</div>
-                    <div className={"mt-1 font-black " + G.time} style={{ color: departmentColor }}>{currentTime}</div>
-                  </div>
+          {/* למעלה: בוקר / צהריים / ערב / לילה  +  מזג אוויר */}
+          {/* המיקום של כל חלק קבוע (מימין לשמאל) — רק הטקסט מתחלף בין השפות */}
+          <section className={styles.top} data-tod={tod} data-single={showWeather ? undefined : ""} dir="rtl">
+            <div className={styles.topCell} dir={t.dir}>
+              <TodIcon className={styles.todIcon} aria-hidden="true" />
+              <div className={styles.topText}>
+                <span className={styles.label}>{t.now}</span>
+                <FitText base={topSize} className={styles.value + " " + styles.topValue} watch={lang + tod + layout}>
+                  {t.tod[tod]}
+                </FitText>
+              </div>
+            </div>
+
+            {showWeather && weather && kind && (
+              <div className={styles.topCell} dir={t.dir}>
+                <WeatherIcon kind={kind} isDay={weather.isDay} className={styles.weatherIcon} />
+                <div className={styles.topText}>
+                  <span className={styles.label}>{t.weather}</span>
+                  <FitText base={topSize} className={styles.value + " " + styles.topValue} watch={lang + weather.temp + kind + layout}>
+                    <span className={styles.temp}>{weather.temp}°</span>
+                    <span className={styles.weatherDesc}>{t.weatherKinds[kind]}</span>
+                  </FitText>
                 </div>
-
-                <Separator className="my-3" />
-
-                <div className={"grid gap-2 " + (s.show_hebrew_date ? "grid-cols-3" : "grid-cols-2")}>
-                  <InfoRow icon={<CalendarDays className="h-6 w-6" />} label={t.date} value={gregorianTxt} color={departmentColor} small={isPortrait} />
-                  {s.show_hebrew_date && (
-                    <InfoRow icon={<Flower2 className="h-6 w-6" />} label={t.hebrewDate} value={hebrewDateTxt} color={departmentColor} small={isPortrait} />
-                  )}
-                  <InfoRow icon={<CloudSun className="h-6 w-6" />} label={t.season} value={season} color={departmentColor} small={isPortrait} />
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Activities */}
-            {s.show_activities && (
-              <div className={"grid gap-4 " + (isPortrait ? "grid-cols-1" : "lg:grid-cols-2")}>
-                <Card className="rounded-[2rem] border-0 shadow-xl">
-                  <CardContent className={G.pad}>
-                    <div className={"mb-4 flex items-center gap-3 " + G.info} style={{ color: departmentColor }}>
-                      <ActivityIcon category={currentActivity?.category} />
-                      <span className="font-bold">{t.now}</span>
-                    </div>
-                    <div className={"font-black leading-tight text-slate-900 " + G.actMain}>
-                      {currentActivity?.title ?? t.fallback[tod]}
-                    </div>
-                    <div className={"mt-3 text-slate-600 " + G.actSub}>
-                      {currentActivity ? currentActivity.startTime + " - " + currentActivity.endTime : t.noChange}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card className="rounded-[2rem] border-0 shadow-xl">
-                  <CardContent className={G.pad}>
-                    <div className={"mb-4 flex items-center gap-3 " + G.info} style={{ color: departmentColor }}>
-                      <Clock3 className="h-8 w-8" />
-                      <span className="font-bold">{t.next}</span>
-                    </div>
-                    <div className={"font-black leading-tight text-slate-900 " + (isPortrait ? "text-3xl" : "text-4xl md:text-5xl")}>
-                      {nextActivity?.title ?? t.noNext}
-                    </div>
-                    <div className={"mt-3 text-slate-600 " + G.actSub}>
-                      {nextActivity ? t.at + " " + nextActivity.startTime : t.noNextTime}
-                    </div>
-                  </CardContent>
-                </Card>
               </div>
             )}
+          </section>
 
-            {/* Calming */}
-            {s.show_calming && (
-              <Card className="rounded-[2rem] border-0 text-white shadow-xl" style={{ backgroundColor: departmentColor }}>
-                <CardContent className={G.pad}>
-                  <div className="flex items-start gap-4">
-                    <ShieldCheck className="mt-1 h-8 w-8 shrink-0" />
-                    <div>
-                      <div className={"font-bold " + G.info}>{t.calmingTitle}</div>
-                      <p className={"mt-3 leading-relaxed " + G.calming}>{CALMING[lang]}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+          {/* לוח ההתמצאות */}
+          <dl className={styles.board} dir="rtl">
+            {rows.map(row => (
+              <div key={row.key} className={styles.row} dir={t.dir}>
+                <dt className={styles.label}>{row.label}</dt>
+                <dd className={styles.rowValue}>
+                  <FitText base={rowSize} className={styles.value} watch={lang + row.value + layout}>
+                    {row.ltr ? <bdi dir="ltr">{row.value}</bdi> : row.value}
+                  </FitText>
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </main>
 
-            {/* בתצוגת portrait — מידע נוסף בתחתית */}
-            {isPortrait && (s.show_weather || s.show_staff || s.show_menu || s.show_announcement || s.show_anchors) && sideInfo}
-          </div>
-
-          {/* עמודה ימנית — רק ב-landscape */}
-          {hasRightColumn && sideInfo}
-
-        </div>
+        {s.show_calming && (
+          <footer className={styles.calm} dir={t.dir} lang={lang}>
+            <HeartHandshake aria-hidden="true" />
+            <span>{t.calming}</span>
+          </footer>
+        )}
       </div>
     </div>
   );

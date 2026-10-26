@@ -93,7 +93,8 @@ export default async function OrientationPage({ params }: any) {
     translations = await translateDepartmentName(dept.id, dept.name);
   }
 
-  const today = new Date().toISOString().split("T")[0];
+  // התאריך של היום לפי שעון ישראל (השרת של Vercel עובד ב-UTC, ובין חצות ל-3 לפנות בוקר היה מציג את פעילויות אתמול)
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jerusalem" }).format(new Date());
   const { data: rawActivities } = await supabase
     .from("activities")
     .select("id, title, start_time, end_time, is_active")
@@ -106,7 +107,7 @@ export default async function OrientationPage({ params }: any) {
     id:        String(a.id),
     title:     a.title,
     startTime: a.start_time?.slice(0, 5) ?? "00:00",
-    endTime:   a.end_time?.slice(0, 5)   ?? "00:00",
+    endTime:   a.end_time?.slice(0, 5)   ?? "",
     category:  guessCategory(a.title),
     isActive:  a.is_active,
   }));
@@ -125,4 +126,4 @@ export default async function OrientationPage({ params }: any) {
   );
 }
 
-export const dynamic = "force-dynamic";
+export const dynamic = "force-dynamic";

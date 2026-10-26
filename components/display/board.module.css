@@ -1,0 +1,818 @@
+/* ─────────────────────────────────────────────────────────────
+   מסכי המחלקה — זהות אשכולות
+   קנבס 16:9 אחד, יחידת מידה --cu מגודל המסך, כך שהכול
+   נכנס תמיד במסך אחד בלי גלילה, בכל טלוויזיה.
+   ───────────────────────────────────────────────────────────── */
+
+.stage {
+  --ink: #3f2f2d;
+  --paper: #f6f2ee;
+  --sage: #5a826f;
+  --sage-soft: #a9c8b8;
+  --rose: #b56262;
+  --sun: #fab822;
+  --coral: #f6977e;
+  --sun-tint: #fdf0cc;
+  --coral-tint: #fde8e1;
+  --sage-tint: #e3ece7;
+  --hair: rgba(63, 47, 45, 0.12);
+  --muted: rgba(63, 47, 45, 0.62);
+
+  --cu: min(1vh, 0.5625vw);
+
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: "Rubik Orientation", "Rubik", "Assistant", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* בתוך עורך — ממלא את המסגרת ולא את כל החלון */
+.stage[data-embedded] {
+  position: absolute;
+  --cu: var(--frame-cu, 1px);
+}
+
+.canvas {
+  position: relative;
+  width: calc(var(--cu) * 177.78);
+  height: calc(var(--cu) * 100);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  overflow: hidden;
+}
+
+/* ── כותרת ── */
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--cu) * 2.6);
+  padding: calc(var(--cu) * 2.6) calc(var(--cu) * 4) calc(var(--cu) * 1.6);
+}
+
+.logo {
+  height: calc(var(--cu) * 6);
+  width: auto;
+  flex-shrink: 0;
+}
+
+.rule {
+  width: 1px;
+  align-self: stretch;
+  margin: calc(var(--cu) * 0.6) 0;
+  background: var(--hair);
+}
+
+.dept {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--cu) * 0.2);
+  min-width: 0;
+}
+
+.label {
+  font-size: calc(var(--cu) * 2.3);
+  font-weight: 600;
+  line-height: 1.15;
+  color: var(--sage);
+}
+
+.deptName {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--cu) * 1);
+  font-size: calc(var(--cu) * 3.6);
+  font-weight: 700;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.dot {
+  width: calc(var(--cu) * 1.4);
+  height: calc(var(--cu) * 1.4);
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 calc(var(--cu) * 0.3) #fff;
+}
+
+/* מה מוצג עכשיו — הסבב */
+.views {
+  margin-inline-start: auto;
+  display: flex;
+  gap: calc(var(--cu) * 0.8);
+  padding: calc(var(--cu) * 0.6);
+  background: #fff;
+  border-radius: 999px;
+}
+
+.viewPill {
+  font-size: calc(var(--cu) * 2.3);
+  font-weight: 600;
+  line-height: 1;
+  padding: calc(var(--cu) * 1.1) calc(var(--cu) * 2.2);
+  border-radius: 999px;
+  color: var(--muted);
+  white-space: nowrap;
+  transition: background-color 400ms ease, color 400ms ease;
+}
+
+.viewPillOn {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.when {
+  display: flex;
+  align-items: baseline;
+  gap: calc(var(--cu) * 2);
+  margin-inline-start: calc(var(--cu) * 1.4);
+  white-space: nowrap;
+}
+
+.whenDate {
+  font-size: calc(var(--cu) * 3);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.whenClock {
+  direction: ltr;
+  font-size: calc(var(--cu) * 5.4);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── אזור התצוגה ── */
+
+.view {
+  min-height: 0;
+  position: relative;
+  padding: calc(var(--cu) * 0.8) calc(var(--cu) * 4) calc(var(--cu) * 2.4);
+  display: flex;
+  flex-direction: column;
+  animation: settle 600ms ease both;
+}
+
+@keyframes settle {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* ── לוח שבועי ── */
+
+.board {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--cu) * 1.6);
+}
+
+.topic {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--cu) * 1.8);
+  background: var(--sage);
+  color: #fff;
+  border-radius: calc(var(--cu) * 2.2);
+  padding: calc(var(--cu) * 1.1) calc(var(--cu) * 2.4);
+  min-width: 0;
+}
+
+.topicImg {
+  width: calc(var(--cu) * 5.4);
+  height: calc(var(--cu) * 5.4);
+  object-fit: cover;
+  border-radius: calc(var(--cu) * 1.2);
+  flex-shrink: 0;
+}
+
+.topicLabel {
+  flex-shrink: 0;
+  font-size: calc(var(--cu) * 2);
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.18);
+  padding: calc(var(--cu) * 0.6) calc(var(--cu) * 1.3);
+  border-radius: 999px;
+}
+
+.topicTitle {
+  flex-shrink: 0;
+  font-size: calc(var(--cu) * 3.3);
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.topicDesc {
+  min-width: 0;
+  font-size: calc(var(--cu) * 2.4);
+  opacity: 0.92;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.days {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  gap: calc(var(--cu) * 1.2);
+}
+
+.day {
+  /* יחידת התוכן של היום: מתכווצת לבד (--bs) כשהיום עמוס */
+  --bu: calc(var(--cu) * var(--bs, 1) * var(--size, 1));
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-radius: calc(var(--cu) * 2.2);
+  overflow: hidden;
+}
+
+.dayPast {
+  opacity: 0.5;
+}
+
+.dayHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: calc(var(--cu) * 1);
+  padding: calc(var(--cu) * 1.4) calc(var(--cu) * 1.8) calc(var(--cu) * 1.2);
+  border-bottom: 1px solid var(--hair);
+}
+
+.dayName {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--cu) * 0.7);
+  font-size: calc(var(--cu) * 3.1);
+  font-weight: 800;
+  line-height: 1.05;
+}
+
+.dayDate {
+  font-size: calc(var(--cu) * 2.1);
+  font-weight: 600;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.dayToday {
+  box-shadow: 0 0 0 calc(var(--cu) * 0.35) var(--ink);
+}
+
+.dayToday .dayHead {
+  background: var(--ink);
+  color: var(--paper);
+  border-bottom-color: transparent;
+}
+
+.dayToday .dayDate {
+  color: var(--sage-soft);
+}
+
+.dayPin {
+  width: calc(var(--cu) * 2.2);
+  height: auto;
+  flex-shrink: 0;
+}
+
+.list {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: calc(var(--bu) * 0.4) 0;
+}
+
+.act {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--bu) * 0.35);
+  padding: calc(var(--bu) * 1.05) calc(var(--cu) * 1.8);
+  border-top: 1px solid var(--hair);
+  text-align: start;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  width: 100%;
+}
+
+.act:first-child {
+  border-top: 0;
+}
+
+.actNow {
+  background: var(--sun-tint);
+}
+
+.actTime {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--bu) * 0.8);
+  font-size: calc(var(--bu) * 2.3);
+  font-weight: 700;
+  color: var(--sage);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.actTime bdi {
+  direction: ltr;
+}
+
+.nowTag {
+  font-size: calc(var(--bu) * 1.7);
+  font-weight: 700;
+  background: var(--sun);
+  color: var(--ink);
+  padding: calc(var(--bu) * 0.25) calc(var(--bu) * 0.9);
+  border-radius: 999px;
+}
+
+.actTitle {
+  font-size: calc(var(--bu) * 2.7);
+  font-weight: 700;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.actMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--bu) * 0.4) calc(var(--bu) * 1.3);
+  font-size: calc(var(--bu) * 1.95);
+  color: var(--muted);
+  line-height: 1.2;
+}
+
+.actMeta span {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--bu) * 0.4);
+}
+
+.actMeta svg {
+  width: calc(var(--bu) * 1.9);
+  height: calc(var(--bu) * 1.9);
+  flex-shrink: 0;
+}
+
+.empty {
+  padding: calc(var(--cu) * 2) calc(var(--cu) * 1.8);
+  font-size: calc(var(--cu) * 2.2);
+  color: var(--muted);
+}
+
+/* ── מצב עריכה (בעורך בלבד) ── */
+
+.editable .act {
+  cursor: pointer;
+}
+
+.editable .act:hover {
+  background: var(--sage-tint);
+}
+
+.editable .act:focus-visible,
+.addBtn:focus-visible {
+  outline: calc(var(--cu) * 0.4) solid var(--sun);
+  outline-offset: calc(var(--cu) * -0.4);
+}
+
+.actSelected {
+  background: var(--sage-tint);
+  box-shadow: inset calc(var(--cu) * -0.6) 0 0 var(--sage);
+}
+
+.calIcon {
+  position: absolute;
+  inset-inline-end: calc(var(--cu) * 1.2);
+  top: calc(var(--bu) * 1.1);
+  width: calc(var(--cu) * 2);
+  height: calc(var(--cu) * 2);
+  color: var(--sage);
+  opacity: 0.8;
+}
+
+.addBtn {
+  margin: calc(var(--cu) * 0.8) calc(var(--cu) * 1.2) calc(var(--cu) * 1.2);
+  padding: calc(var(--cu) * 1) 0;
+  border: 1.5px dashed var(--sage-soft);
+  border-radius: calc(var(--cu) * 1.4);
+  background: transparent;
+  color: var(--sage);
+  font: inherit;
+  font-size: calc(var(--cu) * 2.2);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.addBtn:hover {
+  background: var(--sage-tint);
+}
+
+/* ── לוח יומי ── */
+
+.daily {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+  gap: calc(var(--cu) * 2);
+}
+
+.dailyCol {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--cu) * 2);
+}
+
+.nowPanel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: calc(var(--cu) * 1.4);
+  background: var(--sun-tint);
+  border-radius: calc(var(--cu) * 3);
+  padding: calc(var(--cu) * 3) calc(var(--cu) * 4);
+}
+
+.nowTime {
+  direction: ltr;
+  unicode-bidi: isolate;
+  text-align: right;
+  font-size: calc(var(--cu) * 4);
+  font-weight: 700;
+  color: var(--sage);
+  font-variant-numeric: tabular-nums;
+}
+
+.nowTitle {
+  font-size: calc(var(--cu) * 8.5);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+
+.nowQuiet {
+  font-size: calc(var(--cu) * 6.4);
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.nowMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--cu) * 1) calc(var(--cu) * 3);
+  font-size: calc(var(--cu) * 3);
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.nowMeta span {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--cu) * 0.8);
+}
+
+.nowMeta svg {
+  width: calc(var(--cu) * 3);
+  height: calc(var(--cu) * 3);
+}
+
+.panel {
+  background: #fff;
+  border-radius: calc(var(--cu) * 3);
+  padding: calc(var(--cu) * 2.4) calc(var(--cu) * 3);
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--cu) * 1);
+  min-height: 0;
+}
+
+.panelGrow {
+  flex: 1;
+}
+
+.panelTitle {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--cu) * 1);
+  font-size: calc(var(--cu) * 2.6);
+  font-weight: 600;
+  color: var(--sage);
+}
+
+.panelTitle svg {
+  width: calc(var(--cu) * 2.6);
+  height: calc(var(--cu) * 2.6);
+}
+
+.nextRow {
+  display: grid;
+  grid-template-columns: calc(var(--cu) * 11) minmax(0, 1fr);
+  align-items: baseline;
+  gap: calc(var(--cu) * 1.6);
+  padding: calc(var(--cu) * 1.1) 0;
+  border-top: 1px solid var(--hair);
+}
+
+.nextRow:first-of-type {
+  border-top: 0;
+}
+
+.nextTime {
+  direction: ltr;
+  text-align: end;
+  font-size: calc(var(--cu) * 3);
+  font-weight: 700;
+  color: var(--sage);
+  font-variant-numeric: tabular-nums;
+}
+
+.nextTitle {
+  font-size: calc(var(--cu) * 3.3);
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.nextSub {
+  font-size: calc(var(--cu) * 2.2);
+  color: var(--muted);
+  margin-top: calc(var(--cu) * 0.3);
+}
+
+.mealRow {
+  display: grid;
+  grid-template-columns: calc(var(--cu) * 11) minmax(0, 1fr);
+  align-items: baseline;
+  gap: calc(var(--cu) * 1.6);
+  padding: calc(var(--cu) * 0.9) 0;
+  border-top: 1px solid var(--hair);
+}
+
+.mealRow:first-of-type {
+  border-top: 0;
+}
+
+.mealLabel {
+  font-size: calc(var(--cu) * 2.4);
+  font-weight: 600;
+  color: var(--sage);
+}
+
+.mealItems {
+  font-size: calc(var(--cu) * 2.7);
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.notice {
+  background: var(--coral-tint);
+}
+
+.noticeText {
+  font-size: calc(var(--cu) * 3);
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+/* ── תפריט שבועי ── */
+
+.menuDay .list {
+  padding: calc(var(--bu) * 0.6) 0;
+}
+
+.meal {
+  padding: calc(var(--bu) * 1) calc(var(--cu) * 1.8);
+  border-top: 1px solid var(--hair);
+}
+
+.meal:first-child {
+  border-top: 0;
+}
+
+.mealName {
+  font-size: calc(var(--bu) * 2);
+  font-weight: 600;
+  color: var(--sage);
+  margin-bottom: calc(var(--bu) * 0.4);
+}
+
+.mealList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: calc(var(--bu) * 2.4);
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+/* ── מדיה ── */
+
+.media {
+  position: absolute;
+  inset: 0;
+  background: var(--paper);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.media img,
+.media iframe {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border: 0;
+}
+
+/* ── שורת רצה ── */
+
+.ticker {
+  display: flex;
+  align-items: center;
+  height: calc(var(--cu) * 8);
+  background: var(--ink);
+  color: var(--paper);
+  overflow: hidden;
+}
+
+.tickerViewport {
+  flex: 1;
+  overflow: hidden;
+  height: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.tickerTrack {
+  display: flex;
+  align-items: center;
+  width: max-content;
+  animation: tickerRtl var(--ticker-duration, 60s) linear infinite;
+}
+
+.tickerItem {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--cu) * 1.4);
+  padding-inline-start: calc(var(--cu) * 5);
+  white-space: nowrap;
+  font-size: calc(var(--cu) * 3.1);
+  font-weight: 600;
+}
+
+.tag {
+  font-size: calc(var(--cu) * 2.1);
+  font-weight: 700;
+  padding: calc(var(--cu) * 0.5) calc(var(--cu) * 1.2);
+  border-radius: calc(var(--cu) * 0.8);
+  line-height: 1;
+}
+
+.tagNews {
+  background: var(--coral);
+  color: var(--ink);
+}
+
+.tagMsg {
+  background: var(--sun);
+  color: var(--ink);
+}
+
+/* בעברית הטקסט נכנס משמאל וזז ימינה */
+@keyframes tickerRtl {
+  from { transform: translateX(0); }
+  to { transform: translateX(50%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .view { animation: none; }
+  .tickerTrack { animation-duration: calc(var(--ticker-duration, 60s) * 2); }
+}
+
+/* ── מסך פיזיותרפיה ── */
+
+.physio {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: calc(var(--cu) * 2);
+}
+
+.physioList {
+  --bs: 1;
+  --bu: calc(var(--cu) * var(--bs));
+  min-height: 0;
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(var(--rows, 8), auto);
+  grid-auto-columns: minmax(0, 1fr);
+  align-content: start;
+  column-gap: calc(var(--cu) * 2);
+  background: #fff;
+  border-radius: calc(var(--cu) * 3);
+  padding: calc(var(--cu) * 1.4) calc(var(--cu) * 3);
+  overflow: hidden;
+}
+
+.appt {
+  display: grid;
+  grid-template-columns: calc(var(--bu) * 15) minmax(0, 1fr);
+  align-items: baseline;
+  gap: calc(var(--bu) * 2.4);
+  padding: calc(var(--bu) * 1.6) calc(var(--bu) * 1.6);
+  border-top: 1px solid var(--hair);
+}
+
+.apptFirst {
+  border-top-color: transparent;
+}
+
+.apptTime {
+  direction: ltr;
+  text-align: end;
+  font-size: calc(var(--bu) * 4.6);
+  font-weight: 700;
+  color: var(--sage);
+  font-variant-numeric: tabular-nums;
+}
+
+.apptName {
+  font-size: calc(var(--bu) * 5);
+  font-weight: 800;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+
+.apptSub {
+  font-size: calc(var(--bu) * 2.4);
+  font-weight: 500;
+  color: var(--muted);
+  margin-top: calc(var(--bu) * 0.4);
+}
+
+.apptNow {
+  background: var(--sun-tint);
+  border-top-color: transparent;
+  border-radius: calc(var(--cu) * 1.6);
+}
+
+.apptNow + .appt {
+  border-top-color: transparent;
+}
+
+.apptPast {
+  opacity: 0.42;
+}
+
+.apptTag {
+  display: inline-block;
+  font-size: calc(var(--bu) * 2);
+  font-weight: 700;
+  background: var(--sun);
+  color: var(--ink);
+  padding: calc(var(--bu) * 0.3) calc(var(--bu) * 1);
+  border-radius: 999px;
+  margin-inline-start: calc(var(--bu) * 1.4);
+  vertical-align: middle;
+}
+
+.physioEmptyPin {
+  display: block;
+  width: calc(var(--cu) * 6);
+  height: auto;
+  margin: 0 auto calc(var(--cu) * 2.4);
+}
+
+.physioEmpty {
+  align-self: center;
+  justify-self: center;
+  text-align: center;
+  font-size: calc(var(--cu) * 5);
+  font-weight: 700;
+  color: var(--muted);
+  padding: calc(var(--cu) * 8) 0;
+}

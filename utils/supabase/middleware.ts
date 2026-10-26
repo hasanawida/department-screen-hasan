@@ -34,7 +34,8 @@ export async function updateSession(request: NextRequest) {
   const isAdminApi =
     pathname.startsWith('/api/translate-reminder') ||
     pathname.startsWith('/api/analyze-schedule') ||
-    pathname.startsWith('/api/admins')
+    pathname.startsWith('/api/admins') ||
+    pathname.startsWith('/api/calendar')
 
   // רשימת מורשים: קודם טבלת admins ב-DB, ואם אין — fallback ל-ADMIN_EMAILS מה-env
   let isAllowedUser = false

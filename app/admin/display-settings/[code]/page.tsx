@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { CheckCircle, Settings, Bell, MessageSquare, Image as ImageIcon, Plus, Trash2, X, Palette, ExternalLink } from "lucide-react";
+import { CheckCircle, Settings, Bell, MessageSquare, Image as ImageIcon, Plus, Trash2, X, Palette } from "lucide-react";
 import Link from "next/link";
 
 const supabase = createClient(
@@ -17,30 +17,45 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
 );
 
+type TickerSource = "both" | "news" | "messages";
+
 type DisplaySettings = {
-  show_daily: boolean;
   show_weekly: boolean;
+  show_daily: boolean;
+  show_menu: boolean;
   show_media: boolean;
   show_ticker: boolean;
   show_announcements: boolean;
+  ticker_source: TickerSource;
   view_interval_seconds: number;
 };
 
 const DEFAULT: DisplaySettings = {
-  show_daily: true,
   show_weekly: true,
+  show_daily: true,
+  show_menu: true,
   show_media: true,
   show_ticker: true,
   show_announcements: true,
+  ticker_source: "both",
   view_interval_seconds: 20,
 };
 
-const SECTION_LABELS: { key: keyof DisplaySettings; label: string; desc: string }[] = [
-  { key: "show_daily",         label: "תצוגה יומית",    desc: "עכשיו / בהמשך היום" },
-  { key: "show_weekly",        label: "תצוגה שבועית",   desc: "לוח פעילויות שבועי" },
-  { key: "show_media",         label: "מדיה",           desc: "תמונות ו-PDF" },
-  { key: "show_ticker",        label: "שורת רצה",       desc: "הודעות מתחלפות בתחתית" },
-  { key: "show_announcements", label: "הודעות חשובות",  desc: "הודעות מחלקה" },
+type BoolKey = Exclude<keyof DisplaySettings, "ticker_source" | "view_interval_seconds">;
+
+const SECTION_LABELS: { key: BoolKey; label: string; desc: string }[] = [
+  { key: "show_weekly",        label: "לוח שבועי",       desc: "מוצג ראשון בסבב" },
+  { key: "show_daily",         label: "לוח יומי",        desc: "מה קורה עכשיו ובהמשך היום" },
+  { key: "show_menu",          label: "תפריט שבועי",     desc: "מה שהדיאטנית כתבה לשבוע" },
+  { key: "show_media",         label: "תמונות ו-PDF",    desc: "הקבצים שהועלו בלשונית מדיה" },
+  { key: "show_ticker",        label: "שורת רצה",        desc: "חדשות N12 והודעות בתחתית המסך" },
+  { key: "show_announcements", label: "הודעות חשובות",   desc: "בלוח היומי ובשורת הרצה" },
+];
+
+const TICKER_SOURCES: { value: TickerSource; label: string }[] = [
+  { value: "both", label: "חדשות N12 והודעות" },
+  { value: "news", label: "רק חדשות N12" },
+  { value: "messages", label: "רק הודעות" },
 ];
 
 type Announcement = { id: string; title: string; content: string; is_active: boolean };
@@ -54,7 +69,6 @@ export default function DisplaySettingsPage({ params }: { params: { code: string
   const [deptName, setDeptName] = useState("");
   const [settingsId, setSettingsId] = useState("");
   const [settings, setSettings] = useState<DisplaySettings>(DEFAULT);
-  const [welcome, setWelcome] = useState("");
   const [loading, setLoading] = useState(true);
   const [saved, setSaved] = useState(false);
   const [notFound, setNotFound] = useState(false);
@@ -83,7 +97,7 @@ export default function DisplaySettingsPage({ params }: { params: { code: string
       setDeptName(dept.name);
 
       const [ss, anns, tks, md] = await Promise.all([
-        supabase.from("screen_settings").select("id, display_settings, welcome_message").eq("department_id", dept.id).single(),
+        supabase.from("screen_settings").select("id, display_settings").eq("department_id", dept.id).maybeSingle(),
         supabase.from("announcements").select("id, title, content, is_active").eq("department_id", dept.id).order("created_at", { ascending: false }),
         supabase.from("ticker_messages").select("id, message, display_order, is_active").eq("department_id", dept.id).order("display_order", { ascending: true }),
         supabase.from("department_media").select("id, media_url, media_type, display_order").eq("department_id", dept.id).eq("is_active", true).order("display_order", { ascending: true }),
@@ -92,7 +106,6 @@ export default function DisplaySettingsPage({ params }: { params: { code: string
       if (ss.data) {
         setSettingsId(ss.data.id);
         setSettings({ ...DEFAULT, ...(ss.data.display_settings ?? {}) });
-        setWelcome(ss.data.welcome_message ?? "");
       }
       setAnnouncements(anns.data ?? []);
       setTickers(tks.data ?? []);
@@ -103,18 +116,17 @@ export default function DisplaySettingsPage({ params }: { params: { code: string
   }, [code]);
 
   async function handleSaveSettings() {
-    if (!settingsId) return;
-    // שמור את המפתחות הלא-מנוהלים (כמו layout_config) שלא נדרס אותם
-    const { data: cur } = await supabase
-      .from("screen_settings")
-      .select("display_settings")
-      .eq("id", settingsId)
-      .single();
-    const merged = {
-      ...((cur?.display_settings as any) || {}),
-      ...settings,
-    };
-    await supabase.from("screen_settings").update({ display_settings: merged, welcome_message: welcome }).eq("id", settingsId);
+    // שומרים רק את המפתחות של הדף הזה, כדי לא לדרוס את הגדרות הלוח השבועי
+    const managed = Object.fromEntries((Object.keys(DEFAULT) as (keyof DisplaySettings)[]).map(k => [k, settings[k]]));
+    if (!settingsId) {
+      const { data } = await supabase.from("screen_settings").insert({ department_id: deptId, display_settings: managed }).select("id").single();
+      if (data) setSettingsId(data.id);
+    } else {
+      const { data: cur } = await supabase.from("screen_settings").select("display_settings").eq("id", settingsId).single();
+      const merged = { ...((cur?.display_settings as any) || {}), ...managed };
+      await supabase.from("screen_settings").update({ display_settings: merged }).eq("id", settingsId);
+    }
+    await supabase.from("departments").update({ force_refresh: new Date().toISOString() }).eq("id", deptId);
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
   }
@@ -196,7 +208,7 @@ export default function DisplaySettingsPage({ params }: { params: { code: string
     setMedia((m) => m.filter((x) => x.id !== id));
   }
 
-  function toggle(key: keyof DisplaySettings) {
+  function toggle(key: BoolKey) {
     setSettings((prev) => ({ ...prev, [key]: !prev[key] } as DisplaySettings));
   }
 
@@ -218,7 +230,7 @@ export default function DisplaySettingsPage({ params }: { params: { code: string
         <Tabs defaultValue="settings" className="w-full">
           <TabsList className="grid w-full grid-cols-5 h-auto">
             <TabsTrigger value="settings" className="gap-2 py-2"><Settings className="h-4 w-4" />הגדרות</TabsTrigger>
-            <TabsTrigger value="design" className="gap-2 py-2"><Palette className="h-4 w-4" />עיצוב</TabsTrigger>
+            <TabsTrigger value="design" className="gap-2 py-2"><Palette className="h-4 w-4" />הלוח</TabsTrigger>
             <TabsTrigger value="announcements" className="gap-2 py-2"><Bell className="h-4 w-4" />הודעות</TabsTrigger>
             <TabsTrigger value="ticker" className="gap-2 py-2"><MessageSquare className="h-4 w-4" />שורת רצה</TabsTrigger>
             <TabsTrigger value="media" className="gap-2 py-2"><ImageIcon className="h-4 w-4" />מדיה</TabsTrigger>
@@ -256,8 +268,20 @@ export default function DisplaySettingsPage({ params }: { params: { code: string
 
             <Card className="rounded-2xl border-0 shadow-md">
               <CardContent className="p-6 space-y-3">
-                <h2 className="text-xl font-bold">הודעת ברכה</h2>
-                <Input value={welcome} onChange={(e) => setWelcome(e.target.value)} placeholder="ברוכים הבאים" />
+                <h2 className="text-xl font-bold">מה רץ בשורה התחתונה</h2>
+                <p className="text-sm text-slate-500">הודעות חשובות מוצגות ראשונות, וחוזרות אחרי כל כמה כותרות. כותרות קשות (תאונות, פיגועים, מוות) מסוננות.</p>
+                <div className="grid gap-2 sm:grid-cols-3" role="radiogroup" aria-label="מה רץ בשורה התחתונה">
+                  {TICKER_SOURCES.map(({ value, label }) => {
+                    const on = settings.ticker_source === value;
+                    return (
+                      <button key={value} type="button" role="radio" aria-checked={on}
+                        onClick={() => setSettings(prev => ({ ...prev, ticker_source: value }))}
+                        className={"rounded-xl px-4 py-3 text-sm font-semibold transition-colors " + (on ? "bg-slate-800 text-white" : "bg-slate-50 hover:bg-emerald-50")}>
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
               </CardContent>
             </Card>
 
@@ -272,22 +296,16 @@ export default function DisplaySettingsPage({ params }: { params: { code: string
               <CardContent className="p-6 space-y-4">
                 <div className="flex items-center gap-3">
                   <Palette className="h-6 w-6 text-emerald-600" />
-                  <h2 className="text-xl font-bold">עורך עיצוב המסך</h2>
+                  <h2 className="text-xl font-bold">עריכת הלוח והמסך</h2>
                 </div>
                 <p className="text-sm text-slate-600">
-                  עיצוב מותאם אישית של תצוגת ה-TV שלך — מיקום widgets,
-                  צבעים, גופנים, רקע, לוגו ועוד. השמירה תופיע מיד על הטלוויזיה.
+                  פעילויות, נושא השבוע, מה רואים בלוח וגודל הטקסט — עם תצוגה חיה של המסך.
                 </p>
-                <Link href={`/admin/layout-demo?dept=${deptId}`}>
-                  <Button className="w-full rounded-2xl py-5 text-lg font-bold bg-emerald-600 hover:bg-emerald-700 gap-2">
-                    <Palette className="h-5 w-5" />
-                    פתח עורך עיצוב למחלקה זו
-                    <ExternalLink className="h-4 w-4" />
-                  </Button>
+                <Link href={`/admin/weekly?dept=${encodeURIComponent(code)}`}
+                  className="flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 py-4 text-lg font-bold text-white hover:bg-emerald-700">
+                  <Palette className="h-5 w-5" />
+                  פתיחת עורך הלוח השבועי
                 </Link>
-                <p className="text-xs text-slate-500 text-center">
-                  אם אין עיצוב מותאם — המסך מציג את הלייאוט המובנה
-                </p>
               </CardContent>
             </Card>
           </TabsContent>

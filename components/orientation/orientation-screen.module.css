@@ -1,0 +1,371 @@
+/* ─────────────────────────────────────────────────────────────
+   מסך התמצאות — לוח התמצאות בזהות אשכולות
+   יחידת מידה אחת מחושבת מגודל המסך, כך שהכול נכנס
+   תמיד במסך אחד, לרוחב או לאורך, בלי גלילה.
+   ───────────────────────────────────────────────────────────── */
+
+.stage {
+  --ink: #3f2f2d;        /* חום-בורדו של הלוגו — ערכים */
+  --paper: #f6f2ee;      /* קרם — רקע */
+  --sage: #5a826f;       /* מרווה — כותרות קטנות */
+  --sun: #fab822;
+  --coral: #f6977e;
+  --sun-tint: #fdf0cc;
+  --coral-tint: #fde8e1;
+  --sage-tint: #e3ece7;
+  --hair: rgba(63, 47, 45, 0.12);
+
+  /* --cu: גודל הקנבס (קבוע למסך). --u: גודל התוכן (מוקטן אוטומטית אם משהו לא נכנס) */
+  --fit: 1;
+  --cu: min(1vh, 0.5625vw);
+  --u: calc(var(--cu) * var(--fit));
+
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: "Rubik Orientation", "Rubik", "Assistant", "Noto Sans Hebrew", "Noto Sans Arabic", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.stage[data-layout="portrait"] {
+  --cu: min(1vw, 0.5625vh);
+}
+
+/* הקנבס: 16:9 לרוחב, 9:16 לאורך */
+.canvas {
+  position: relative;
+  width: calc(var(--cu) * 177.78);
+  height: calc(var(--cu) * 100);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  overflow: hidden;
+}
+
+.stage[data-layout="portrait"] .canvas {
+  width: calc(var(--cu) * 100);
+  height: calc(var(--cu) * 177.78);
+}
+
+/* ── כותרת: לוגו · מחלקה · נקודות שפה ── */
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--u) * 3);
+  padding: calc(var(--u) * 3.2) calc(var(--u) * 4.5) 0;
+}
+
+.logo {
+  height: calc(var(--u) * 6.6);
+  width: auto;
+  flex-shrink: 0;
+}
+
+.headerRule {
+  width: 1px;
+  align-self: stretch;
+  margin: calc(var(--u) * 0.6) 0;
+  background: var(--hair);
+}
+
+.dept {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--u) * 0.2);
+  min-width: 0;
+}
+
+.deptValue {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--u) * 1.1);
+  font-size: calc(var(--u) * 3.9);
+  font-weight: 700;
+  line-height: 1.15;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.deptDot {
+  width: calc(var(--u) * 1.6);
+  height: calc(var(--u) * 1.6);
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 calc(var(--u) * 0.35) #fff;
+}
+
+.langDots {
+  margin-inline-start: auto;
+  display: flex;
+  gap: calc(var(--u) * 0.8);
+  align-items: center;
+}
+
+.langDot {
+  height: calc(var(--u) * 1.3);
+  width: calc(var(--u) * 1.3);
+  border-radius: 999px;
+  background: rgba(63, 47, 45, 0.18);
+  transition: width 500ms ease, background-color 500ms ease;
+}
+
+.langDotOn {
+  width: calc(var(--u) * 4.2);
+  background: var(--sage);
+}
+
+.stage[data-layout="portrait"] .header {
+  padding: calc(var(--u) * 4.5) calc(var(--u) * 5) 0;
+}
+
+.stage[data-layout="portrait"] .logo {
+  height: calc(var(--u) * 8);
+}
+
+.stage[data-layout="portrait"] .deptValue {
+  font-size: calc(var(--u) * 4.6);
+}
+
+/* ── שני צבעים קבועים: כותרת (מרווה) וערך (חום) ── */
+
+.label {
+  font-size: calc(var(--u) * 2.75);
+  font-weight: 600;
+  line-height: 1.15;
+  color: var(--sage);
+}
+
+.value {
+  color: var(--ink);
+  font-weight: 800;
+}
+
+/* טקסט שמתכווץ לבד כדי להיכנס בשורה אחת */
+.fit {
+  display: block;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  font-size: calc(var(--u) * var(--fs, 8));
+}
+
+/* ── גוף ── */
+
+.main {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--u) * 2.6);
+  padding: calc(var(--u) * 2.8) calc(var(--u) * 4.5) calc(var(--u) * 3);
+  animation: settle 700ms ease both;
+}
+
+.stage[data-layout="portrait"] .main {
+  gap: calc(var(--u) * 3);
+  padding: calc(var(--u) * 3.4) calc(var(--u) * 5) calc(var(--u) * 3.6);
+}
+
+/* ── למעלה: חלק היום + מזג אוויר ── */
+
+.top {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  border-radius: calc(var(--u) * 3.4);
+  overflow: hidden;
+}
+
+.top[data-tod="morning"],
+.top[data-tod="noon"] { background: var(--sun-tint); }
+.top[data-tod="evening"] { background: var(--coral-tint); }
+.top[data-tod="night"] { background: var(--sage-tint); }
+
+.top[data-single] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.topCell {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--u) * 2.4);
+  padding: calc(var(--u) * 2.2) calc(var(--u) * 3.6);
+  min-width: 0;
+}
+
+/* הקו בין שני החלקים — תמיד באמצע, גם כשהטקסט בשפה משמאל לימין */
+.topCell + .topCell {
+  border-right: 1px solid var(--hair);
+}
+
+.topCell > svg {
+  width: calc(var(--u) * 7);
+  height: calc(var(--u) * 7);
+  flex-shrink: 0;
+}
+
+.top[data-tod="morning"] .todIcon,
+.top[data-tod="noon"] .todIcon { color: #c98a00; }
+.top[data-tod="evening"] .todIcon { color: #d9674a; }
+.top[data-tod="night"] .todIcon { color: var(--sage); }
+
+.weatherIcon {
+  color: var(--ink);
+  opacity: 0.85;
+}
+
+.topText {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--u) * 0.3);
+  min-width: 0;
+  flex: 1;
+}
+
+.topValue {
+  line-height: 1.1;
+}
+
+.temp {
+  direction: ltr;
+  unicode-bidi: isolate;
+  font-variant-numeric: tabular-nums;
+}
+
+.weatherDesc {
+  font-weight: 600;
+  margin-inline-start: 0.45em;
+  font-size: 0.62em;
+}
+
+.stage[data-layout="portrait"] .top {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.stage[data-layout="portrait"] .topCell {
+  padding: calc(var(--u) * 2.4) calc(var(--u) * 4);
+}
+
+.stage[data-layout="portrait"] .topCell + .topCell {
+  border-right: 0;
+  border-top: 1px solid var(--hair);
+}
+
+.stage[data-layout="portrait"] .topCell > svg {
+  width: calc(var(--u) * 8);
+  height: calc(var(--u) * 8);
+}
+
+.stage[data-layout="portrait"] .top .label {
+  font-size: calc(var(--u) * 3.3);
+}
+
+/* ── לוח ההתמצאות ── */
+
+.board {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0;
+  background: #fff;
+  border-radius: calc(var(--u) * 3.4);
+  padding: calc(var(--u) * 1) calc(var(--u) * 4);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-auto-rows: 1fr;
+  column-gap: calc(var(--u) * 6);
+}
+
+.row {
+  display: grid;
+  grid-template-columns: calc(var(--u) * 25) minmax(0, 1fr);
+  align-items: baseline;
+  align-content: center;
+  gap: calc(var(--u) * 2);
+  border-top: 1px solid var(--hair);
+  padding: calc(var(--u) * 1.2) 0;
+}
+
+/* השורה הראשונה בכל עמודה בלי קו מעליה */
+.row:nth-child(-n + 2) {
+  border-top: 0;
+}
+
+.row dt,
+.row dd {
+  margin: 0;
+}
+
+.row .label {
+  font-size: calc(var(--u) * 3.7);
+  white-space: nowrap;
+}
+
+.rowValue {
+  line-height: 1.1;
+}
+
+.stage[data-layout="portrait"] .board {
+  grid-template-columns: minmax(0, 1fr);
+  padding: calc(var(--u) * 1) calc(var(--u) * 5);
+}
+
+.stage[data-layout="portrait"] .row {
+  grid-template-columns: calc(var(--u) * 27) minmax(0, 1fr);
+}
+
+.stage[data-layout="portrait"] .row:nth-child(2) {
+  border-top: 1px solid var(--hair);
+}
+
+.stage[data-layout="portrait"] .row .label {
+  font-size: calc(var(--u) * 4.4);
+}
+
+/* ── מסר מרגיע: פס מרווה לכל רוחב המסך ── */
+
+.calm {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--u) * 2.2);
+  min-height: calc(var(--u) * 11);
+  padding: calc(var(--u) * 2) calc(var(--u) * 4.5);
+  background: var(--sage);
+  color: #fff;
+  font-size: calc(var(--u) * 3.9);
+  font-weight: 500;
+  line-height: 1.25;
+}
+
+.calm svg {
+  width: calc(var(--u) * 4.6);
+  height: calc(var(--u) * 4.6);
+  flex-shrink: 0;
+  opacity: 0.9;
+}
+
+.stage[data-layout="portrait"] .calm {
+  min-height: calc(var(--u) * 14);
+  padding: calc(var(--u) * 2.6) calc(var(--u) * 5);
+  font-size: calc(var(--u) * 4.4);
+}
+
+/* ערבית צריכה יותר גובה שורה */
+.main:lang(ar) .rowValue,
+.main:lang(ar) .topValue { line-height: 1.3; }
+
+/* ── מעבר שפה: שינוי אחד רך, בלי תזוזה ── */
+
+@keyframes settle {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .main { animation: none; }
+  .langDot { transition: none; }
+}

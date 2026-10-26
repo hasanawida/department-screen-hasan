@@ -32,7 +32,7 @@ const GROUPS: { title?: string; items: Item[] }[] = [
       { href: "/admin/import", label: "ייבוא מהיומן", icon: CalendarSync },
       { href: "/admin/announcements", label: "הודעות חשובות", icon: Megaphone },
       { href: "/admin/ticker", label: "שורת רצה", icon: MessageSquare },
-      { href: "/admin/topics", label: "נושא השבוע", icon: Sparkles },
+      { href: "/admin/topics", label: "תוכנית נושאים", icon: Sparkles },
     ],
   },
   {

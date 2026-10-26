@@ -3,28 +3,41 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { CalendarDays, ChevronRight, ChevronLeft, Copy, ExternalLink, Loader2, RefreshCw, Trash2, X, Check } from "lucide-react";
+import { CalendarDays, ChevronRight, ChevronLeft, Copy, ExternalLink, Loader2, RefreshCw, Repeat, Trash2, Undo2, Users, X, Check } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import DepartmentDisplay, { type ViewKind } from "@/components/display/department-display";
 import { insertActivities, updateActivity } from "@/lib/activities-db";
 import { Field, Toggle, inputCls, usePreviewCu } from "@/components/admin/brand-ui";
+import TopicCard from "@/components/admin/topic-card";
+import { ensureInstructors, refreshDepartmentScreens } from "@/lib/screens";
+import type { TopicData } from "@/lib/topics";
 import {
-  DAY_CODES, DAY_NAMES, activitiesByDay, addDaysISO, displaySettings, israelDateISO, menuFromRows, shortDate,
+  DAY_CODES, DAY_NAMES, activitiesByDay, addDaysISO, dayCodeIndex, dayIndexOf, displaySettings, israelDateISO, menuFromRows, shortDate,
   weekDatesISO, weekStartISO, weeklyBoardSettings,
   type ActivityRow, type BoardActivity, type DisplaySettings, type MenuRow, type WeeklyBoardSettings,
 } from "@/lib/week";
 
 type Dept = { id: string; name: string; code: string; color: string | null };
+/**
+ * סוג הפעילות שנערכת:
+ * new — חדשה; recurring — קבועה, חוזרת כל שבוע; weekcopy — שינוי לשבוע אחד של פעילות קבועה;
+ * oneoff — רק בתאריך אחד; calendar — הגיעה מיומן Outlook
+ */
+type DraftKind = "new" | "recurring" | "weekcopy" | "oneoff" | "calendar";
 type Draft = {
   id: string | null;            // null = פעילות חדשה
+  kind: DraftKind;
   title: string;
   dayIndex: number;
+  /** ביום הזה הפעילות הקבועה מתקיימת (לפני השינוי) */
+  originalDayIndex: number;
   start: string;
   end: string;
   location: string;
   instructor: string;
-  repeat: boolean;              // true = כל שבוע, false = רק בתאריך הזה
+  repeat: boolean;              // לחדשה ולחד-פעמית: true = כל שבוע, false = רק בתאריך הזה
   fromCalendar: boolean;
+  parentId: string | null;
 };
 
 const TICKER_OPTIONS: { value: string; label: string }[] = [
@@ -46,7 +59,8 @@ export default function WeeklyEditor() {
   const [rows, setRows] = useState<ActivityRow[]>([]);
   const [settingsId, setSettingsId] = useState<string | null>(null);
   const [display, setDisplay] = useState<DisplaySettings>(displaySettings({}));
-  const [topic, setTopic] = useState<{ id: string | null; title: string; description: string }>({ id: null, title: "", description: "" });
+  const [previewTopic, setPreviewTopic] = useState<TopicData | null>(null);
+  const [attendance, setAttendance] = useState<{ names: string[]; date: string } | null>(null);
   const [menuRows, setMenuRows] = useState<MenuRow[]>([]);
   const [instructors, setInstructors] = useState<string[]>([]);
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -100,26 +114,16 @@ export default function WeeklyEditor() {
 
   useEffect(() => {
     if (!deptId) return;
-    supabase.from("weekly_topics").select("id, title, description, week_start").eq("department_id", deptId).eq("is_active", true)
-      .lte("week_start", weekDates[6]).order("week_start", { ascending: false }).limit(1).maybeSingle()
-      .then(({ data }) => setTopic(data ? { id: data.week_start === weekStart ? data.id : null, title: data.title ?? "", description: data.description ?? "" } : { id: null, title: "", description: "" }));
+    setDraft(null);
     supabase.from("weekly_menus").select("week_start, day_index, meal, items").eq("week_start", weekStart)
       .then(({ data }) => setMenuRows((data ?? []) as MenuRow[]));
-  }, [supabase, deptId, weekStart]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [supabase, deptId, weekStart]);
 
   const days = useMemo(() => activitiesByDay(rows, weekStart), [rows, weekStart]);
   const visibleRows = rows.filter(r => r.is_active !== false);
 
   /* ── רענון המסכים במחלקה אחרי שינוי ── */
-  const pulse = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const refreshScreens = useCallback(() => {
-    if (!deptId) return;
-    if (pulse.current) clearTimeout(pulse.current);
-    pulse.current = setTimeout(async () => {
-      await supabase.from("departments").update({ force_refresh: true }).eq("id", deptId);
-      setTimeout(() => supabase.from("departments").update({ force_refresh: false }).eq("id", deptId), 3000);
-    }, 1500);
-  }, [supabase, deptId]);
+  const refreshScreens = useCallback(() => refreshDepartmentScreens(supabase, deptId), [supabase, deptId]);
 
   /* ── הגדרות תצוגה (נשמרות מיד) ── */
   const saveDisplay = useCallback(async (next: DisplaySettings) => {
@@ -140,81 +144,191 @@ export default function WeeklyEditor() {
   const openActivity = (a: BoardActivity) => {
     setView("weekly");
     setCopyDays([]);
-    setDraft({ id: a.id, title: a.title, dayIndex: a.dayIndex, start: a.start, end: a.end, location: a.location, instructor: a.instructor, repeat: a.recurring, fromCalendar: a.fromCalendar });
+    const kind: DraftKind = a.fromCalendar ? "calendar" : a.parentId ? "weekcopy" : a.recurring ? "recurring" : "oneoff";
+    setDraft({
+      id: a.id, kind, title: a.title, dayIndex: a.dayIndex, originalDayIndex: a.dayIndex, start: a.start, end: a.end,
+      location: a.location, instructor: a.instructor, repeat: a.recurring, fromCalendar: a.fromCalendar, parentId: a.parentId,
+    });
   };
   const openNew = (dayIndex: number) => {
     setView("weekly");
     setCopyDays([]);
-    setDraft({ id: null, title: "", dayIndex, start: "10:00", end: "", location: "", instructor: "", repeat: true, fromCalendar: false });
+    setDraft({ id: null, kind: "new", title: "", dayIndex, originalDayIndex: dayIndex, start: "10:00", end: "", location: "", instructor: "", repeat: true, fromCalendar: false, parentId: null });
   };
 
-  const rowFromDraft = (d: Draft, dayIndex: number) => ({
+  /** שורה לשמירה. weekly=true — פעילות קבועה (בלי תאריך), אחרת — בתאריך של היום הזה בשבוע המוצג */
+  const rowFromDraft = (d: Draft, dayIndex: number, weekly: boolean) => ({
     title: d.title.trim(),
     start_time: d.start,
     end_time: d.end || null,
     location: d.location.trim() || null,
     instructor_name: d.instructor.trim() || null,
     day_of_week: DAY_CODES[dayIndex],
-    activity_date: d.repeat ? null : weekDates[dayIndex],
-    is_recurring: d.repeat,
+    activity_date: weekly ? null : weekDates[dayIndex],
+    is_recurring: weekly,
     is_active: true,
   });
 
-  const saveDraft = async () => {
+  /** הוספת השבוע (יום ראשון) לרשימת השבועות שבהם פעילות קבועה לא מוצגת */
+  const skipWeek = async (row: ActivityRow | undefined, date: string, remove = false) => {
+    if (!row) return "הפעילות לא נמצאה";
+    const cur = (row.skip_dates ?? []).filter(Boolean);
+    const next = remove ? cur.filter(d => d !== date) : Array.from(new Set([...cur, date])).sort();
+    const res = await supabase.from("activities").update({ skip_dates: next }).eq("id", row.id);
+    if (res.error) return /skip_dates/.test(res.error.message) ? "צריך להריץ את scripts/012_topics_plan_attendance.sql ב-Supabase" : res.error.message;
+    return null;
+  };
+
+  /** mode: "week" — רק לשבוע המוצג, "all" — לכל השבועות (לפעילות קבועה) */
+  const saveDraft = async (mode: "week" | "all" = "all") => {
     if (!draft || !deptId) return;
     if (!draft.title.trim()) { flash("צריך שם לפעילות"); return; }
     if (!/^\d{2}:\d{2}$/.test(draft.start)) { flash("צריך שעת התחלה"); return; }
     setBusy(true);
-    const base = rowFromDraft(draft, draft.dayIndex);
+    const original = draft.id ? rows.find(r => String(r.id) === draft.id) : undefined;
     let error: string | null = null;
-    if (draft.id) {
-      const original = rows.find(r => String(r.id) === draft.id);
-      const patch: Record<string, unknown> = { ...base };
-      if (original?.external_uid) patch.source = "override"; // מעכשיו היומן לא ידרוס את השינוי
-      const res = await updateActivity(supabase, draft.id, patch);
-      error = res.error?.message ?? null;
+    // האם הפעילות (והעתקים לימים נוספים) נשמרת כקבועה
+    let weekly = draft.repeat;
+
+    if (draft.kind === "new") {
+      error = (await insertActivities(supabase, [{ ...rowFromDraft(draft, draft.dayIndex, weekly), department_id: deptId, source: "manual" }])).error?.message ?? null;
+    } else if (draft.kind === "recurring" && mode === "week") {
+      // שינוי רק לשבוע הזה: הקבועה לא מוצגת השבוע, ובמקומה העתק עם התאריך של השבוע
+      weekly = false;
+      error = await skipWeek(original, weekStart);
+      if (!error) {
+        const res = await supabase.from("activities").insert({
+          ...rowFromDraft(draft, draft.dayIndex, false), department_id: deptId, source: "manual", parent_id: draft.id,
+        });
+        error = res.error?.message ?? null;
+        // ההעתק לא נשמר — מחזירים את הפעילות הקבועה לשבוע הזה
+        if (error) await skipWeek({ ...original!, skip_dates: [...(original?.skip_dates ?? []), weekStart] }, weekStart, true);
+      }
     } else {
-      const res = await insertActivities(supabase, [{ ...base, department_id: deptId, source: "manual" }]);
-      error = res.error?.message ?? null;
+      if (draft.kind === "recurring") weekly = true;
+      if (draft.kind === "weekcopy" || draft.kind === "calendar") weekly = false;
+      const patch: Record<string, unknown> = { ...rowFromDraft(draft, draft.dayIndex, weekly) };
+      if (original?.external_uid) patch.source = "override"; // מעכשיו היומן לא ידרוס את השינוי
+      error = (await updateActivity(supabase, draft.id!, patch)).error?.message ?? null;
     }
+
     if (!error && copyDays.length) {
-      const copies = copyDays.filter(i => i !== draft.dayIndex).map(i => ({ ...rowFromDraft(draft, i), department_id: deptId, source: "manual" }));
+      const copies = copyDays.filter(i => i !== draft.dayIndex).map(i => ({ ...rowFromDraft(draft, i, weekly), department_id: deptId, source: "manual" }));
       if (copies.length) error = (await insertActivities(supabase, copies)).error?.message ?? null;
     }
+    if (!error && draft.instructor.trim()) await ensureInstructors(supabase, [draft.instructor]); // קישור אישי למפעיל
     setBusy(false);
     if (error) { flash("לא נשמר: " + error); return; }
-    flash(copyDays.length ? "נשמר והועתק" : "נשמר");
+    flash(mode === "week" && draft.kind === "recurring" ? "נשמר לשבוע הזה בלבד" : copyDays.length ? "נשמר והועתק" : "נשמר");
     setDraft(null);
     await loadActivities();
     refreshScreens();
   };
 
-  const deleteDraft = async () => {
+  /** mode: "week" — רק השבוע, "all" — מכל השבועות, "restore" — ביטול שינוי שבועי וחזרה לפעילות הקבועה */
+  const deleteDraft = async (mode: "week" | "all" | "restore" = "all") => {
     if (!draft?.id) return;
     setBusy(true);
     const original = rows.find(r => String(r.id) === draft.id);
-    const res = original?.external_uid
-      ? await updateActivity(supabase, draft.id, { is_active: false, source: "override" }) // נשאר מוסתר — היומן לא יחזיר אותו
-      : await supabase.from("activities").delete().eq("id", draft.id);
+    let error: string | null = null;
+    if (draft.kind === "recurring" && mode === "week") {
+      error = await skipWeek(original, weekStart);
+    } else if (draft.kind === "weekcopy" && mode === "restore") {
+      const parent = rows.find(r => String(r.id) === draft.parentId);
+      error = (await supabase.from("activities").delete().eq("id", draft.id)).error?.message ?? null;
+      if (!error && parent) error = await skipWeek(parent, weekStart, true);
+    } else if (draft.kind === "recurring" && mode === "all") {
+      // מחיקה מכל השבועות: גם השינויים לשבועות הבאים נמחקים (מה שכבר עבר נשאר בהיסטוריה)
+      error = (await supabase.from("activities").delete().eq("parent_id", draft.id).gte("activity_date", today)).error?.message ?? null;
+      if (!error) error = (await supabase.from("activities").delete().eq("id", draft.id)).error?.message ?? null;
+    } else if (original?.external_uid) {
+      error = (await updateActivity(supabase, draft.id, { is_active: false, source: "override" })).error?.message ?? null; // היומן לא יחזיר אותה
+    } else {
+      error = (await supabase.from("activities").delete().eq("id", draft.id)).error?.message ?? null;
+    }
     setBusy(false);
-    if (res.error) { flash("לא נמחק: " + res.error.message); return; }
-    flash("נמחק");
+    if (error) { flash("לא נמחק: " + error); return; }
+    flash(mode === "restore" ? "חזרה לפעילות הקבועה" : mode === "week" || draft.kind === "weekcopy" ? "בוטל לשבוע הזה" : "נמחק");
     setDraft(null);
     await loadActivities();
     refreshScreens();
   };
 
-  /* ── נושא השבוע ── */
-  const saveTopic = async () => {
-    if (!deptId) return;
-    const title = topic.title.trim();
-    const description = topic.description.trim();
-    let res;
-    if (topic.id) res = await supabase.from("weekly_topics").update({ title, description, is_active: !!title }).eq("id", topic.id);
-    else if (title) res = await supabase.from("weekly_topics").insert({ department_id: deptId, title, description, week_start: weekStart, is_active: true }).select("id").single();
-    if (res?.error) { flash("לא נשמר: " + res.error.message); return; }
-    if (res && "data" in res && res.data && (res.data as any).id) setTopic(t => ({ ...t, id: (res!.data as any).id }));
-    flash("נושא השבוע נשמר");
+  /* ── נוכחות בפעילות שנבחרה ── */
+  useEffect(() => {
+    setAttendance(null);
+    if (!draft?.id || draft.kind === "new") return;
+    const row = rows.find(r => String(r.id) === draft.id);
+    const date = draft.kind === "recurring" ? weekDates[draft.originalDayIndex] : row?.activity_date ?? weekDates[draft.dayIndex];
+    if (!date || date > today) return;
+    let alive = true;
+    supabase.from("activity_attendance").select("resident_name").eq("activity_id", draft.id).eq("occurrence_date", date)
+      .then(({ data, error }) => { if (alive && !error) setAttendance({ date, names: (data ?? []).map((r: any) => r.resident_name).sort((a: string, b: string) => a.localeCompare(b, "he")) }); });
+    return () => { alive = false; };
+  }, [supabase, draft?.id, draft?.kind, draft?.originalDayIndex, weekStart, today]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* ── שבוע ריק: הפעילויות נשמרו פעם לשבוע אחד ── */
+  const dated = useMemo(() => visibleRows.filter(r => r.activity_date && !r.external_uid && !r.parent_id), [visibleRows]);
+  const emptyWeek = days.every(d => d.length === 0);
+  const templateWeek = useMemo(() => {
+    const past = dated.filter(r => r.activity_date! < weekStart);
+    if (!emptyWeek || past.length === 0) return null;
+    const latest = past.map(r => r.activity_date!).sort().pop()!;
+    const ws = weekStartISO(latest);
+    const list = past.filter(r => weekStartISO(r.activity_date!) === ws);
+    return { weekStart: ws, rows: list };
+  }, [emptyWeek, dated, weekStart]);
+
+  /* ── פעילויות קבועות שבוטלו לשבוע הזה (בלי שינוי במקומן) ── */
+  const cancelledThisWeek = useMemo(() => visibleRows.filter(r => {
+    if (r.activity_date || !r.day_of_week) return false;
+    if (dayCodeIndex(r.day_of_week) < 0 || !(r.skip_dates ?? []).includes(weekStart)) return false;
+    return !visibleRows.some(c => c.parent_id === r.id && c.activity_date && c.activity_date >= weekDates[0] && c.activity_date <= weekDates[6]);
+  }), [visibleRows, weekDates, weekStart]);
+
+  const restoreCancelled = async (r: ActivityRow) => {
+    setBusy(true);
+    const error = await skipWeek(r, weekStart, true);
+    setBusy(false);
+    if (error) { flash("לא הוחזר: " + error); return; }
+    flash("הפעילות חזרה לשבוע הזה");
+    await loadActivities();
+    refreshScreens();
+  };
+
+  const makeRecurring = async () => {
+    if (!templateWeek) return;
+    setBusy(true);
+    let error: string | null = null;
+    for (const r of templateWeek.rows) {
+      const res = await supabase.from("activities").update({
+        activity_date: null, is_recurring: true, day_of_week: DAY_CODES[dayIndexOf(r.activity_date!)],
+      }).eq("id", r.id);
+      if (res.error) { error = res.error.message; break; }
+    }
+    setBusy(false);
+    if (error) { flash("לא הצליח: " + error); return; }
+    flash("הלוח חוזר מעכשיו כל שבוע");
+    await loadActivities();
+    refreshScreens();
+  };
+
+  const copyTemplateHere = async () => {
+    if (!templateWeek || !deptId) return;
+    setBusy(true);
+    const copies = templateWeek.rows.map(r => {
+      const idx = dayIndexOf(r.activity_date!);
+      return {
+        department_id: deptId, title: r.title, start_time: r.start_time, end_time: r.end_time, location: r.location ?? null,
+        instructor_name: r.instructor_name ?? null, day_of_week: DAY_CODES[idx], activity_date: weekDates[idx],
+        is_recurring: false, is_active: true, source: "manual",
+      };
+    });
+    const res = await insertActivities(supabase, copies);
+    setBusy(false);
+    if (res.error) { flash("לא הועתק: " + res.error.message); return; }
+    flash("הועתק לשבוע הזה");
+    await loadActivities();
     refreshScreens();
   };
 
@@ -245,7 +359,7 @@ export default function WeeklyEditor() {
       copy[draft.dayIndex] = [...copy[draft.dayIndex], {
         id: draft.id ?? "__draft", title: draft.title || "פעילות חדשה", start: draft.start, end: draft.end,
         location: draft.location, instructor: draft.instructor, dayIndex: draft.dayIndex as BoardActivity["dayIndex"],
-        date: draft.repeat ? null : weekDates[draft.dayIndex], recurring: draft.repeat, fromCalendar: draft.fromCalendar,
+        date: draft.repeat ? null : weekDates[draft.dayIndex], recurring: draft.repeat, fromCalendar: draft.fromCalendar, parentId: draft.parentId,
       }].sort((a, b) => a.start.localeCompare(b.start));
     }
     return copy;
@@ -308,6 +422,21 @@ export default function WeeklyEditor() {
               {calendarCount > 0 && <span className="ms-3 whitespace-nowrap"><CalendarDays className="inline h-4 w-4 align-[-3px] text-[#5A826F]" /> {calendarCount} מהיומן</span>}
             </span>
           </div>
+          {templateWeek && (
+            <div className="mb-3 flex flex-wrap items-center gap-3 rounded-2xl bg-[#FDF0CC] p-4 text-[15px]">
+              <span className="min-w-0 flex-1">
+                בשבוע הזה אין פעילויות בלוח. בשבוע של {shortDate(templateWeek.weekStart)} נשמרו {templateWeek.rows.length} פעילויות לשבוע אחד בלבד.
+              </span>
+              <button onClick={makeRecurring} disabled={busy}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-[#3F2F2D] px-3.5 py-2 text-sm font-semibold text-[#F6F2EE] hover:bg-[#3F2F2D]/90 disabled:opacity-60">
+                <Repeat className="h-4 w-4" /> להפוך ללוח קבוע שחוזר כל שבוע
+              </button>
+              <button onClick={copyTemplateHere} disabled={busy}
+                className="rounded-xl border border-[#3F2F2D]/20 bg-white px-3.5 py-2 text-sm font-semibold hover:bg-[#F6F2EE] disabled:opacity-60">
+                להעתיק רק לשבוע הזה
+              </button>
+            </div>
+          )}
           <div ref={frameRef} className="relative w-full overflow-hidden rounded-2xl shadow-[0_10px_40px_rgba(63,47,45,0.15)] ring-1 ring-[#3F2F2D]/10" style={{ aspectRatio: "16 / 9" }}>
             <DepartmentDisplay
               department={{ id: dept.id, name: dept.name, color: dept.color }}
@@ -315,7 +444,7 @@ export default function WeeklyEditor() {
               days={previewDays}
               settings={display}
               board={board}
-              topic={topic.title ? { title: topic.title, description: topic.description } : null}
+              topic={previewTopic}
               menu={menuFromRows(menuRows)}
               messages={[]}
               news={["כאן יופיעו כותרות N12 ו/או הודעות חשובות"]}
@@ -325,6 +454,26 @@ export default function WeeklyEditor() {
               editor={view === "weekly" ? { selectedId: draft?.id ?? (draft ? "__draft" : null), onSelect: openActivity, onAdd: openNew } : undefined}
             />
           </div>
+
+          {cancelledThisWeek.length > 0 && (
+            <div className="mt-3 rounded-2xl bg-white p-4 text-sm shadow-sm">
+              <div className="mb-2 font-bold">פעילויות קבועות שבוטלו השבוע</div>
+              <ul className="space-y-1.5">
+                {cancelledThisWeek.map(r => (
+                  <li key={r.id} className="flex items-center justify-between gap-3">
+                    <span className="min-w-0 truncate">
+                      <span className="font-semibold">{r.title}</span>
+                      <span className="text-[#3F2F2D]/60">, יום {DAY_NAMES[dayCodeIndex(r.day_of_week!)]} {String(r.start_time ?? "").slice(0, 5)}</span>
+                    </span>
+                    <button onClick={() => restoreCancelled(r)} disabled={busy}
+                      className="inline-flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1 font-semibold text-[#5A826F] hover:bg-[#E3ECE7] disabled:opacity-60">
+                      <Undo2 className="h-4 w-4" /> החזרה
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
 
         {/* לוח צד */}
@@ -340,6 +489,17 @@ export default function WeeklyEditor() {
                 <p className="mb-4 rounded-xl bg-[#E3ECE7] p-3 text-sm leading-relaxed">
                   <CalendarDays className="me-1 inline h-4 w-4 align-[-3px] text-[#5A826F]" />
                   הפעילות הגיעה מהיומן. שינוי כאן נשמר במערכת, והיומן לא ידרוס אותו.
+                </p>
+              )}
+              {draft.kind === "recurring" && (
+                <p className="mb-4 rounded-xl bg-[#F6F2EE] p-3 text-sm leading-relaxed">
+                  <Repeat className="me-1 inline h-4 w-4 align-[-3px] text-[#5A826F]" />
+                  פעילות קבועה — חוזרת כל שבוע. אפשר לשנות רק לשבוע הזה, או לכל השבועות.
+                </p>
+              )}
+              {draft.kind === "weekcopy" && (
+                <p className="mb-4 rounded-xl bg-[#FDF0CC] p-3 text-sm leading-relaxed">
+                  שינוי לשבוע הזה בלבד. בשבוע הבא חוזרת הפעילות הקבועה.
                 </p>
               )}
 
@@ -373,12 +533,12 @@ export default function WeeklyEditor() {
                     {Array.from(new Set([...instructors, ...visibleRows.map(r => r.instructor_name ?? "").filter(Boolean)])).map(n => <option key={n} value={n} />)}
                   </datalist>
                 </Field>
-                <Field label="חזרה">
+                {(draft.kind === "new" || draft.kind === "oneoff") && <Field label="חזרה">
                   <div className="grid grid-cols-2 gap-1 rounded-xl bg-[#F6F2EE] p-1 text-sm font-semibold">
                     <button type="button" onClick={() => setDraft({ ...draft, repeat: true })} className={"rounded-lg py-2 " + (draft.repeat ? "bg-white shadow-sm" : "text-[#3F2F2D]/60")}>כל שבוע</button>
                     <button type="button" onClick={() => setDraft({ ...draft, repeat: false })} className={"rounded-lg py-2 " + (!draft.repeat ? "bg-white shadow-sm" : "text-[#3F2F2D]/60")}>רק ב-{shortDate(weekDates[draft.dayIndex])}</button>
                   </div>
-                </Field>
+                </Field>}
                 <Field label="להעתיק גם לימים">
                   <div className="grid grid-cols-7 gap-1">
                     {DAY_NAMES.map((n, i) => (
@@ -392,30 +552,65 @@ export default function WeeklyEditor() {
                 </Field>
               </div>
 
-              <div className="mt-5 flex items-center gap-2">
-                <button onClick={saveDraft} disabled={busy}
-                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#3F2F2D] py-2.5 font-semibold text-[#F6F2EE] hover:bg-[#3F2F2D]/90 disabled:opacity-60">
-                  {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : copyDays.length ? <Copy className="h-4 w-4" /> : <Check className="h-4 w-4" />}
-                  {copyDays.length ? `שמירה והעתקה ל-${copyDays.length} ימים` : "שמירה"}
-                </button>
-                {draft.id && (
-                  <button onClick={deleteDraft} disabled={busy} aria-label="מחיקה"
-                    className="inline-flex items-center gap-1 rounded-xl border border-red-200 px-3 py-2.5 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:opacity-60">
-                    <Trash2 className="h-4 w-4" /> מחיקה
+              {attendance && (
+                <div className="mt-4 rounded-xl bg-[#E3ECE7] p-3 text-sm">
+                  <div className="mb-1 flex items-center gap-1.5 font-bold text-[#375044]">
+                    <Users className="h-4 w-4" />
+                    {attendance.names.length ? `השתתפו ב-${shortDate(attendance.date)}: ${attendance.names.length}` : `עוד לא סומנה נוכחות ל-${shortDate(attendance.date)}`}
+                  </div>
+                  {attendance.names.length > 0 && <p className="leading-relaxed">{attendance.names.join(", ")}</p>}
+                  {!attendance.names.length && <p className="text-[#3F2F2D]/65">המפעיל/ה מסמן/ת מי השתתף בעמוד האישי שלו/ה.</p>}
+                </div>
+              )}
+
+              {draft.kind === "recurring" ? (
+                <div className="mt-5 space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <button onClick={() => saveDraft("week")} disabled={busy}
+                      className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#3F2F2D] py-2.5 text-sm font-semibold text-[#F6F2EE] hover:bg-[#3F2F2D]/90 disabled:opacity-60">
+                      {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} שמירה לשבוע הזה
+                    </button>
+                    <button onClick={() => saveDraft("all")} disabled={busy}
+                      className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#5A826F] py-2.5 text-sm font-semibold text-white hover:bg-[#5A826F]/90 disabled:opacity-60">
+                      <Repeat className="h-4 w-4" /> שמירה לכל השבועות
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button onClick={() => deleteDraft("week")} disabled={busy}
+                      className="inline-flex items-center justify-center gap-1 rounded-xl border border-[#B56262]/30 py-2 text-sm font-semibold text-[#9e4f4f] hover:bg-[#FDE8E1] disabled:opacity-60">
+                      <X className="h-4 w-4" /> ביטול השבוע
+                    </button>
+                    <button onClick={() => deleteDraft("all")} disabled={busy}
+                      className="inline-flex items-center justify-center gap-1 rounded-xl border border-[#B56262]/30 py-2 text-sm font-semibold text-[#9e4f4f] hover:bg-[#FDE8E1] disabled:opacity-60">
+                      <Trash2 className="h-4 w-4" /> מחיקה מכל השבועות
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-5 flex flex-wrap items-center gap-2">
+                  <button onClick={() => saveDraft()} disabled={busy}
+                    className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#3F2F2D] py-2.5 font-semibold text-[#F6F2EE] hover:bg-[#3F2F2D]/90 disabled:opacity-60">
+                    {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : copyDays.length ? <Copy className="h-4 w-4" /> : <Check className="h-4 w-4" />}
+                    {copyDays.length ? `שמירה והעתקה ל-${copyDays.length} ימים` : "שמירה"}
                   </button>
-                )}
-              </div>
+                  {draft.kind === "weekcopy" && (
+                    <button onClick={() => deleteDraft("restore")} disabled={busy}
+                      className="inline-flex items-center gap-1 rounded-xl border border-[#3F2F2D]/15 px-3 py-2.5 text-sm font-semibold hover:bg-[#F6F2EE] disabled:opacity-60">
+                      <Undo2 className="h-4 w-4" /> חזרה לקבוע
+                    </button>
+                  )}
+                  {draft.id && (
+                    <button onClick={() => deleteDraft()} disabled={busy}
+                      className="inline-flex items-center gap-1 rounded-xl border border-[#B56262]/30 px-3 py-2.5 text-sm font-semibold text-[#9e4f4f] hover:bg-[#FDE8E1] disabled:opacity-60">
+                      <Trash2 className="h-4 w-4" /> {draft.kind === "weekcopy" ? "ביטול השבוע" : "מחיקה"}
+                    </button>
+                  )}
+                </div>
+              )}
             </section>
           ) : (
             <>
-              <section className="rounded-2xl bg-white p-5 shadow-sm">
-                <h2 className="mb-3 text-lg font-bold">נושא השבוע</h2>
-                <div className="space-y-2">
-                  <input value={topic.title} onChange={e => setTopic({ ...topic, title: e.target.value })} className={inputCls} placeholder="למשל: סתיו בגינה" />
-                  <input value={topic.description} onChange={e => setTopic({ ...topic, description: e.target.value })} className={inputCls} placeholder="משפט קצר (לא חובה)" />
-                  <button onClick={saveTopic} className="w-full rounded-xl bg-[#5A826F] py-2 text-sm font-semibold text-white hover:bg-[#5A826F]/90">שמירת נושא השבוע</button>
-                </div>
-              </section>
+              <TopicCard supabase={supabase} deptId={dept.id} weekStart={weekStart} onPreview={setPreviewTopic} />
 
               <section className="rounded-2xl bg-white p-5 shadow-sm">
                 <h2 className="mb-1 text-lg font-bold">מה רואים בלוח</h2>

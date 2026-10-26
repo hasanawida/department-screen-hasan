@@ -3,6 +3,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { notFound } from "next/navigation";
 import OrientationScreenWrapper from "@/components/orientation/orientation-screen-wrapper";
+import { activitiesByDay, dayIndexOf, weekStartISO, type ActivityRow } from "@/lib/week";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -37,7 +38,7 @@ async function translateDepartmentName(
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
+        model: "claude-haiku-5-5",
         max_tokens: 200,
         messages: [{
           role: "user",
@@ -95,21 +96,21 @@ export default async function OrientationPage({ params }: any) {
 
   // התאריך של היום לפי שעון ישראל (השרת של Vercel עובד ב-UTC, ובין חצות ל-3 לפנות בוקר היה מציג את פעילויות אתמול)
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jerusalem" }).format(new Date());
+  // הפעילויות של היום: גם קבועות (חוזרות כל שבוע) וגם של התאריך הזה, בלי שבועות שבוטלו
   const { data: rawActivities } = await supabase
     .from("activities")
-    .select("id, title, start_time, end_time, is_active")
+    .select("*")
     .eq("department_id", dept.id)
-    .eq("activity_date", today)
-    .eq("is_active", true)
-    .order("start_time", { ascending: true });
+    .eq("is_active", true);
+  const todays = activitiesByDay((rawActivities ?? []) as ActivityRow[], weekStartISO(today))[dayIndexOf(today)];
 
-  const activities = (rawActivities ?? []).map((a) => ({
-    id:        String(a.id),
+  const activities = todays.map((a) => ({
+    id:        a.id,
     title:     a.title,
-    startTime: a.start_time?.slice(0, 5) ?? "00:00",
-    endTime:   a.end_time?.slice(0, 5)   ?? "",
+    startTime: a.start || "00:00",
+    endTime:   a.end,
     category:  guessCategory(a.title),
-    isActive:  a.is_active,
+    isActive:  true,
   }));
 
   return (

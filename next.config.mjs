@@ -21,6 +21,11 @@ const nextConfig = {
           { key: 'Cache-Control', value: 'no-store' },
         ],
       },
+      // מסכים ועמודי צוות — תמיד הנתונים העדכניים, בלי מטמון
+      ...['/orientation/:path*', '/physio', '/staff/:path*', '/view/:path*'].map(source => ({
+        source,
+        headers: [{ key: 'Cache-Control', value: 'no-store' }],
+      })),
     ]
   },
 }

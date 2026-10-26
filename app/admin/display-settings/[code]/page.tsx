@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { CheckCircle, Settings, Bell, MessageSquare, Image as ImageIcon, Plus, Trash2, X, Palette } from "lucide-react";
 import Link from "next/link";
+import { refreshDepartmentScreens } from "@/lib/screens";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -126,7 +127,7 @@ export default function DisplaySettingsPage({ params }: { params: { code: string
       const merged = { ...((cur?.display_settings as any) || {}), ...managed };
       await supabase.from("screen_settings").update({ display_settings: merged }).eq("id", settingsId);
     }
-    await supabase.from("departments").update({ force_refresh: new Date().toISOString() }).eq("id", deptId);
+    refreshDepartmentScreens(supabase, deptId, 0);
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
   }
@@ -141,16 +142,19 @@ export default function DisplaySettingsPage({ params }: { params: { code: string
     }).select().single();
     if (data) setAnnouncements((a) => [data as Announcement, ...a]);
     setNewAnn({ title: "", content: "" });
+    refreshDepartmentScreens(supabase, deptId);
   }
 
   async function toggleAnnouncement(id: string, cur: boolean) {
     await supabase.from("announcements").update({ is_active: !cur }).eq("id", id);
     setAnnouncements((a) => a.map((x) => (x.id === id ? { ...x, is_active: !cur } : x)));
+    refreshDepartmentScreens(supabase, deptId);
   }
 
   async function deleteAnnouncement(id: string) {
     await supabase.from("announcements").delete().eq("id", id);
     setAnnouncements((a) => a.filter((x) => x.id !== id));
+    refreshDepartmentScreens(supabase, deptId);
   }
 
   async function addTicker() {
@@ -165,16 +169,19 @@ export default function DisplaySettingsPage({ params }: { params: { code: string
     }).select().single();
     if (data) setTickers((t) => [...t, data as Ticker]);
     setNewTicker("");
+    refreshDepartmentScreens(supabase, deptId);
   }
 
   async function toggleTicker(id: string, cur: boolean) {
     await supabase.from("ticker_messages").update({ is_active: !cur }).eq("id", id);
     setTickers((t) => t.map((x) => (x.id === id ? { ...x, is_active: !cur } : x)));
+    refreshDepartmentScreens(supabase, deptId);
   }
 
   async function deleteTicker(id: string) {
     await supabase.from("ticker_messages").delete().eq("id", id);
     setTickers((t) => t.filter((x) => x.id !== id));
+    refreshDepartmentScreens(supabase, deptId);
   }
 
   async function handleMediaUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -201,11 +208,13 @@ export default function DisplaySettingsPage({ params }: { params: { code: string
     }
     setIsUploading(false);
     e.target.value = "";
+    refreshDepartmentScreens(supabase, deptId);
   }
 
   async function deleteMedia(id: string) {
     await supabase.from("department_media").delete().eq("id", id);
     setMedia((m) => m.filter((x) => x.id !== id));
+    refreshDepartmentScreens(supabase, deptId);
   }
 
   function toggle(key: BoolKey) {

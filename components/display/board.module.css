@@ -189,12 +189,15 @@
   min-width: 0;
 }
 
+/* תמונת הנושא — בולטת, בצד של הנושא */
 .topicImg {
-  width: calc(var(--cu) * 5.4);
-  height: calc(var(--cu) * 5.4);
+  width: calc(var(--cu) * 12);
+  height: calc(var(--cu) * 8);
   object-fit: cover;
-  border-radius: calc(var(--cu) * 1.2);
+  border-radius: calc(var(--cu) * 1.4);
   flex-shrink: 0;
+  margin-block: calc(var(--cu) * -0.4);
+  box-shadow: 0 0 0 calc(var(--cu) * 0.3) rgba(255, 255, 255, 0.35);
 }
 
 .topicLabel {

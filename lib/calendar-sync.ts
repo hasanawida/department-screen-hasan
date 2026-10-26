@@ -5,6 +5,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { parseIcs, type IcsOccurrence } from "./ics";
 import { DAY_CODES, addDaysISO, dayIndexOf, israelDateISO, weekStartISO } from "./week";
+import { ensureInstructors } from "./screens";
 
 const STALE_MINUTES = 15;
 const WEEKS_AHEAD = 2;
@@ -119,6 +120,9 @@ export async function syncCalendarSource(supabase: SupabaseClient, source: Sourc
     }
     for (const u of updates) await supabase.from("activities").update(u.patch).eq("id", u.id);
     if (removals.length) await supabase.from("activities").delete().in("id", removals);
+
+    // למפעילים מהיומן — קישור אישי לסימון נוכחות
+    try { await ensureInstructors(supabase, Array.from(want.values()).map(w => w.instructor_name)); } catch { /* לא קריטי */ }
 
     const message =
       `${want.size} פעילויות בשבועיים הקרובים` +

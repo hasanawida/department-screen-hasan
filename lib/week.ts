@@ -66,6 +66,10 @@ export type ActivityRow = {
   is_active?: boolean | null;
   source?: string | null;
   external_uid?: string | null;
+  /** פעילות קבועה: שבועות (יום ראשון של השבוע) שבהם היא לא מתקיימת או הוחלפה בשינוי "רק השבוע" */
+  skip_dates?: string[] | null;
+  /** העתק של פעילות קבועה לשבוע אחד */
+  parent_id?: string | null;
 };
 
 export type BoardActivity = {
@@ -79,7 +83,23 @@ export type BoardActivity = {
   date: string | null;  // אם זו פעילות של שבוע מסוים
   recurring: boolean;   // חוזרת כל שבוע
   fromCalendar: boolean;
+  parentId: string | null; // שינוי לשבוע אחד של פעילות קבועה
 };
+
+/** קוד יום ("ב'", "שבת", "יום שני"...) ← מספר היום, 0 = ראשון. -1 אם לא מזוהה */
+export function dayCodeIndex(code: string): number {
+  const c = code.trim().replace(/^יום\s+/, "").replace(/[׳`]/g, "'");
+  const i = DAY_CODES.indexOf(c as (typeof DAY_CODES)[number]);
+  if (i >= 0) return i;
+  if (c === "שבת") return 6;
+  return DAY_NAMES.indexOf(c as (typeof DAY_NAMES)[number]);
+}
+
+/** התאריך של פעילות קבועה בשבוע מסוים */
+export function occurrenceDate(dayCode: string, weekStart: string): string | null {
+  const i = dayCodeIndex(dayCode);
+  return i >= 0 ? addDaysISO(weekStart, i) : null;
+}
 
 export function normalizeActivity(row: ActivityRow, dayIndex: DayIndex): BoardActivity {
   return {
@@ -93,12 +113,14 @@ export function normalizeActivity(row: ActivityRow, dayIndex: DayIndex): BoardAc
     date: row.activity_date ?? null,
     recurring: !row.activity_date,
     fromCalendar: !!row.external_uid,
+    parentId: row.parent_id ? String(row.parent_id) : null,
   };
 }
 
 /**
  * מחלק פעילויות לשבעה ימים:
- * פעילות עם תאריך — רק בשבוע של התאריך; פעילות בלי תאריך — חוזרת כל שבוע לפי היום.
+ * פעילות עם תאריך — רק בשבוע של התאריך; פעילות בלי תאריך — חוזרת כל שבוע לפי היום,
+ * חוץ מהשבועות שבהם בוטלה או הוחלפה לשבוע אחד (skip_dates).
  */
 export function activitiesByDay(rows: ActivityRow[], weekStart: string): BoardActivity[][] {
   const dates = weekDatesISO(weekStart);
@@ -109,8 +131,8 @@ export function activitiesByDay(rows: ActivityRow[], weekStart: string): BoardAc
       const idx = dates.indexOf(row.activity_date);
       if (idx >= 0) days[idx].push(normalizeActivity(row, idx as DayIndex));
     } else if (row.day_of_week) {
-      const idx = DAY_CODES.indexOf(row.day_of_week as (typeof DAY_CODES)[number]);
-      if (idx >= 0) days[idx].push(normalizeActivity(row, idx as DayIndex));
+      const idx = dayCodeIndex(row.day_of_week);
+      if (idx >= 0 && !(row.skip_dates ?? []).includes(weekStart)) days[idx].push(normalizeActivity(row, idx as DayIndex));
     }
   }
   for (const d of days) d.sort((a, b) => toMinutes(a.start) - toMinutes(b.start) || a.title.localeCompare(b.title, "he"));

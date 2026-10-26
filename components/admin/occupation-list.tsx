@@ -230,7 +230,7 @@ export function OccupationList({ departments }: { departments: Department[] }) {
                 className="flex items-center justify-center gap-2 w-full border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 text-xs font-medium py-2 rounded-xl transition-colors"
               >
                 <Copy className="h-3 w-3" />
-                {copiedToken === dept.view_token ? "הקישור הועתק!" : "העתק קישור צפייה"}
+                {copiedToken === dept.view_token ? "הקישור הועתק!" : "העתקת הקישור האישי (פעילויות ונוכחות)"}
               </button>
             ) : (
               <button
@@ -238,7 +238,7 @@ export function OccupationList({ departments }: { departments: Department[] }) {
                 className="flex items-center justify-center gap-2 w-full border border-gray-200 hover:bg-gray-50 text-gray-400 text-xs py-2 rounded-xl transition-colors"
               >
                 <Link className="h-3 w-3" />
-                צור קישור צפייה אישי
+                יצירת קישור אישי לפעילויות ולנוכחות
               </button>
             )}
 

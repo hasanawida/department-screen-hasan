@@ -7,6 +7,7 @@ import {
 } from "./week";
 import { getN12Headlines } from "./news";
 import { syncCalendarsIfStale } from "./calendar-sync";
+import { resolveTopic } from "./topics";
 import type { DepartmentDisplayProps } from "@/components/display/department-display";
 
 export async function loadDepartmentDisplay(supabase: SupabaseClient, code: string): Promise<DepartmentDisplayProps | null> {
@@ -26,7 +27,7 @@ export async function loadDepartmentDisplay(supabase: SupabaseClient, code: stri
     supabase.from("ticker_messages").select("message, display_order").or(`department_id.eq.${department.id},is_global.eq.true`).eq("is_active", true).order("display_order", { ascending: true }),
     supabase.from("screen_settings").select("display_settings, media_url, media_type").eq("department_id", department.id).maybeSingle(),
     supabase.from("department_media").select("media_url, media_type").eq("department_id", department.id).eq("is_active", true).order("display_order", { ascending: true }).limit(10),
-    supabase.from("weekly_topics").select("title, description, image_url, week_start").eq("department_id", department.id).eq("is_active", true).lte("week_start", today).order("week_start", { ascending: false }).limit(1).maybeSingle(),
+    resolveTopic(supabase, department.id, weekStart),
     supabase.from("weekly_menus").select("week_start, day_index, meal, items").eq("week_start", weekStart),
   ]);
 
@@ -51,7 +52,7 @@ export async function loadDepartmentDisplay(supabase: SupabaseClient, code: stri
     days: activitiesByDay((acts.data ?? []) as ActivityRow[], weekStart),
     settings,
     board,
-    topic: topic.data ? { title: topic.data.title, description: topic.data.description, image_url: topic.data.image_url } : null,
+    topic: topic.topic ? { title: topic.topic.title, description: topic.topic.description ?? "", image_url: topic.topic.image_url } : null,
     menu: menuFromRows((menuRows.data ?? []) as MenuRow[]),
     messages,
     news,

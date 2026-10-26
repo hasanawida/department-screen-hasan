@@ -687,6 +687,7 @@ export default function WeeklyEditor() {
 
               <ResidentsField
                 title={draft.title}
+                instructor={draft.instructor}
                 residents={residents}
                 registered={registered}
                 query={regQuery}
@@ -835,8 +836,9 @@ export default function WeeklyEditor() {
 }
 
 /** דיירים רשומים לפעילות: הסרה, הוספה בחיפוש, והצעות לפי כרטיס הדייר */
-function ResidentsField({ title, residents, registered, query, onQuery, isNew, sharedWithRecurring, onChange }: {
+function ResidentsField({ title, instructor, residents, registered, query, onQuery, isNew, sharedWithRecurring, onChange }: {
   title: string;
+  instructor: string;
   residents: DeptResident[];
   registered: string[];
   query: string;
@@ -846,7 +848,9 @@ function ResidentsField({ title, residents, registered, query, onQuery, isNew, s
   onChange: (residentIds: string[], on: boolean) => void;
 }) {
   const reg = residents.filter(r => registered.includes(r.id));
-  const suggested = cleanName(title).length >= 2 ? residents.filter(r => !registered.includes(r.id) && matchesActivity(title, r)) : [];
+  const suggested = cleanName(title).length >= 2 || cleanName(instructor)
+    ? residents.filter(r => !registered.includes(r.id) && matchesActivity(title, r, instructor))
+    : [];
   const q = cleanName(query);
   const found = q ? residents.filter(r => !registered.includes(r.id) && (r.name.includes(q) || (r.room_number ?? "") === q)).slice(0, 8) : [];
 

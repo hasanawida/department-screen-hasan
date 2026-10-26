@@ -12,9 +12,10 @@ interface Resident {
   personal_activity?: string | null; group_activity?: string | null; leisure_activity?: string | null
   departments?: { name: string } | null
 }
-interface Department { id: string; name: string }
+interface Department { id: string; name: string; code?: string | null }
+export type Registration = { title: string; instructor: string | null; day: string | null; date: string | null }
 
-export function ResidentsList({ residents, departments }: { residents: Resident[], departments: Department[] }) {
+export function ResidentsList({ residents, departments, registrations = {} }: { residents: Resident[], departments: Department[], registrations?: Record<string, Registration[]> }) {
   const router = useRouter()
   const [data, setData] = useState(residents)
   const [filterDept, setFilterDept] = useState("all")
@@ -34,6 +35,8 @@ export function ResidentsList({ residents, departments }: { residents: Resident[
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [isReassigning, setIsReassigning] = useState(false)
   const [reassignStats, setReassignStats] = useState<{matched: number} | null>(null)
+  const [saveMsg, setSaveMsg] = useState<{ name: string; matched: number; deptCode: string | null } | null>(null)
+  const deptCode = (id: string | null | undefined) => departments.find(d => d.id === id)?.code ?? null
 
   const filtered = filterDept === "all" ? data : data.filter(r => r.department_id === filterDept)
   const groupedByDept: Record<string, Resident[]> = {}
@@ -139,7 +142,11 @@ export function ResidentsList({ residents, departments }: { residents: Resident[
     setIsSaving(true)
     const supabase = createClient()
     const { data: newRes } = await supabase.from("residents").insert({ name: addForm.name, room_number: addForm.room_number || null, phone: addForm.phone || null, personal_activity: addForm.personal_activity || null, group_activity: addForm.group_activity || null, leisure_activity: addForm.leisure_activity || null, department_id: addForm.department_id, is_active: true }).select("*, departments(name)").single()
-    if (newRes) { setData([...data, newRes]); await assignParticipants(newRes.id, addForm.department_id, addForm.personal_activity, addForm.group_activity, addForm.leisure_activity) }
+    if (newRes) {
+      setData([...data, newRes])
+      const matched = await assignParticipants(newRes.id, addForm.department_id, addForm.personal_activity, addForm.group_activity, addForm.leisure_activity)
+      setSaveMsg({ name: newRes.name, matched, deptCode: deptCode(addForm.department_id) })
+    }
     setAddForm({ name: "", room_number: "", phone: "", department_id: "", personal_activity: "", group_activity: "", leisure_activity: "" })
     setShowAdd(false); setIsSaving(false); router.refresh()
   }
@@ -159,7 +166,8 @@ export function ResidentsList({ residents, departments }: { residents: Resident[
     const supabase = createClient()
     await supabase.from("residents").update({ name: editForm.name, room_number: editForm.room_number || null, phone: editForm.phone || null, department_id: editForm.department_id || null, personal_activity: editForm.personal_activity || null, group_activity: editForm.group_activity || null, leisure_activity: editForm.leisure_activity || null }).eq("id", id)
     setData(data.map(r => r.id === id ? { ...r, ...editForm, departments: departments.find(d => d.id === editForm.department_id) ? { name: departments.find(d => d.id === editForm.department_id)!.name } : r.departments } : r))
-    await assignParticipants(id, editForm.department_id || null, editForm.personal_activity, editForm.group_activity, editForm.leisure_activity)
+    const matched = await assignParticipants(id, editForm.department_id || null, editForm.personal_activity, editForm.group_activity, editForm.leisure_activity)
+    setSaveMsg({ name: editForm.name, matched, deptCode: deptCode(editForm.department_id) })
     setEditing(null); router.refresh()
   }
 
@@ -208,6 +216,23 @@ export function ResidentsList({ residents, departments }: { residents: Resident[
           <p className="font-bold text-purple-800">הרישום עודכן</p>
           <p className="text-sm text-purple-700 mt-1">{reassignStats.matched ? `נוספו ${reassignStats.matched} רישומים לפעילויות במחלקה של כל דייר.` : "לא נמצאו פעילויות חדשות שמתאימות לכרטיסים."} רישום שנעשה ידנית בלוח השבועי נשאר.</p>
           <button onClick={() => setReassignStats(null)} className="text-xs text-purple-600 mt-1 underline">סגור</button>
+        </div>
+      )}
+
+      {saveMsg && (
+        <div role="status" className="bg-[#E3ECE7] rounded-2xl p-4 text-sm flex flex-wrap items-center gap-3">
+          <span className="flex-1 min-w-0">
+            <b>{saveMsg.name}</b> נשמר/ה.{" "}
+            {saveMsg.matched > 0
+              ? `נרשם/ה אוטומטית ${saveMsg.matched === 1 ? "לפעילות אחת" : "ל-" + saveMsg.matched + " פעילויות"} לפי הכרטיס.`
+              : "לא נמצאה פעילות במחלקה ששמה או המפעיל/ה שלה מתאימים למה שכתוב בכרטיס."}
+          </span>
+          {saveMsg.deptCode && (
+            <a href={"/admin/weekly?dept=" + encodeURIComponent(saveMsg.deptCode)} className="rounded-xl bg-[#3F2F2D] px-3 py-1.5 font-semibold text-[#F6F2EE]">
+              רישום לפעילויות בלוח השבועי
+            </a>
+          )}
+          <button onClick={() => setSaveMsg(null)} className="text-xs underline">סגירה</button>
         </div>
       )}
 
@@ -272,6 +297,7 @@ export function ResidentsList({ residents, departments }: { residents: Resident[
             <input placeholder="פעילות פרטנית" value={addForm.personal_activity} onChange={e => setAddForm({...addForm, personal_activity: e.target.value})} className="border rounded-lg px-3 py-2 text-sm col-span-2" />
             <input placeholder="פעילות קבוצתית (אפשר כמה, בפסיק: שירה, התעמלות)" value={addForm.group_activity} onChange={e => setAddForm({...addForm, group_activity: e.target.value})} className="border rounded-lg px-3 py-2 text-sm col-span-2" />
             <input placeholder="פנאי (אפשר כמה, בפסיק)" value={addForm.leisure_activity} onChange={e => setAddForm({...addForm, leisure_activity: e.target.value})} className="border rounded-lg px-3 py-2 text-sm col-span-2" />
+            <p className="col-span-2 text-xs text-gray-500">בשדות הפעילות כותבים שם של פעילות (למשל: ערב שירה) או שם של מפעיל/ה (למשל: שושי). הדייר/ת יירשם/תירשם לפעילויות המתאימות במחלקה.</p>
             <select value={addForm.department_id} onChange={e => setAddForm({...addForm, department_id: e.target.value})} className="border rounded-lg px-3 py-2 text-sm bg-white col-span-2">
               <option value="">בחר מחלקה *</option>
               {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
@@ -311,6 +337,7 @@ export function ResidentsList({ residents, departments }: { residents: Resident[
                         <input placeholder="פעילות פרטנית" value={editForm.personal_activity} onChange={e => setEditForm({...editForm, personal_activity: e.target.value})} className="border rounded-lg px-3 py-1.5 text-sm col-span-2" />
                         <input placeholder="פעילות קבוצתית (אפשר כמה, בפסיק: שירה, התעמלות)" value={editForm.group_activity} onChange={e => setEditForm({...editForm, group_activity: e.target.value})} className="border rounded-lg px-3 py-1.5 text-sm col-span-2" />
                         <input placeholder="פנאי (אפשר כמה, בפסיק)" value={editForm.leisure_activity} onChange={e => setEditForm({...editForm, leisure_activity: e.target.value})} className="border rounded-lg px-3 py-1.5 text-sm col-span-2" />
+                        <p className="col-span-2 text-xs text-gray-500">שם של פעילות או שם של מפעיל/ה. כמה — מופרדים בפסיק.</p>
                         <select value={editForm.department_id} onChange={e => setEditForm({...editForm, department_id: e.target.value})} className="border rounded-lg px-3 py-1.5 text-sm bg-white col-span-2">
                           {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                         </select>
@@ -332,6 +359,11 @@ export function ResidentsList({ residents, departments }: { residents: Resident[
                           {r.personal_activity && <span className="text-xs bg-purple-50 text-purple-600 px-2 py-0.5 rounded-full">פרטני: {r.personal_activity}</span>}
                           {r.group_activity && <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">קבוצתי: {r.group_activity}</span>}
                           {r.leisure_activity && <span className="text-xs bg-orange-50 text-orange-600 px-2 py-0.5 rounded-full">פנאי: {r.leisure_activity}</span>}
+                        </div>
+                        <div className="mt-1 text-xs text-gray-500">
+                          {(registrations[r.id] ?? []).length
+                            ? <>רשום/ה ל: {registrations[r.id].map(g => g.title + (g.instructor ? ` (${g.instructor}${g.day ? ", יום " + g.day : ""})` : g.day ? ` (יום ${g.day})` : "")).join(", ")}</>
+                            : <>עוד לא רשום/ה לפעילות. רושמים מתוך הפעילות בלוח השבועי.</>}
                         </div>
                       </div>
                       <div className="flex gap-1 shrink-0">

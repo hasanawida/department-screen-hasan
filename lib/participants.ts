@@ -2,8 +2,9 @@
 //
 // - דייר נרשם רק לפעילויות של המחלקה שלו.
 // - הרישום נשמר על הפעילות הקבועה; שינוי לשבוע אחד (parent_id) משתמש ברשומים שלה.
-// - בכרטיס הדייר אפשר לכתוב פעילויות (פרטני / קבוצתי / פנאי), מופרדות בפסיק.
-//   פעילות שהשם שלה מכיל אחת מהן — מוצעת לדייר, ונרשמת לבד כששומרים את הכרטיס.
+// - בכרטיס הדייר אפשר לכתוב פעילויות (פרטני / קבוצתי / פנאי), מופרדות בפסיק —
+//   שם של פעילות, או שם של מפעיל/ה. פעילות שהשם שלה מכיל אחת מהן, או שהמפעיל/ה שלה
+//   כתוב/ה בכרטיס — מוצעת לדייר, ונרשמת לבד כששומרים את הכרטיס.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -38,10 +39,13 @@ export function residentTerms(r: Omit<ResidentCard, "id" | "department_id">): st
     .filter(t => t.length >= 2);
 }
 
-/** האם הפעילות מתאימה למה שכתוב בכרטיס הדייר */
-export function matchesActivity(title: string, r: Omit<ResidentCard, "id" | "department_id">): boolean {
+/** האם הפעילות מתאימה למה שכתוב בכרטיס הדייר: לפי שם הפעילות, או לפי שם המפעיל/ה */
+export function matchesActivity(title: string, r: Omit<ResidentCard, "id" | "department_id">, instructor?: string | null): boolean {
   const t = cleanName(title).toLowerCase();
-  return !!t && residentTerms(r).some(term => t.includes(term));
+  const who = cleanName(instructor ?? "");
+  return residentTerms(r).some(term =>
+    (!!t && t.includes(term)) || (!!who && (nameKey(who) === nameKey(term) || similarNames(who, term))),
+  );
 }
 
 /**
@@ -59,10 +63,10 @@ export async function syncResidentRegistrations(supabase: SupabaseClient, r: Res
   }
 
   if (!r.department_id || residentTerms(r).length === 0) return 0;
-  const { data: acts } = await supabase.from("activities").select("id, title, parent_id")
+  const { data: acts } = await supabase.from("activities").select("id, title, instructor_name, parent_id")
     .eq("department_id", r.department_id).eq("is_active", true).is("parent_id", null);
   const have = new Set(mineIds);
-  const add = (acts ?? []).filter((a: any) => !have.has(String(a.id)) && matchesActivity(a.title ?? "", r));
+  const add = (acts ?? []).filter((a: any) => !have.has(String(a.id)) && matchesActivity(a.title ?? "", r, a.instructor_name));
   if (!add.length) return 0;
   const { error } = await supabase.from("activity_participants").upsert(
     add.map((a: any) => ({ activity_id: a.id, resident_id: r.id })), { onConflict: "activity_id,resident_id" },

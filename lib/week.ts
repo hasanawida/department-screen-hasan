@@ -198,7 +198,8 @@ export function boardDayInfos(weekDates: string[], settings: WeeklyBoardSettings
   return weekDates.map(iso => {
     const info = dayInfo(iso, city);
     return {
-      holidays: settings.show_holidays !== false ? info.holidays : [],
+      // בלוח מסמנים רק חגים וערבי חג (לא חול המועד, חנוכה, ימי זיכרון וכו')
+      holidays: settings.show_holidays !== false ? info.holidays.filter(h => h.kind === "yomtov" || h.kind === "erev") : [],
       noRegularActivities: settings.show_holidays !== false && info.noRegularActivities,
       sacred: settings.show_shabbat_times !== false ? info.sacred : null,
     };

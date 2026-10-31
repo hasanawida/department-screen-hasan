@@ -187,9 +187,9 @@ export function weeklyBoardSettings(raw: unknown): WeeklyBoardSettings {
 
 /* ───────────── חגים וזמני שבת בלוח ───────────── */
 
-/** פעילות שהוכנסה ידנית לתאריך מסוים (לא קבועה ולא מהיומן) — מוצגת גם בחג */
+/** פעילות שמוצגת גם בחג: הוכנסה ידנית לתאריך מסוים, או יובאה מהיומן (מה ששובץ ביומן — מתקיים) */
 export function isManualActivity(a: BoardActivity): boolean {
-  return !!a.date && !a.fromCalendar;
+  return !!a.date || a.fromCalendar;
 }
 
 /** מה לציין בכל אחד משבעת ימי השבוע, לפי ההגדרות של הלוח */

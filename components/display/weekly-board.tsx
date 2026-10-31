@@ -142,7 +142,7 @@ function DayColumn({
         )}
         {hiddenOnScreen && <div className={styles.empty}>יום בלי פעילויות לא מוצג במסך</div>}
         {editable && info?.noRegularActivities && (
-          <div className={styles.holidayNote}>{isErev ? "ערב חג" : "חג"}: במסך מוצגות רק פעילויות שהוכנסו לתאריך הזה</div>
+          <div className={styles.holidayNote}>{isErev ? "ערב חג" : "חג"}: במסך מוצגות רק פעילויות שהוכנסו לתאריך הזה או מהיומן</div>
         )}
         {list.map(a => {
           const isNow = isToday && !!a.start && nowMinutes >= toMinutes(a.start) && nowMinutes < (a.end ? toMinutes(a.end) : toMinutes(a.start) + 60);

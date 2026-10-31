@@ -787,7 +787,7 @@ export default function WeeklyEditor() {
                   <Toggle label="כניסת שבת וצאת שבת" on={board.show_shabbat_times !== false} onChange={v => setBoard({ show_shabbat_times: v })} />
                 </div>
                 {board.show_holidays !== false && (
-                  <p className="mt-2 text-xs text-[#3F2F2D]/55">בחג ובערב חג הפעילויות הקבועות לא מוצגות במסך. פעילות שתוסיפו לתאריך עצמו — תוצג.</p>
+                  <p className="mt-2 text-xs text-[#3F2F2D]/55">בחג ובערב חג הפעילויות הקבועות לא מוצגות במסך. פעילות שתוסיפו לתאריך עצמו, או שמגיעה מהיומן — תוצג.</p>
                 )}
                 {board.show_shabbat_times !== false && (
                   <Field label="זמני שבת לפי העיר" className="mt-3">

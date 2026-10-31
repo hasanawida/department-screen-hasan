@@ -482,13 +482,13 @@
 }
 
 .holidayIcon {
-  width: calc(var(--cu) * 2.4);
-  height: calc(var(--cu) * 2.4);
+  width: calc(var(--cu) * 3.2);
+  height: calc(var(--cu) * 3.2);
   flex-shrink: 0;
 }
 
 .holidayMain .holidayIcon {
-  color: var(--rose);
+  color: var(--ink);
 }
 
 .holidayMinor .holidayIcon {

@@ -6,7 +6,7 @@ import { Pin, BRAND } from "@/components/orientation/eshkolot-logo";
 import { DAY_NAMES, isManualActivity, shortDate, toMinutes, visibleActivities, type BoardActivity, type WeeklyBoardSettings } from "@/lib/week";
 import type { DayInfo, HolidayKind } from "@/lib/jewish-calendar";
 import { useFillScale, useUniformGrow } from "./use-fill";
-import { ActivityIcon, HavdalahStarsIcon, ShabbatCandlesIcon } from "./icons";
+import { ActivityIcon, HavdalahStarsIcon, HolidayIcon as FestivalIcon, ShabbatCandlesIcon } from "./icons";
 import styles from "./board.module.css";
 
 export type WeeklyTopic = { title: string; description?: string | null; image_url?: string | null } | null;
@@ -132,7 +132,9 @@ function DayColumn({
 
       {holidays.length > 0 && mainKind && (
         <div className={styles.dayHoliday + " " + HOLIDAY_CLASS[mainKind]}>
-          <HolidayIcon kind={mainKind} />
+          {(mainKind === "yomtov" || mainKind === "erev")
+            ? <FestivalIcon name={holidays[0].name} className={styles.holidayIcon} />
+            : <HolidayIcon kind={mainKind} />}
           <span className={styles.holidayNames}>{holidays.map(h => <span key={h.name}>{h.name}</span>)}</span>
         </div>
       )}

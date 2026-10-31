@@ -117,3 +117,106 @@ export function HavdalahStarsIcon({ className }: SvgIconProps) {
     </svg>
   );
 }
+
+/* ── חגים: אייקון לפי מהות החג (ערב החג מקבל את אייקון החג) ── */
+
+const holidaySvg = (className: string | undefined, children: React.ReactNode) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"
+    className={className} aria-hidden="true" focusable="false">
+    {children}
+  </svg>
+);
+
+/** ראש השנה: תפוח */
+function AppleIcon({ className }: SvgIconProps) {
+  return holidaySvg(className, <>
+    <path d="M12 7.5c-2.2-1.6-5.8-1-6.8 2.1-1.2 3.7.9 9 3.6 10.6 1.1.6 2.1.2 3.2-.3 1.1.5 2.1.9 3.2.3 2.7-1.6 4.8-6.9 3.6-10.6-1-3.1-4.6-3.7-6.8-2.1z" fill="var(--coral, #f6977e)" />
+    <path d="M12 7.5c0-2.1.5-3.4 1.6-4.4" />
+    <path d="M13.2 5c1.5-1.4 3.6-1.5 4.7-.6-1.1 1.4-3.2 1.7-4.7.6z" fill="var(--sage, #5a826f)" />
+  </>);
+}
+
+/** יום כיפור: שופר */
+function ShofarIcon({ className }: SvgIconProps) {
+  return holidaySvg(className, <>
+    <path d="M3 14.5c4.4 1.4 9.3.4 12.4-2.7C18 9.2 19.2 6 20 3.2l1.8.8c-.7 3.6-2.2 7.6-5.3 10.6-3.6 3.4-9 5-13.6 3.7z" fill="var(--sun-tint, #fdf0cc)" />
+    <ellipse cx="3.4" cy="16.4" rx="1.1" ry="1.9" fill="var(--sun, #fab822)" />
+    <path d="M7.4 16.3c.4-.9.4-1.8.1-2.6M11.2 15c.5-.8.6-1.7.4-2.5M14.6 12.9c.5-.7.7-1.5.6-2.3" />
+  </>);
+}
+
+/** סוכות: סוכה עם סכך */
+function SukkahIcon({ className }: SvgIconProps) {
+  return holidaySvg(className, <>
+    <path d="M4.5 21V11.5h15V21" />
+    <path d="M10 21v-5h4v5" />
+    <path d="M2.5 11.5c1.6-2.4 3.3-2.4 4.9 0 1.6-2.4 3.3-2.4 4.9 0 1.6-2.4 3.3-2.4 4.9 0 1.6-2.4 3.3-2.4 4.9 0" fill="var(--sage-soft, #a9c8b8)" />
+    <path d="M2.5 21h19" />
+  </>);
+}
+
+/** הושענא רבה: לולב וערבות */
+function LulavIcon({ className }: SvgIconProps) {
+  return holidaySvg(className, <>
+    <path d="M12 22V2.5" />
+    <path d="M12 6.5 9 4.5M12 6.5l3-2M12 10.5 8.5 8M12 10.5 15.5 8M12 14.5 8 12M12 14.5l4-2.5" stroke="var(--sage, #5a826f)" />
+    <path d="M9.5 21c-.8-2.4-.6-4.8.6-6.6M14.5 21c.8-2.4.6-4.8-.6-6.6" />
+  </>);
+}
+
+/** שמחת תורה: ספר תורה */
+function TorahIcon({ className }: SvgIconProps) {
+  return holidaySvg(className, <>
+    <rect x="7" y="5.5" width="10" height="13" fill="var(--paper, #f6f2ee)" />
+    <rect x="3.5" y="4" width="3.5" height="16" rx="1.75" fill="var(--sun, #fab822)" />
+    <rect x="17" y="4" width="3.5" height="16" rx="1.75" fill="var(--sun, #fab822)" />
+    <path d="M5.25 2v2M5.25 20v2M18.75 2v2M18.75 20v2M9.5 9h5M9.5 12h5M9.5 15h3" />
+  </>);
+}
+
+/** פסח: מצה */
+function MatzahIcon({ className }: SvgIconProps) {
+  return holidaySvg(className, <>
+    <rect x="3.5" y="3.5" width="17" height="17" rx="2.2" fill="var(--sun-tint, #fdf0cc)" />
+    <path d="M7 8h10M7 12h10M7 16h10" strokeDasharray="0.1 2.6" strokeWidth={2.2} />
+  </>);
+}
+
+/** שביעי של פסח: קריעת ים סוף — גלים */
+function WavesIcon({ className }: SvgIconProps) {
+  return holidaySvg(className, <>
+    <path d="M2 7.5c1.7-1.8 3.3-1.8 5 0s3.3 1.8 5 0 3.3-1.8 5 0 3.3 1.8 5 0" />
+    <path d="M2 12.5c1.7-1.8 3.3-1.8 5 0s3.3 1.8 5 0 3.3-1.8 5 0 3.3 1.8 5 0" stroke="var(--sage, #5a826f)" />
+    <path d="M2 17.5c1.7-1.8 3.3-1.8 5 0s3.3 1.8 5 0 3.3-1.8 5 0 3.3 1.8 5 0" />
+  </>);
+}
+
+/** שבועות: שיבולת חיטה */
+function WheatIcon({ className }: SvgIconProps) {
+  const grain = (y: number, side: 1 | -1) =>
+    `M12 ${y}c${-2.6 * side} -.4 ${-3.8 * side} -2.2 ${-3.8 * side} -4.4 ${2.6 * side} .4 ${3.8 * side} 2.2 ${3.8 * side} 4.4z`;
+  return holidaySvg(className, <>
+    <path d="M12 22V3" />
+    {[8, 12.5, 17].map(y => <path key={"r" + y} d={grain(y, 1)} fill="var(--sun, #fab822)" />)}
+    {[8, 12.5, 17].map(y => <path key={"l" + y} d={grain(y, -1)} fill="var(--sun, #fab822)" />)}
+  </>);
+}
+
+const HOLIDAY_ICONS: [RegExp, (p: SvgIconProps) => React.ReactElement][] = [
+  [/ראש השנה/, AppleIcon],
+  [/כיפור/, ShofarIcon],
+  [/הושענא/, LulavIcon],
+  [/שמחת תורה/, TorahIcon],
+  [/סוכות/, SukkahIcon],
+  [/שביעי של פסח/, WavesIcon],
+  [/פסח/, MatzahIcon],
+  [/שבועות/, WheatIcon],
+];
+
+/** אייקון שמתאים לחג לפי השם שלו; null אם אין אייקון מיוחד */
+export function HolidayIcon({ name, className }: { name: string; className?: string }) {
+  const hit = HOLIDAY_ICONS.find(([re]) => re.test(name));
+  if (!hit) return null;
+  const Icon = hit[1];
+  return <Icon className={className} />;
+}

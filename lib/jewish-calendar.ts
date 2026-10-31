@@ -156,15 +156,15 @@ export function holidaysOn(iso: string): Holiday[] {
     if (d === 10) add("יום כיפור", "yomtov");
     if (d === 14) add("ערב סוכות", "erev");
     if (d === 15) add("סוכות", "yomtov");
-    if (d >= 16 && d <= 20) add("חול המועד סוכות", "minor");
-    if (d === 21) add("הושענא רבה · ערב שמחת תורה", "erev");
+    if (d >= 16 && d <= 20) add("חול המועד", "minor");
+    if (d === 21) add("הושענא רבה", "erev");
     if (d === 22) add("שמחת תורה", "yomtov");
   }
 
   // חנוכה: 25 בכסלו ושמונה ימים
   if (m === KISLEV || m === TEVET) {
     const day = fixed - fixedFromHebrew(year, KISLEV, 25);
-    if (day >= 0 && day < 8) add(`חנוכה · נר ${["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שביעי", "שמיני"][day]}`, "minor");
+    if (day >= 0 && day < 8) add(`נר ${["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שביעי", "שמיני"][day]} של חנוכה`, "minor");
   }
   if (m === TEVET && d === 10) add("צום עשרה בטבת", "fast");
   if (m === SHVAT && d === 15) add("ט״ו בשבט", "minor");
@@ -180,7 +180,7 @@ export function holidaysOn(iso: string): Holiday[] {
   if (m === NISAN) {
     if (d === 14) add("ערב פסח", "erev");
     if (d === 15) add("פסח", "yomtov");
-    if (d >= 16 && d <= 19) add("חול המועד פסח", "minor");
+    if (d >= 16 && d <= 19) add("חול המועד", "minor");
     if (d === 20) add("ערב שביעי של פסח", "erev");
     if (d === 21) add("שביעי של פסח", "yomtov");
     // יום השואה: 27 בניסן, נדחה כשנופל ביום שישי או ראשון

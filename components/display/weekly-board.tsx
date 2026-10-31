@@ -62,7 +62,8 @@ export default function WeeklyBoard(props: Props) {
         </div>
       )}
 
-      <div className={styles.days}>
+      {/* היום רחב יותר משאר הימים — העין מוצאת אותו מיד */}
+      <div className={styles.days} style={{ gridTemplateColumns: shown.map(i => (i === todayIndex ? "1.6fr" : "1fr")).map(f => `minmax(0, ${f})`).join(" ") }}>
         {shown.map(i => (
           <DayColumn key={i} {...props} dayIndex={i} date={weekDates[i]} isToday={i === todayIndex}
             info={dayInfos?.[i]}
@@ -132,7 +133,7 @@ function DayColumn({
       {holidays.length > 0 && mainKind && (
         <div className={styles.dayHoliday + " " + HOLIDAY_CLASS[mainKind]}>
           <HolidayIcon kind={mainKind} />
-          <span>{holidays.map(h => h.name).join(" · ")}</span>
+          <span className={styles.holidayNames}>{holidays.map(h => <span key={h.name}>{h.name}</span>)}</span>
         </div>
       )}
 
@@ -180,10 +181,12 @@ function DayColumn({
 
       {info?.sacred && (
         <footer className={styles.daySacred + (info.sacred.kind === "havdalah" ? " " + styles.daySacredOut : "")}>
-          {info.sacred.kind === "candles"
-            ? <ShabbatCandlesIcon className={styles.sacredIcon} />
-            : <HavdalahStarsIcon className={styles.sacredIcon} />}
-          <span className={styles.sacredLabel}>{info.sacred.label}</span>
+          <span className={styles.sacredHead}>
+            {info.sacred.kind === "candles"
+              ? <ShabbatCandlesIcon className={styles.sacredIcon} />
+              : <HavdalahStarsIcon className={styles.sacredIcon} />}
+            <span className={styles.sacredLabel}>{info.sacred.label}</span>
+          </span>
           <bdi className={styles.sacredTime}>{info.sacred.time}</bdi>
         </footer>
       )}
@@ -209,6 +212,6 @@ function holidayKindOrder(kinds: HolidayKind[]): HolidayKind | null {
 
 function HolidayIcon({ kind }: { kind: HolidayKind }) {
   if (kind === "memorial") return <Flame className={styles.holidayIcon} aria-hidden="true" />;
-  if (kind === "fast") return <CalendarDays className={styles.holidayIcon} aria-hidden="true" />;
+  if (kind === "fast") return null;
   return <Star className={styles.holidayIcon} aria-hidden="true" />;
 }

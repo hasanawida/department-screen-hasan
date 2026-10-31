@@ -13,6 +13,7 @@ import { ensureInstructors, refreshDepartmentScreens } from "@/lib/screens";
 import { cleanName, matchesActivity } from "@/lib/participants";
 import InstructorSelect, { resolveInstructorName } from "@/components/admin/instructor-select";
 import type { TopicData } from "@/lib/topics";
+import { SHABBAT_CITIES, shabbatCity } from "@/lib/jewish-calendar";
 import {
   DAY_CODES, DAY_NAMES, activitiesByDay, addDaysISO, dayCodeIndex, dayIndexOf, displaySettings, israelDateISO, menuFromRows, menuNotesFromRows, shortDate,
   weekDatesISO, weekStartISO, weeklyBoardSettings,
@@ -782,7 +783,20 @@ export default function WeeklyEditor() {
                   <Toggle label="נושא השבוע" on={board.show_topic} onChange={v => setBoard({ show_topic: v })} />
                   <Toggle label="ימים שעברו בצבע חלש" on={board.dim_past_days} onChange={v => setBoard({ dim_past_days: v })} />
                   <Toggle label="להסתיר ימים בלי פעילויות" on={board.hide_empty_days} onChange={v => setBoard({ hide_empty_days: v })} />
+                  <Toggle label="חגים וערבי חג (בלי פעילויות קבועות)" on={board.show_holidays !== false} onChange={v => setBoard({ show_holidays: v })} />
+                  <Toggle label="כניסת שבת וצאת שבת" on={board.show_shabbat_times !== false} onChange={v => setBoard({ show_shabbat_times: v })} />
                 </div>
+                {board.show_holidays !== false && (
+                  <p className="mt-2 text-xs text-[#3F2F2D]/55">בחג ובערב חג הפעילויות הקבועות לא מוצגות במסך. פעילות שתוסיפו לתאריך עצמו — תוצג.</p>
+                )}
+                {board.show_shabbat_times !== false && (
+                  <Field label="זמני שבת לפי העיר" className="mt-3">
+                    <select value={shabbatCity(board.shabbat_city).id} className={inputCls}
+                      onChange={e => setBoard({ shabbat_city: e.target.value })}>
+                      {SHABBAT_CITIES.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                  </Field>
+                )}
                 <Field label="גודל טקסט" className="mt-3">
                   <div className="grid grid-cols-3 gap-1 rounded-xl bg-[#F6F2EE] p-1 text-sm font-semibold">
                     {(["s", "m", "l"] as const).map(sz => (

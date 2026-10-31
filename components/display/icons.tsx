@@ -84,3 +84,36 @@ export function ActivityIcon({ title, className }: { title: string; className?: 
   const Icon = activityIcon(title);
   return <Icon className={className} aria-hidden="true" />;
 }
+
+/* ── שבת: הדלקת נרות וצאת שבת ── */
+
+type SvgIconProps = { className?: string };
+
+/** שני נרות דולקים — כניסת שבת/חג */
+export function ShabbatCandlesIcon({ className }: SvgIconProps) {
+  const flame = (x: number) => `M${x} 2.6c1.7 1.9 2.4 3.2 2.4 4.4a2.4 2.4 0 0 1-4.8 0c0-1.2.7-2.5 2.4-4.4z`;
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"
+      className={className} aria-hidden="true" focusable="false">
+      <path d={flame(8)} fill="var(--sun, #fab822)" />
+      <path d={flame(16)} fill="var(--sun, #fab822)" />
+      <rect x="6" y="11.5" width="4" height="9.5" rx="1" />
+      <rect x="14" y="11.5" width="4" height="9.5" rx="1" />
+      <path d="M3.5 21.5h17" />
+    </svg>
+  );
+}
+
+/** שלושה כוכבים — צאת שבת/חג */
+export function HavdalahStarsIcon({ className }: SvgIconProps) {
+  const star = (cx: number, cy: number, r: number) =>
+    `M${cx} ${cy - r}L${cx + r * 0.3} ${cy - r * 0.3}L${cx + r} ${cy}L${cx + r * 0.3} ${cy + r * 0.3}L${cx} ${cy + r}L${cx - r * 0.3} ${cy + r * 0.3}L${cx - r} ${cy}L${cx - r * 0.3} ${cy - r * 0.3}Z`;
+  return (
+    <svg viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.6} strokeLinejoin="round"
+      className={className} aria-hidden="true" focusable="false">
+      <path d={star(7, 8, 5)} fill="var(--sun, #fab822)" />
+      <path d={star(17.5, 6, 3.6)} fill="var(--sun, #fab822)" />
+      <path d={star(14.5, 17, 4.4)} fill="var(--sun, #fab822)" />
+    </svg>
+  );
+}

@@ -1,5 +1,7 @@
 // עזרים לתאריכים ושבועות — תמיד לפי שעון ישראל (השרת של Vercel עובד ב-UTC)
 
+import { dayInfo, shabbatCity, DEFAULT_SHABBAT_CITY, type DayInfo } from "./jewish-calendar";
+
 export const TZ = "Asia/Jerusalem";
 export const DAY_CODES = ["א'", "ב'", "ג'", "ד'", "ה'", "ו'", "ש'"] as const;
 export const DAY_NAMES = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"] as const;
@@ -152,6 +154,12 @@ export type WeeklyBoardSettings = {
   show_topic: boolean;
   dim_past_days: boolean;
   text_size: "s" | "m" | "l";
+  /** חגים וערבי חג בלוח. ביום כזה הפעילויות הקבועות לא מוצגות, רק מה שהוכנס ידנית לתאריך */
+  show_holidays?: boolean;
+  /** כניסת שבת/חג ביום שישי וערב חג, וצאת שבת/חג בשבת ובחג */
+  show_shabbat_times?: boolean;
+  /** העיר שלפיה מחושבים זמני השבת (id מתוך SHABBAT_CITIES) */
+  shabbat_city?: string;
 };
 
 export const DEFAULT_WEEKLY_BOARD: WeeklyBoardSettings = {
@@ -165,6 +173,9 @@ export const DEFAULT_WEEKLY_BOARD: WeeklyBoardSettings = {
   show_topic: true,
   dim_past_days: true,
   text_size: "m",
+  show_holidays: true,
+  show_shabbat_times: true,
+  shabbat_city: DEFAULT_SHABBAT_CITY,
 };
 
 export function weeklyBoardSettings(raw: unknown): WeeklyBoardSettings {
@@ -172,6 +183,31 @@ export function weeklyBoardSettings(raw: unknown): WeeklyBoardSettings {
   const merged = { ...DEFAULT_WEEKLY_BOARD, ...r };
   if (!Array.isArray(merged.days) || merged.days.length === 0) merged.days = DEFAULT_WEEKLY_BOARD.days;
   return merged;
+}
+
+/* ───────────── חגים וזמני שבת בלוח ───────────── */
+
+/** פעילות שהוכנסה ידנית לתאריך מסוים (לא קבועה ולא מהיומן) — מוצגת גם בחג */
+export function isManualActivity(a: BoardActivity): boolean {
+  return !!a.date && !a.fromCalendar;
+}
+
+/** מה לציין בכל אחד משבעת ימי השבוע, לפי ההגדרות של הלוח */
+export function boardDayInfos(weekDates: string[], settings: WeeklyBoardSettings): DayInfo[] {
+  const city = shabbatCity(settings.shabbat_city);
+  return weekDates.map(iso => {
+    const info = dayInfo(iso, city);
+    return {
+      holidays: settings.show_holidays !== false ? info.holidays : [],
+      noRegularActivities: settings.show_holidays !== false && info.noRegularActivities,
+      sacred: settings.show_shabbat_times !== false ? info.sacred : null,
+    };
+  });
+}
+
+/** הפעילויות שמוצגות במסך ביום מסוים: בחג ובערב חג — רק מה שהוכנס ידנית */
+export function visibleActivities(list: BoardActivity[], info: DayInfo | undefined): BoardActivity[] {
+  return info?.noRegularActivities ? list.filter(isManualActivity) : list;
 }
 
 /* ───────────── הגדרות מסך מחלקה ───────────── */

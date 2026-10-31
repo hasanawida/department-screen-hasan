@@ -5,7 +5,7 @@ import { Clock3, MapPin, User, Utensils, Megaphone, HeartPulse } from "lucide-re
 import { EshkolotLogo, Pin, BRAND } from "@/components/orientation/eshkolot-logo";
 import WeeklyBoard, { type WeeklyTopic } from "./weekly-board";
 import {
-  DAY_NAMES, MEAL_SHORT, dayIndexOf, israelDateISO, israelTimeHM, shortDate, toMinutes,
+  DAY_NAMES, MEAL_SHORT, boardDayInfos, dayIndexOf, israelDateISO, israelTimeHM, shortDate, toMinutes, visibleActivities,
   type BoardActivity, type DisplaySettings, type WeekMenu, type WeeklyBoardSettings,
 } from "@/lib/week";
 import { TodayMenu, WeeklyMenu, nextMealsSummary } from "./menu-views";
@@ -113,8 +113,12 @@ export default function DepartmentDisplay(props: DepartmentDisplayProps) {
   const tickerChars = tickerItems.reduce((n, it) => n + it.text.length + 8, 0);
   const tickerDuration = Math.max(25, Math.round(tickerChars * 0.22)) + "s";
 
+  /* ── חגים וזמני שבת (מחושבים מקומית לפי העיר שנבחרה) ── */
+  const dayInfos = useMemo(() => boardDayInfos(weekDates, board), [weekDates, board]);
+
   const stageStyle = embeddedCu ? ({ "--frame-cu": embeddedCu + "px" } as React.CSSProperties) : undefined;
-  const today = todayIndex >= 0 ? days[todayIndex] : [];
+  // בחג ובערב חג גם "היום" מציג רק פעילויות שהוכנסו ידנית
+  const today = todayIndex >= 0 ? visibleActivities(days[todayIndex], dayInfos[todayIndex]) : [];
 
   const dateText = now
     ? "יום " + DAY_NAMES[dayIndexOf(todayISO)] + ", " + new Intl.DateTimeFormat("he-IL", { timeZone: "Asia/Jerusalem", day: "numeric", month: "long" }).format(now)
@@ -152,7 +156,7 @@ export default function DepartmentDisplay(props: DepartmentDisplayProps) {
         {/* תצוגה */}
         <main key={view.kind + (view.media?.url ?? "")} className={styles.view}>
           {view.kind === "weekly" && (
-            <WeeklyBoard days={days} weekDates={weekDates} todayIndex={todayIndex} nowMinutes={nowMinutes} settings={board} topic={topic}
+            <WeeklyBoard days={days} weekDates={weekDates} todayIndex={todayIndex} nowMinutes={nowMinutes} settings={board} topic={topic} dayInfos={dayInfos}
               editable={!!editor} selectedId={editor?.selectedId} onSelect={editor?.onSelect} onAdd={editor?.onAdd} />
           )}
 

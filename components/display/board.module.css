@@ -178,51 +178,61 @@
   gap: calc(var(--cu) * 1.6);
 }
 
+/* נושא השבוע: רקע רך (הימים הם העיקר), תמונה גדולה שמספרת את הנושא */
 .topic {
   display: flex;
   align-items: center;
-  gap: calc(var(--cu) * 1.8);
-  background: var(--sage);
-  color: #fff;
+  gap: calc(var(--cu) * 2.2);
+  background: var(--sage-tint);
+  color: var(--ink);
   border-radius: calc(var(--cu) * 2.2);
-  padding: calc(var(--cu) * 1.1) calc(var(--cu) * 2.4);
+  padding: calc(var(--cu) * 1) calc(var(--cu) * 1.2);
+  padding-inline-end: calc(var(--cu) * 2.6);
   min-width: 0;
 }
 
-/* תמונת הנושא — בולטת, בצד של הנושא */
 .topicImg {
-  width: calc(var(--cu) * 12);
-  height: calc(var(--cu) * 8);
+  width: calc(var(--cu) * 21);
+  height: calc(var(--cu) * 13);
   object-fit: cover;
-  border-radius: calc(var(--cu) * 1.4);
+  border-radius: calc(var(--cu) * 1.6);
   flex-shrink: 0;
-  margin-block: calc(var(--cu) * -0.4);
-  box-shadow: 0 0 0 calc(var(--cu) * 0.3) rgba(255, 255, 255, 0.35);
+}
+
+.topicText {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: calc(var(--cu) * 0.6) calc(var(--cu) * 1.6);
 }
 
 .topicLabel {
   flex-shrink: 0;
-  font-size: calc(var(--cu) * 2);
+  font-size: calc(var(--cu) * 1.9);
   font-weight: 700;
-  background: rgba(255, 255, 255, 0.18);
-  padding: calc(var(--cu) * 0.6) calc(var(--cu) * 1.3);
+  background: var(--sage);
+  color: #fff;
+  padding: calc(var(--cu) * 0.5) calc(var(--cu) * 1.3);
   border-radius: 999px;
 }
 
 .topicTitle {
-  flex-shrink: 0;
-  font-size: calc(var(--cu) * 3.3);
+  font-size: calc(var(--cu) * 3);
   font-weight: 700;
   line-height: 1.15;
 }
 
 .topicDesc {
+  flex-basis: 100%;
   min-width: 0;
-  font-size: calc(var(--cu) * 2.4);
-  opacity: 0.92;
-  white-space: nowrap;
+  font-size: calc(var(--cu) * 2.3);
+  color: var(--muted);
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .days {
@@ -281,6 +291,28 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* לוח הפעילויות: היום והתאריך הם הדבר הראשון שהעין מוצאת — גדולים, אחד מעל השני, באמצע */
+.board .dayHead {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: calc(var(--cu) * 0.3);
+  padding: calc(var(--cu) * 1.3) calc(var(--cu) * 1) calc(var(--cu) * 1.2);
+  text-align: center;
+}
+
+.board .dayName {
+  font-size: calc(var(--cu) * 4.3);
+  line-height: 1.02;
+}
+
+.board .dayDate {
+  font-size: calc(var(--cu) * 3.3);
+  font-weight: 700;
+  line-height: 1.05;
+  color: var(--ink);
+}
+
 .dayToday {
   box-shadow: 0 0 0 calc(var(--cu) * 0.35) var(--ink);
 }
@@ -295,10 +327,18 @@
   color: var(--sage-soft);
 }
 
+.board .dayToday .dayDate {
+  color: var(--sun);
+}
+
 .dayPin {
   width: calc(var(--cu) * 2.2);
   height: auto;
   flex-shrink: 0;
+}
+
+.board .dayPin {
+  width: calc(var(--cu) * 2.8);
 }
 
 .list {
@@ -390,6 +430,105 @@
   color: var(--muted);
 }
 
+/* חג / ערב חג בלי פעילויות: הודעה אחת ברורה באמצע היום */
+.emptyHoliday {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--cu) * 0.6);
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: calc(var(--cu) * 2.8);
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--ink);
+}
+
+.emptyHolidayTitle {
+  font-size: calc(var(--cu) * 3.6);
+  font-weight: 800;
+}
+
+/* ── חגים ── */
+
+.dayHoliday {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: calc(var(--cu) * 0.7);
+  padding: calc(var(--cu) * 0.8) calc(var(--cu) * 1.2);
+  font-size: calc(var(--cu) * 2.3);
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.holidayMain {
+  background: var(--coral-tint);
+}
+
+.holidayMinor {
+  background: var(--sun-tint);
+}
+
+.holidaySolemn {
+  background: #ece7e3;
+}
+
+.holidayIcon {
+  width: calc(var(--cu) * 2.4);
+  height: calc(var(--cu) * 2.4);
+  flex-shrink: 0;
+}
+
+.holidayMain .holidayIcon {
+  color: var(--rose);
+}
+
+.holidayMinor .holidayIcon {
+  color: #b07c00;
+}
+
+/* ── כניסת שבת / צאת שבת: בתחתית היום, כי זה קורה בערב ── */
+
+.daySacred {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: calc(var(--cu) * 0.4) calc(var(--cu) * 0.9);
+  padding: calc(var(--cu) * 1.1) calc(var(--cu) * 1);
+  background: var(--sun-tint);
+  border-top: 1px solid var(--hair);
+  text-align: center;
+}
+
+.daySacredOut {
+  background: var(--sage-tint);
+}
+
+.sacredIcon {
+  width: calc(var(--cu) * 3.6);
+  height: calc(var(--cu) * 3.6);
+  flex-shrink: 0;
+  color: var(--ink);
+}
+
+.sacredLabel {
+  font-size: calc(var(--cu) * 2.3);
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.sacredTime {
+  direction: ltr;
+  font-size: calc(var(--cu) * 3.3);
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
 /* ── מצב עריכה (בעורך בלבד) ── */
 
 .editable .act {
@@ -404,6 +543,23 @@
 .addBtn:focus-visible {
   outline: calc(var(--cu) * 0.4) solid var(--sun);
   outline-offset: calc(var(--cu) * -0.4);
+}
+
+/* בעורך: פעילות קבועה שלא תוצג במסך כי זה חג */
+.actHolidayHidden {
+  opacity: 0.4;
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+
+.holidayNote {
+  margin: calc(var(--cu) * 0.6) calc(var(--cu) * 1.2) 0;
+  padding: calc(var(--cu) * 0.7) calc(var(--cu) * 1);
+  border-radius: calc(var(--cu) * 1);
+  background: var(--coral-tint);
+  font-size: calc(var(--cu) * 1.8);
+  font-weight: 600;
+  line-height: 1.3;
 }
 
 .actSelected {

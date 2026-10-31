@@ -1,6 +1,6 @@
 // אייקונים במסכים: לכל ארוחה, ולכל פעילות לפי השם שלה (בלי לבחור ידנית)
 
-import React from "react";
+import React, { useState } from "react";
 import {
   Apple, BookOpen, Brain, ChefHat, Coffee, Cookie, Dices, Dumbbell, Ear, EggFried, Eye, Film, Flame, Hand, Lightbulb,
   MessageCircle, Moon, Music, Newspaper, Palette, PartyPopper, PawPrint, ScrollText, Shapes, Soup, Sprout, Sunrise, User, Users, Wind,
@@ -42,6 +42,16 @@ export const MEAL_ICONS: Record<Meal, LucideIcon> = {
 export function MealIcon({ meal, className }: { meal: Meal; className?: string }) {
   const Icon = MEAL_ICONS[meal];
   return <Icon className={className} aria-hidden="true" />;
+}
+
+/**
+ * תמונה אמיתית של הארוחה (עיגול עם צילום), מתוך public/meals.
+ * אם אין תמונה או שהיא לא נטענת — האייקון הרגיל.
+ */
+export function MealPhoto({ meal, className, fallbackClassName }: { meal: Meal; className?: string; fallbackClassName?: string }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return <MealIcon meal={meal} className={fallbackClassName ?? className} />;
+  return <img src={`/meals/${meal}.jpg`} alt="" aria-hidden="true" className={className} onError={() => setFailed(true)} />;
 }
 
 /** מילה שלמה בעברית (גבול מילה רגיל לא עובד עם אותיות עבריות) */

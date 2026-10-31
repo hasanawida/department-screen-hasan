@@ -235,6 +235,10 @@
   overflow: hidden;
 }
 
+/* לוח הפעילויות (התפריט השבועי משתמש גם הוא ב-.board, בלי ההגדלות של הלוח) */
+.activityBoard {
+}
+
 .days {
   flex: 1;
   min-height: 0;
@@ -292,7 +296,7 @@
 }
 
 /* לוח הפעילויות: היום והתאריך הם הדבר הראשון שהעין מוצאת — גדולים, אחד מעל השני, באמצע */
-.board .dayHead {
+.activityBoard .dayHead {
   flex-direction: column;
   align-items: center;
   justify-content: center;
@@ -301,12 +305,12 @@
   text-align: center;
 }
 
-.board .dayName {
+.activityBoard .dayName {
   font-size: calc(var(--cu) * 4.3);
   line-height: 1.02;
 }
 
-.board .dayDate {
+.activityBoard .dayDate {
   font-size: calc(var(--cu) * 3.3);
   font-weight: 700;
   line-height: 1.05;
@@ -327,7 +331,7 @@
   color: var(--sage-soft);
 }
 
-.board .dayToday .dayDate {
+.activityBoard .dayToday .dayDate {
   color: var(--sun);
 }
 
@@ -337,7 +341,7 @@
   flex-shrink: 0;
 }
 
-.board .dayPin {
+.activityBoard .dayPin {
   width: calc(var(--cu) * 2.8);
 }
 
@@ -544,11 +548,11 @@
 /* ── מצב עריכה (בעורך בלבד) ── */
 
 /* לוח הפעילויות: קו ברור בין פעילות לפעילות, כדי שהעין תפריד ביניהן בקלות */
-.board .act {
+.activityBoard .act {
   border-top: max(3px, calc(var(--cu) * 0.4)) solid rgba(63, 47, 45, 0.3);
 }
 
-.board .act:first-child {
+.activityBoard .act:first-child {
   border-top: 0;
 }
 
@@ -1326,6 +1330,29 @@
 
 .tmNow .tmMealIcon {
   background: #fff;
+}
+
+/* צילום אמיתי של הארוחה: עיגול גדול ליד שם הארוחה — מזהים מה אוכלים בלי לקרוא */
+.tmMealPhoto {
+  width: 2.3em;
+  height: 2.3em;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: #fff;
+  box-shadow: 0 0 0 calc(var(--cu) * 0.3) #fff, 0 0 0 calc(var(--cu) * 0.55) var(--hair);
+}
+
+.tmSnackPhoto {
+  display: inline-block;
+  width: 1.6em;
+  height: 1.6em;
+  border-radius: 50%;
+  object-fit: cover;
+  vertical-align: middle;
+  margin-inline-end: 0.4em;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 calc(var(--cu) * 0.25) #fff;
 }
 
 /* סימון הגעה בפיזיותרפיה */

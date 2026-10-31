@@ -48,7 +48,7 @@ export default function WeeklyBoard(props: Props) {
 
   return (
     <div
-      className={styles.board + (editable ? " " + styles.editable : "")}
+      className={styles.board + " " + styles.activityBoard + (editable ? " " + styles.editable : "")}
       style={{ "--size": SIZE[settings.text_size] ?? 1 } as React.CSSProperties}
     >
       {settings.show_topic && topic?.title && (

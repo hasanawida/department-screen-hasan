@@ -245,7 +245,7 @@ function DailyView({ today, nowMinutes, menu, messages, board, physio }: {
             <>
               <span className={styles.nowTime}>{current.start}{current.end ? "–" + current.end : ""}</span>
               <span className={styles.nowTitle}>
-                {board.show_icons !== false && <ActivityIcon title={current.title} className={styles.nowIcon} />}
+                {board.show_icons !== false && <ActivityIcon key={current.title} title={current.title} className={styles.nowIcon} photoClassName={styles.nowPhoto} />}
                 {current.title}
               </span>
               {(current.location || current.instructor) && (
@@ -292,7 +292,7 @@ function DailyView({ today, nowMinutes, menu, messages, board, physio }: {
               <span className={styles.nextTime}>{a.start}</span>
               <div>
                 <div className={styles.nextTitle}>
-                  {board.show_icons !== false && <ActivityIcon title={a.title} className={styles.actIcon} />}
+                  {board.show_icons !== false && <ActivityIcon key={a.title} title={a.title} className={styles.actIcon} photoClassName={styles.actPhoto} />}
                   {a.title}
                 </div>
                 {((board.show_location && a.location) || (board.show_instructor && a.instructor)) && (

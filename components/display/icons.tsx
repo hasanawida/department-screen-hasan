@@ -61,37 +61,49 @@ const word = (w: string) => `(^|[\\s,/(])${w}($|[\\s,/)])`;
  * מילים בשם הפעילות ← אייקון. הסדר חשוב: הראשון שמתאים קובע
  * ("בינגו / משחק קבוצתי / פרטני" = משחק, "משולבת התעמלות סיפור" = התעמלות).
  */
-const ACTIVITY_RULES: [RegExp, IconComponent][] = [
-  [/בינגו|משחק|חידון|טריוויה|קלפים|שבץ/, Dices],
-  [/גרי[יה]|סנוזלן|חוש/, SensesIcon],
-  [/בע"ח|בע״ח|בעלי חיים|חיות|כלב/, PawPrint],
-  [new RegExp(`מוזיק|שירה|שירים|זמר|צליל|מקהלה|נגינ|תופים|${word("שיר")}`), Music],
-  [/התעמלות|כושר|ספורט|יוגה|פילאטיס|תנועה|ריקוד|מחול|הליכה/, Dumbbell],
-  [/אקטואליה|עיתון|חדשות/, Newspaper],
-  [/מסיב|יום הולדת|חגיג|הופעה/, PartyPopper],
-  [/שבת|נרות|הבדלה|ערב חג|חגים/, Flame],
-  [new RegExp(`${word("רב")}|${word("הרב")}|תפיל|תורה|פרשה`), ScrollText],
-  [/יציר|ציור|אומנות|אמנות|מלאכ|צביע|קרמיק/, Palette],
-  [/אפי[יה]|בישול|מטבח|עוגי/, ChefHat],
-  [/סרט|קולנוע|הקרנה/, Film],
-  [/סיפור|קריא|ספר|הקראה/, BookOpen],
-  [/קפה/, Coffee],
-  [/גינ|חצר|טיול|השקי|צמחים|טבע/, Sprout],
-  [/זיכרון|קוגניטיב|מוח/, Brain],
-  [/נושא|דיון|הרצאה/, Lightbulb],
-  [/שיחה|שיח|מפגש/, MessageCircle],
-  [/פרטני|פרטנית|אישי|אישית/, User],
-  [/קבוצ/, Users],
+const ACTIVITY_RULES: [RegExp, IconComponent, string][] = [
+  [/בינגו|משחק|חידון|טריוויה|קלפים|שבץ/, Dices, "game"],
+  [/גרי[יה]|סנוזלן|חוש/, SensesIcon, "senses"],
+  [/בע"ח|בע״ח|בעלי חיים|חיות|כלב/, PawPrint, "animals"],
+  [new RegExp(`מוזיק|שירה|שירים|זמר|צליל|מקהלה|נגינ|תופים|${word("שיר")}`), Music, "music"],
+  [/התעמלות|כושר|ספורט|יוגה|פילאטיס|תנועה|ריקוד|מחול|הליכה/, Dumbbell, "exercise"],
+  [/אקטואליה|עיתון|חדשות/, Newspaper, "news"],
+  [/מסיב|יום הולדת|חגיג|הופעה/, PartyPopper, "party"],
+  [/שבת|נרות|הבדלה|ערב חג|חגים/, Flame, "shabbat"],
+  [new RegExp(`${word("רב")}|${word("הרב")}|תפיל|תורה|פרשה`), ScrollText, "torah"],
+  [/יציר|ציור|אומנות|אמנות|מלאכ|צביע|קרמיק/, Palette, "art"],
+  [/אפי[יה]|בישול|מטבח|עוגי/, ChefHat, "baking"],
+  [/סרט|קולנוע|הקרנה/, Film, "movie"],
+  [/סיפור|קריא|ספר|הקראה/, BookOpen, "story"],
+  [/קפה/, Coffee, "coffee"],
+  [/גינ|חצר|טיול|השקי|צמחים|טבע/, Sprout, "garden"],
+  [/זיכרון|קוגניטיב|מוח/, Brain, "memory"],
+  [/נושא|דיון|הרצאה/, Lightbulb, "topic"],
+  [/שיחה|שיח|מפגש/, MessageCircle, "conversation"],
+  [/פרטני|פרטנית|אישי|אישית/, User, "individual"],
+  [/קבוצ/, Users, "group"],
 ];
 
-export function activityIcon(title: string): IconComponent {
+function activityRule(title: string): [IconComponent, string] {
   const t = title.trim();
-  for (const [re, icon] of ACTIVITY_RULES) if (re.test(t)) return icon;
-  return Shapes;
+  for (const [re, icon, key] of ACTIVITY_RULES) if (re.test(t)) return [icon, key];
+  return [Shapes, "other"];
 }
 
-export function ActivityIcon({ title, className }: { title: string; className?: string }) {
-  const Icon = activityIcon(title);
+export function activityIcon(title: string): IconComponent {
+  return activityRule(title)[0];
+}
+
+/**
+ * אייקון לפעילות לפי השם שלה. עם photoClassName — צילום אמיתי (public/activities),
+ * ואם אין צילום או שהוא לא נטען — האייקון הקווי.
+ */
+export function ActivityIcon({ title, className, photoClassName }: { title: string; className?: string; photoClassName?: string }) {
+  const [Icon, key] = activityRule(title);
+  const [failed, setFailed] = useState(false);
+  if (photoClassName && !failed) {
+    return <img src={`/activities/${key}.jpg`} alt="" aria-hidden="true" className={photoClassName} onError={() => setFailed(true)} />;
+  }
   return <Icon className={className} aria-hidden="true" />;
 }
 

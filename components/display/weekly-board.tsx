@@ -158,7 +158,7 @@ function DayColumn({
                 {isNow && <span className={styles.nowTag}>עכשיו</span>}
               </span>
               <span className={styles.actTitle}>
-                {settings.show_icons !== false && <ActivityIcon title={a.title} className={styles.actIcon} />}
+                {settings.show_icons !== false && <ActivityIcon key={a.title} title={a.title} className={styles.actIcon} photoClassName={styles.actPhoto} />}
                 {a.title}
               </span>
               {showMeta && ((settings.show_location && a.location) || (settings.show_instructor && a.instructor)) && (

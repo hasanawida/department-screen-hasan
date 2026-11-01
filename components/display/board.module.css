@@ -1315,6 +1315,31 @@
   flex-shrink: 0;
 }
 
+/* צילום אמיתי של סוג הפעילות, ליד השם: מזהים מה קורה גם בלי לקרוא */
+.actPhoto {
+  display: inline-block;
+  width: 1.5em;
+  height: 1.5em;
+  border-radius: 0.35em;
+  object-fit: cover;
+  vertical-align: middle;
+  margin-inline-end: 0.4em;
+  flex-shrink: 0;
+  background: #fff;
+  box-shadow: 0 0 0 1px var(--hair);
+}
+
+.nowPhoto {
+  display: inline-block;
+  width: 1.3em;
+  height: 1.3em;
+  border-radius: 0.3em;
+  object-fit: cover;
+  vertical-align: -0.2em;
+  margin-inline-end: 0.3em;
+  box-shadow: 0 0 0 1px var(--hair);
+}
+
 .nowIcon {
   display: inline-block;
   width: 0.78em;

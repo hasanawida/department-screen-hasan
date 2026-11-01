@@ -6,6 +6,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import DepartmentDisplay, { type ViewKind } from "@/components/display/department-display";
+import { latestIconConfig, type IconConfig } from "@/lib/icon-config";
 import { ScreenFrame, btnGhost, textareaCls, usePreviewCu } from "@/components/admin/brand-ui";
 import {
   DAY_NAMES, MEALS, MEAL_LABELS, MEAL_TIME, MENU_NOTES, SNACK_MEALS, addDaysISO, displaySettings, israelDateISO, menuFromRows,
@@ -46,6 +47,11 @@ export default function MenuEditor() {
   const [copyAsk, setCopyAsk] = useState(false);
   const [copied, setCopied] = useState<Meal | null>(null);
   const [preview, setPreview] = useState<ViewKind>("menuToday");
+  // תמונות הארוחות (נערכות בעמוד "אייקונים ותמונות")
+  const [iconConfig, setIconConfig] = useState<IconConfig>({});
+  useEffect(() => {
+    supabase.from("screen_settings").select("display_settings").then(({ data }) => setIconConfig(latestIconConfig(data as { display_settings?: unknown }[] | null)));
+  }, [supabase]);
   // שכפול לשבועות הבאים
   const [fwdOpen, setFwdOpen] = useState(false);
   const [fwdCount, setFwdCount] = useState(4);
@@ -327,6 +333,7 @@ export default function MenuEditor() {
         </div>
         <ScreenFrame frameRef={frameRef}>
           <DepartmentDisplay
+            iconConfig={iconConfig}
             department={{ id: "preview", name: "כל המחלקות", color: null }}
             weekDates={weekDates}
             days={EMPTY_DAYS}

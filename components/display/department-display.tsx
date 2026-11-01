@@ -10,7 +10,8 @@ import {
 } from "@/lib/week";
 import { TodayMenu, WeeklyMenu, nextMealsSummary } from "./menu-views";
 import { PhysioList, PhysioSummary, type PhysioAppt } from "./physio-board";
-import { ActivityIcon, MealIcon } from "./icons";
+import { ActivityIcon, IconConfigContext, MealIcon } from "./icons";
+import type { IconConfig } from "@/lib/icon-config";
 import styles from "./board.module.css";
 
 export type DepartmentDisplayProps = {
@@ -34,6 +35,8 @@ export type DepartmentDisplayProps = {
   embeddedCu?: number;
   /** בעורך: להציג תצוגה מסוימת ולא לסובב */
   fixedView?: ViewKind;
+  /** אייקונים ותמונות שנערכו בניהול */
+  iconConfig?: IconConfig;
   /** בעורך: לחיצה על פעילות בלוח השבועי */
   editor?: { selectedId?: string | null; onSelect: (a: BoardActivity) => void; onAdd: (dayIndex: number) => void };
 };
@@ -125,6 +128,7 @@ export default function DepartmentDisplay(props: DepartmentDisplayProps) {
     : "";
 
   return (
+    <IconConfigContext.Provider value={props.iconConfig ?? EMPTY_ICONS}>
     <div className={styles.stage} data-embedded={embeddedCu ? "" : undefined} style={stageStyle} dir="rtl">
       <div className={styles.canvas}>
         {/* כותרת */}
@@ -214,8 +218,11 @@ export default function DepartmentDisplay(props: DepartmentDisplayProps) {
         ) : <div />}
       </div>
     </div>
+    </IconConfigContext.Provider>
   );
 }
+
+const EMPTY_ICONS: IconConfig = {};
 
 /* ───────────── היום ───────────── */
 

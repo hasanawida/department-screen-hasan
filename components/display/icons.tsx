@@ -1,12 +1,16 @@
 // אייקונים במסכים: לכל ארוחה, ולכל פעילות לפי השם שלה (בלי לבחור ידנית)
 
-import React, { useState } from "react";
+import React, { createContext, useContext, useState } from "react";
 import {
   Apple, BookOpen, Brain, ChefHat, Coffee, Cookie, Dices, Dumbbell, Ear, EggFried, Eye, Film, Flame, Hand, Lightbulb,
   MessageCircle, Moon, Music, Newspaper, Palette, PartyPopper, PawPrint, ScrollText, Shapes, Soup, Sprout, Sunrise, User, Users, Wind,
   type LucideIcon,
 } from "lucide-react";
 import type { Meal } from "@/lib/week";
+import { activityImage, mealImage, titleMatchesWords, type IconConfig } from "@/lib/icon-config";
+
+/** הגדרות האייקונים (תמונות, מילים, בחירה לפי שם) — מגיעות מהניהול */
+export const IconConfigContext = createContext<IconConfig>({});
 
 type IconComponent = React.ComponentType<{ className?: string; "aria-hidden"?: boolean | "true" | "false" }>;
 
@@ -49,9 +53,11 @@ export function MealIcon({ meal, className }: { meal: Meal; className?: string }
  * אם אין תמונה או שהיא לא נטענת — האייקון הרגיל.
  */
 export function MealPhoto({ meal, className, fallbackClassName }: { meal: Meal; className?: string; fallbackClassName?: string }) {
-  const [failed, setFailed] = useState(false);
-  if (failed) return <MealIcon meal={meal} className={fallbackClassName ?? className} />;
-  return <img src={`/meals/${meal}.jpg`} alt="" aria-hidden="true" className={className} onError={() => setFailed(true)} />;
+  const cfg = useContext(IconConfigContext);
+  const src = mealImage(meal, cfg);
+  const [failed, setFailed] = useState<string | null>(null);
+  if (failed === src) return <MealIcon meal={meal} className={fallbackClassName ?? className} />;
+  return <img src={src} alt="" aria-hidden="true" className={className} onError={() => setFailed(src)} />;
 }
 
 /** מילה שלמה בעברית (גבול מילה רגיל לא עובד עם אותיות עבריות) */
@@ -84,10 +90,27 @@ const ACTIVITY_RULES: [RegExp, IconComponent, string][] = [
   [/קבוצ/, Users, "group"],
 ];
 
-function activityRule(title: string): [IconComponent, string] {
+const BUILTIN_ICON: Record<string, IconComponent> = Object.fromEntries(ACTIVITY_RULES.map(([, icon, key]) => [key, icon]));
+
+/**
+ * איזה סוג אייקון מתאים לשם הפעילות:
+ * בחירה ידנית לשם הזה ← סוגים שנוספו בניהול ← הסוגים המובנים (עם המילים שנערכו, אם נערכו) ← ברירת מחדל
+ */
+export function activityKey(title: string, cfg?: IconConfig): string {
   const t = title.trim();
-  for (const [re, icon, key] of ACTIVITY_RULES) if (re.test(t)) return [icon, key];
-  return [Shapes, "other"];
+  const manual = cfg?.titles?.[t];
+  if (manual) return manual;
+  for (const c of cfg?.custom ?? []) if (c.words?.length && titleMatchesWords(t, c.words)) return c.key;
+  for (const [re, , key] of ACTIVITY_RULES) {
+    const words = cfg?.types?.[key]?.words;
+    if (words ? titleMatchesWords(t, words) : re.test(t)) return key;
+  }
+  return "other";
+}
+
+function activityRule(title: string, cfg?: IconConfig): [IconComponent, string] {
+  const key = activityKey(title, cfg);
+  return [BUILTIN_ICON[key] ?? Shapes, key];
 }
 
 export function activityIcon(title: string): IconComponent {
@@ -99,10 +122,12 @@ export function activityIcon(title: string): IconComponent {
  * ואם אין צילום או שהוא לא נטען — האייקון הקווי.
  */
 export function ActivityIcon({ title, className, photoClassName }: { title: string; className?: string; photoClassName?: string }) {
-  const [Icon, key] = activityRule(title);
-  const [failed, setFailed] = useState(false);
-  if (photoClassName && !failed) {
-    return <img src={`/activities/${key}.jpg`} alt="" aria-hidden="true" className={photoClassName} onError={() => setFailed(true)} />;
+  const cfg = useContext(IconConfigContext);
+  const [Icon, key] = activityRule(title, cfg);
+  const src = activityImage(key, cfg);
+  const [failed, setFailed] = useState<string | null>(null);
+  if (photoClassName && failed !== src) {
+    return <img src={src} alt="" aria-hidden="true" className={photoClassName} onError={() => setFailed(src)} />;
   }
   return <Icon className={className} aria-hidden="true" />;
 }

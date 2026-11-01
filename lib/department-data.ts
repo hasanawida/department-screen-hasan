@@ -9,6 +9,7 @@ import { getN12Headlines } from "./news";
 import { syncCalendarsIfStale } from "./calendar-sync";
 import { resolveTopic } from "./topics";
 import type { DepartmentDisplayProps } from "@/components/display/department-display";
+import { latestIconConfig } from "./icon-config";
 
 export async function loadDepartmentDisplay(supabase: SupabaseClient, code: string): Promise<DepartmentDisplayProps | null> {
   const { data: department } = await supabase.from("departments").select("id, name, code, color").eq("code", code).maybeSingle();
@@ -21,7 +22,7 @@ export async function loadDepartmentDisplay(supabase: SupabaseClient, code: stri
   const weekStart = weekStartISO(today);
   const weekDates = weekDatesISO(weekStart);
 
-  const [acts, ann, tick, ss, media, topic, menuRows, physio] = await Promise.all([
+  const [acts, ann, tick, ss, media, topic, menuRows, physio, allSettings] = await Promise.all([
     supabase.from("activities").select("*").eq("department_id", department.id).eq("is_active", true),
     supabase.from("announcements").select("title, content, is_active, start_date, end_date").eq("department_id", department.id).eq("is_active", true),
     supabase.from("ticker_messages").select("message, display_order").or(`department_id.eq.${department.id},is_global.eq.true`).eq("is_active", true).order("display_order", { ascending: true }),
@@ -31,6 +32,8 @@ export async function loadDepartmentDisplay(supabase: SupabaseClient, code: stri
     supabase.from("weekly_menus").select("week_start, day_index, meal, items").eq("week_start", weekStart),
     // מי מהמחלקה מוזמן היום לפיזיותרפיה (אם הטבלה עוד לא קיימת — פשוט ריק)
     supabase.from("physio_appointments").select("*").eq("appt_date", today).eq("department_id", department.id).order("start_time"),
+    // הגדרות האייקונים משותפות לכל המחלקות — לוקחים את העדכנית ביותר
+    supabase.from("screen_settings").select("display_settings"),
   ]);
 
   const settings = displaySettings(ss.data?.display_settings);
@@ -68,5 +71,6 @@ export async function loadDepartmentDisplay(supabase: SupabaseClient, code: stri
       note: r.note,
       attended: r.attended ?? null,
     })),
+    iconConfig: latestIconConfig(allSettings.data as { display_settings?: unknown }[] | null),
   };
 }

@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import {
   Building2, CalendarDays, CalendarSync, ClipboardList, Compass, GraduationCap, HeartPulse, LayoutDashboard,
-  LogOut, Megaphone, Menu, MessageSquare, Monitor, ShieldCheck, Sparkles, UserRound, Users, UtensilsCrossed, X,
+  Images, LogOut, Megaphone, Menu, MessageSquare, Monitor, ShieldCheck, Sparkles, UserRound, Users, UtensilsCrossed, X,
 } from "lucide-react"
 import { EshkolotLogo } from "@/components/orientation/eshkolot-logo"
 import { cn } from "@/lib/utils"
@@ -32,6 +32,7 @@ const GROUPS: { title?: string; items: Item[] }[] = [
       { href: "/admin/announcements", label: "הודעות חשובות", icon: Megaphone },
       { href: "/admin/ticker", label: "שורת רצה", icon: MessageSquare },
       { href: "/admin/topics", label: "תוכנית נושאים", icon: Sparkles },
+      { href: "/admin/icons", label: "אייקונים ותמונות", icon: Images },
     ],
   },
   {

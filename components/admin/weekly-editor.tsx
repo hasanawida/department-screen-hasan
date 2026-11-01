@@ -14,6 +14,7 @@ import { cleanName, matchesActivity } from "@/lib/participants";
 import InstructorSelect, { resolveInstructorName } from "@/components/admin/instructor-select";
 import type { TopicData } from "@/lib/topics";
 import { SHABBAT_CITIES, shabbatCity } from "@/lib/jewish-calendar";
+import { latestIconConfig, type IconConfig } from "@/lib/icon-config";
 import {
   DAY_CODES, DAY_NAMES, activitiesByDay, addDaysISO, dayCodeIndex, dayIndexOf, displaySettings, israelDateISO, menuFromRows, menuNotesFromRows, shortDate,
   weekDatesISO, weekStartISO, weeklyBoardSettings,
@@ -157,6 +158,12 @@ export default function WeeklyEditor() {
     supabase.from("weekly_menus").select("week_start, day_index, meal, items").eq("week_start", weekStart)
       .then(({ data }) => setMenuRows((data ?? []) as MenuRow[]));
   }, [supabase, deptId, weekStart]);
+
+  // אייקונים ותמונות (נערכים בעמוד "אייקונים ותמונות") — לתצוגה המקדימה
+  const [iconConfig, setIconConfig] = useState<IconConfig>({});
+  useEffect(() => {
+    supabase.from("screen_settings").select("display_settings").then(({ data }) => setIconConfig(latestIconConfig(data as { display_settings?: unknown }[] | null)));
+  }, [supabase]);
 
   const days = useMemo(() => activitiesByDay(rows, weekStart), [rows, weekStart]);
   const visibleRows = rows.filter(r => r.is_active !== false);
@@ -583,6 +590,7 @@ export default function WeeklyEditor() {
               news={["כאן יופיעו כותרות N12 ו/או הודעות חשובות"]}
               media={[]}
               embeddedCu={cu}
+              iconConfig={iconConfig}
               fixedView={view}
               editor={view === "weekly" ? { selectedId: draft?.id ?? (draft ? "__draft" : null), onSelect: openActivity, onAdd: openNew } : undefined}
             />
@@ -779,6 +787,9 @@ export default function WeeklyEditor() {
                   <Toggle label="מקום הפעילות" on={board.show_location} onChange={v => setBoard({ show_location: v })} />
                   <Toggle label="שם המפעיל/ה" on={board.show_instructor} onChange={v => setBoard({ show_instructor: v })} />
                   <Toggle label="אייקון ליד כל פעילות" on={board.show_icons !== false} onChange={v => setBoard({ show_icons: v })} />
+                  {board.show_icons !== false && (
+                    <Link href="/admin/icons" className="block py-2 text-sm font-semibold text-[#5A826F] hover:underline">עריכת האייקונים והתמונות</Link>
+                  )}
                   <Toggle label="שעת סיום" on={board.show_end_time} onChange={v => setBoard({ show_end_time: v })} />
                   <Toggle label="נושא השבוע" on={board.show_topic} onChange={v => setBoard({ show_topic: v })} />
                   <Toggle label="ימים שעברו בצבע חלש" on={board.dim_past_days} onChange={v => setBoard({ dim_past_days: v })} />

@@ -556,6 +556,19 @@
   border-top: 0;
 }
 
+/* הפעילות שמתקיימת עכשיו: פס צהוב עבה בצד ושם גדול יותר — העין מוצאת אותה מיד */
+.activityBoard .actNow {
+  box-shadow: inset calc(var(--cu) * -1) 0 0 var(--sun);
+}
+
+.activityBoard .actNow .actTitle {
+  font-size: calc(var(--bu) * 3.2);
+}
+
+.activityBoard .actNow .nowTag {
+  font-size: calc(var(--bu) * 2);
+}
+
 .editable .act {
   cursor: pointer;
 }

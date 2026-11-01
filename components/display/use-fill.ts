@@ -85,9 +85,9 @@ export function useFillScale(ref: RefObject<HTMLElement | null>, appliedRef: { c
 
 /**
  * גודל אחיד לכמה עמודות (ימים): כולן גדלות יחד כל עוד יש מקום בכולן.
- * עמודה עמוסה מתכווצת לבד ולא מקטינה את האחרות.
+ * עמודה עמוסה מתכווצת לבד ולא מקטינה את האחרות (אלא אם shrinkTogether).
  */
-export function useUniformGrow(max = FILL_MAX) {
+export function useUniformGrow(max = FILL_MAX, shrinkTogether = false) {
   const [map, setMap] = useState<Record<string, number>>({});
   const report = useCallback((id: string, value: number | null) => {
     setMap(m => {
@@ -100,6 +100,8 @@ export function useUniformGrow(max = FILL_MAX) {
     });
   }, []);
   const values = Object.values(map);
-  const grow = Math.min(max, Math.max(1, values.length ? Math.min(...values) : 1));
+  // shrinkTogether: גם כשעמודה עמוסה צריכה להתכווץ — כולן מתכווצות איתה, כדי שגודל הכתב יהיה אחיד
+  const floor = shrinkTogether ? FILL_MIN : 1;
+  const grow = Math.min(max, Math.max(floor, values.length ? Math.min(...values) : 1));
   return { grow, report };
 }

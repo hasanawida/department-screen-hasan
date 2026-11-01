@@ -549,7 +549,7 @@
 
 /* לוח הפעילויות: קו ברור בין פעילות לפעילות, כדי שהעין תפריד ביניהן בקלות */
 .activityBoard .act {
-  border-top: max(3px, calc(var(--cu) * 0.4)) solid rgba(63, 47, 45, 0.3);
+  border-top: max(2px, calc(var(--cu) * 0.2)) solid rgba(63, 47, 45, 0.2);
 }
 
 .activityBoard .act:first-child {

@@ -43,8 +43,8 @@ export default function WeeklyBoard(props: Props) {
   const hideEmpty = settings.hide_empty_days && weekHasActivities;
   const shown = configured.filter(i => editable || !hideEmpty || visible[i].length > 0 || i === todayIndex || marked(i));
 
-  // כל הימים גדלים יחד כדי למלא את המסך; יום עמוס מתכווץ לבד
-  const { grow, report } = useUniformGrow();
+    // כל הימים באותו גודל כתב: גדלים יחד, ומתכווצים יחד כשיום אחד עמוס
+  const { grow, report } = useUniformGrow(undefined, true);
 
   return (
     <div

@@ -1358,8 +1358,8 @@
 
 .tmSnackPhoto {
   display: inline-block;
-  width: 1.6em;
-  height: 1.6em;
+  width: 2.2em;
+  height: 2.2em;
   border-radius: 50%;
   object-fit: cover;
   vertical-align: middle;

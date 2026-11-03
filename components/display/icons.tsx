@@ -85,8 +85,8 @@ const ACTIVITY_RULES: [RegExp, IconComponent, string][] = [
   [/בינגו|משחק|חידון|טריוויה|קלפים|שבץ/, Dices, "game"],
   [/גרי[יה]|סנוזלן|חוש/, SensesIcon, "senses"],
   [/בע"ח|בע״ח|בעלי חיים|חיות|כלב/, PawPrint, "animals"],
-  [new RegExp(`מוזיק|שירה|שירים|זמר|צליל|מקהלה|נגינ|תופים|${word("שיר")}`), Music, "music"],
-  [/התעמלות|כושר|ספורט|יוגה|פילאטיס|תנועה|ריקוד|מחול|הליכה/, Dumbbell, "exercise"],
+  [new RegExp(`מוזיק|מוסיק|שירה|שירים|זמר|צליל|מקהלה|נגינ|מנגן|מנגנ|תופים|ריתמיק|פסנתר|גיטר|כינור|כנר|חצוצר|סקסופון|אקורדיון|${word("שיר")}`), Music, "music"],
+  [/התעמלות|כושר|ספורט|יוגה|פילאטיס|תנועה|ריקוד|מחול|הליכה|טאי.?צ|צ['׳]י.?קונג/, Dumbbell, "exercise"],
   [/אקטואליה|עיתון|חדשות/, Newspaper, "news"],
   [/מסיב|יום הולדת|חגיג|הופעה/, PartyPopper, "party"],
   [/שבת|נרות|הבדלה|ערב חג|חגים/, Flame, "shabbat"],
@@ -97,11 +97,16 @@ const ACTIVITY_RULES: [RegExp, IconComponent, string][] = [
   [/סיפור|קריא|ספר|הקראה/, BookOpen, "story"],
   [/קפה/, Coffee, "coffee"],
   [/גינ|חצר|טיול|השקי|צמחים|טבע/, Sprout, "garden"],
-  [/זיכרון|קוגניטיב|מוח/, Brain, "memory"],
+  [/זיכרון|קוגניטיב|מוח|נוסטלגי/, Brain, "memory"],
   [/נושא|דיון|הרצאה/, Lightbulb, "topic"],
-  [/שיחה|שיח|מפגש/, MessageCircle, "conversation"],
+  [/שיחה|שיח|מפגש|חברתי/, MessageCircle, "conversation"],
   [/פרטני|פרטנית|אישי|אישית/, User, "individual"],
   [/קבוצ/, Users, "group"],
+];
+
+/** כללים שגוברים על הסדר הרגיל: "קבוצת נושא: זכוכית ואקטואליה" היא קודם כול קבוצת נושא */
+const PRIORITY_RULES: [RegExp, string][] = [
+  [/קבוצת נושא/, "topic"],
 ];
 
 const BUILTIN_ICON: Record<string, IconComponent> = Object.fromEntries(ACTIVITY_RULES.map(([, icon, key]) => [key, icon]));
@@ -115,6 +120,7 @@ export function activityKey(title: string, cfg?: IconConfig): string {
   const manual = cfg?.titles?.[t];
   if (manual) return manual;
   for (const c of cfg?.custom ?? []) if (c.words?.length && titleMatchesWords(t, c.words)) return c.key;
+  for (const [re, key] of PRIORITY_RULES) if (!cfg?.types?.[key]?.words && re.test(t)) return key;
   for (const [re, , key] of ACTIVITY_RULES) {
     const words = cfg?.types?.[key]?.words;
     if (words ? titleMatchesWords(t, words) : re.test(t)) return key;

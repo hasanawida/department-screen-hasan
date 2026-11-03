@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { CalendarDays, Flame, MapPin, Star, User } from "lucide-react";
 import { Pin, BRAND } from "@/components/orientation/eshkolot-logo";
-import { DAY_NAMES, isManualActivity, shortDate, toMinutes, visibleActivities, type BoardActivity, type WeeklyBoardSettings } from "@/lib/week";
+import { DAY_NAMES, isManualActivity, shortDate, toMinutes, visibleActivities, withWeeklyTopic, type BoardActivity, type WeeklyBoardSettings } from "@/lib/week";
 import type { DayInfo, HolidayKind } from "@/lib/jewish-calendar";
 import { useFillScale, useUniformGrow } from "./use-fill";
 import { ActivityIcon, HavdalahStarsIcon, HolidayIcon as FestivalIcon, ShabbatCandlesIcon } from "./icons";
@@ -78,7 +78,7 @@ export default function WeeklyBoard(props: Props) {
 
 /** יום אחד בלוח: גדל עם שאר הימים כשיש מקום, ומתכווץ לבד כשהוא עמוס */
 function DayColumn({
-  days, dayIndex, date, isToday, isPast, hiddenOnScreen, info, nowMinutes, settings, editable, selectedId, onSelect, onAdd, grow, report,
+  days, dayIndex, date, isToday, isPast, hiddenOnScreen, info, nowMinutes, settings, editable, selectedId, onSelect, onAdd, grow, report, topic,
 }: Props & {
   dayIndex: number; date: string; isToday: boolean; isPast: boolean; hiddenOnScreen?: boolean;
   info?: DayInfo;
@@ -88,7 +88,7 @@ function DayColumn({
   const list = editable ? days[dayIndex] : visibleActivities(days[dayIndex], info);
   const holidayHides = (a: BoardActivity) => !!info?.noRegularActivities && !isManualActivity(a);
   const listRef = useRef<HTMLDivElement>(null);
-  const contentKey = JSON.stringify([list.map(a => a.id + a.title + a.start + a.end + a.location + a.instructor), settings, info]);
+  const contentKey = JSON.stringify([list.map(a => a.id + a.title + a.start + a.end + a.location + a.instructor), settings, info, topic?.title]);
 
   // יום עמוס מאוד: מסתירים מיקום ומפעיל כדי שיהיה מקום לשעה ולשם הפעילות
   const [compact, setCompact] = useState(false);
@@ -159,7 +159,7 @@ function DayColumn({
               </span>
               <span className={styles.actTitle}>
                 {settings.show_icons !== false && <ActivityIcon key={a.title} title={a.title} className={styles.actIcon} photoClassName={styles.actPhoto} />}
-                {a.title}
+                {withWeeklyTopic(a.title, topic?.title)}
               </span>
               {showMeta && ((settings.show_location && a.location) || (settings.show_instructor && a.instructor)) && (
                 <span className={styles.actMeta}>

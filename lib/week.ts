@@ -120,6 +120,17 @@ export function normalizeActivity(row: ActivityRow, dayIndex: DayIndex): BoardAc
 }
 
 /**
+ * "קבוצת נושא" היא פעילות קבועה, והנושא מתחלף כל שבוע לפי התוכנית השנתית —
+ * לכן במסך מוסיפים לה את נושא השבוע: "קבוצת נושא ואקטואליה" ← "קבוצת נושא: זכוכית ואקטואליה".
+ * אם כבר כתוב נושא אחרי נקודתיים, או שאין נושא לשבוע — השם נשאר כמו שהוא.
+ */
+export function withWeeklyTopic(title: string, topic?: string | null): string {
+  const t = topic?.trim();
+  if (!t) return title;
+  return title.replace(/^(\s*קבוצת נושא)(?!\s*:)/, `$1: ${t}`);
+}
+
+/**
  * מחלק פעילויות לשבעה ימים:
  * פעילות עם תאריך — רק בשבוע של התאריך; פעילות בלי תאריך — חוזרת כל שבוע לפי היום,
  * חוץ מהשבועות שבהם בוטלה או הוחלפה לשבוע אחד (skip_dates).

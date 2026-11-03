@@ -5,7 +5,7 @@ import { Clock3, MapPin, User, Utensils, Megaphone, HeartPulse } from "lucide-re
 import { EshkolotLogo, Pin, BRAND } from "@/components/orientation/eshkolot-logo";
 import WeeklyBoard, { type WeeklyTopic } from "./weekly-board";
 import {
-  DAY_NAMES, MEAL_SHORT, boardDayInfos, dayIndexOf, israelDateISO, israelTimeHM, shortDate, toMinutes, visibleActivities,
+  DAY_NAMES, MEAL_SHORT, boardDayInfos, dayIndexOf, israelDateISO, israelTimeHM, shortDate, toMinutes, visibleActivities, withWeeklyTopic,
   type BoardActivity, type DisplaySettings, type WeekMenu, type WeeklyBoardSettings,
 } from "@/lib/week";
 import { TodayMenu, WeeklyMenu, nextMealsSummary } from "./menu-views";
@@ -167,7 +167,7 @@ export default function DepartmentDisplay(props: DepartmentDisplayProps) {
           {view.kind === "daily" && (
             <DailyView today={today} nowMinutes={nowMinutes} menu={todayIndex >= 0 ? menu[todayIndex] : undefined}
               messages={settings.show_announcements ? messages : []} board={board}
-              physio={settings.show_physio !== false ? physio : []} />
+              physio={settings.show_physio !== false ? physio : []} topic={topic} />
           )}
 
           {view.kind === "physio" && (
@@ -226,13 +226,14 @@ const EMPTY_ICONS: IconConfig = {};
 
 /* ───────────── היום ───────────── */
 
-function DailyView({ today, nowMinutes, menu, messages, board, physio }: {
+function DailyView({ today, nowMinutes, menu, messages, board, physio, topic }: {
   today: BoardActivity[];
   nowMinutes: number;
   menu?: WeekMenu[number];
   messages: string[];
   board: WeeklyBoardSettings;
   physio: PhysioAppt[];
+  topic?: WeeklyTopic;
 }) {
   const end = (a: BoardActivity) => (a.end ? toMinutes(a.end) : toMinutes(a.start) + 60);
   const current = today.find(a => nowMinutes >= toMinutes(a.start) && nowMinutes < end(a));
@@ -253,7 +254,7 @@ function DailyView({ today, nowMinutes, menu, messages, board, physio }: {
               <span className={styles.nowTime}>{current.start}{current.end ? "–" + current.end : ""}</span>
               <span className={styles.nowTitle}>
                 {board.show_icons !== false && <ActivityIcon key={current.title} title={current.title} className={styles.nowIcon} photoClassName={styles.nowPhoto} />}
-                {current.title}
+                {withWeeklyTopic(current.title, topic?.title)}
               </span>
               {(current.location || current.instructor) && (
                 <span className={styles.nowMeta}>
@@ -265,7 +266,7 @@ function DailyView({ today, nowMinutes, menu, messages, board, physio }: {
           ) : (
             <>
               <span className={styles.nowQuiet}>זמן חופשי ומנוחה</span>
-              {nextOne && <span className={styles.nowMeta}><span><Clock3 aria-hidden="true" />הפעילות הבאה בשעה {nextOne.start}: {nextOne.title}</span></span>}
+              {nextOne && <span className={styles.nowMeta}><span><Clock3 aria-hidden="true" />הפעילות הבאה בשעה {nextOne.start}: {withWeeklyTopic(nextOne.title, topic?.title)}</span></span>}
             </>
           )}
         </section>
@@ -300,7 +301,7 @@ function DailyView({ today, nowMinutes, menu, messages, board, physio }: {
               <div>
                 <div className={styles.nextTitle}>
                   {board.show_icons !== false && <ActivityIcon key={a.title} title={a.title} className={styles.actIcon} photoClassName={styles.actPhoto} />}
-                  {a.title}
+                  {withWeeklyTopic(a.title, topic?.title)}
                 </div>
                 {((board.show_location && a.location) || (board.show_instructor && a.instructor)) && (
                   <div className={styles.nextSub}>{[board.show_location ? a.location : "", board.show_instructor ? a.instructor : ""].filter(Boolean).join(", ")}</div>

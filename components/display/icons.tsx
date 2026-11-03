@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState } from "react";
 import {
   Apple, BookOpen, Brain, ChefHat, Coffee, Cookie, Dices, Dumbbell, Ear, EggFried, Eye, Film, Flame, Hand, Lightbulb,
-  MessageCircle, Moon, Music, Newspaper, Palette, PartyPopper, PawPrint, ScrollText, Shapes, Soup, Sprout, Sunrise, User, Users, Wind,
+  MessageCircle, Moon, Music, Newspaper, Palette, PartyPopper, PawPrint, Dog, ScrollText, Shapes, Soup, Sprout, Sunrise, User, Users, Wind,
   type LucideIcon,
 } from "lucide-react";
 import type { Meal } from "@/lib/week";
@@ -102,7 +102,8 @@ const word = (w: string) => `(^|[\\s,/(])${w}($|[\\s,/)])`;
 const ACTIVITY_RULES: [RegExp, IconComponent, string][] = [
   [/בינגו|משחק|חידון|טריוויה|קלפים|שבץ/, Dices, "game"],
   [/גרי[יה]|סנוזלן|חוש/, SensesIcon, "senses"],
-  [/בע"ח|בע״ח|בעלי חיים|חיות|כלב/, PawPrint, "animals"],
+  [/כלבנות|כלב/, Dog, "dog"],
+  [/בע"ח|בע״ח|בעלי חיים|חיות/, PawPrint, "animals"],
   [new RegExp(`מוזיק|מוסיק|שירה|שירים|זמר|צליל|מקהלה|נגינ|מנגן|מנגנ|תופים|ריתמיק|פסנתר|גיטר|כינור|כנר|חצוצר|סקסופון|אקורדיון|${word("שיר")}`), Music, "music"],
   [/התעמלות|כושר|ספורט|יוגה|פילאטיס|תנועה|ריקוד|מחול|הליכה|טאי.?צ|צ['׳]י.?קונג/, Dumbbell, "exercise"],
   [/אקטואליה|עיתון|חדשות/, Newspaper, "news"],

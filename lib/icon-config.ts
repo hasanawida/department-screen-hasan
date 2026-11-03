@@ -33,20 +33,21 @@ export type IconConfig = {
     types?: Record<string, IconTypeOverride>;
     custom?: CustomIconType[];
   };
-  /** תמונה ליד כל מנה בפירוט התפריט — בתפריט היום (ברירת מחדל: בלי) ובתפריט השבועי (ברירת מחדל: עם) */
+  /** תמונה ליד כל מנה בפירוט התפריט — בתפריט היום ובתפריט השבועי. ברירת המחדל: בלי (רק בכותרות) */
   menu_lines?: { today?: boolean; week?: boolean };
 };
 
-/** האם להציג תמונה ליד כל מנה בפירוט, בתפריט היום או בתפריט השבועי */
+/** האם להציג תמונה ליד כל מנה בפירוט, בתפריט היום או בתפריט השבועי (ברירת מחדל: לא — רק בכותרות) */
 export function menuLinePhotos(cfg: IconConfig | undefined, view: "today" | "week"): boolean {
-  return view === "today" ? cfg?.menu_lines?.today === true : cfg?.menu_lines?.week !== false;
+  return cfg?.menu_lines?.[view] === true;
 }
 
 /** סוגי הפעילויות המובנים: מפתח, שם בעברית, ומה מזהה אותם כברירת מחדל (להצגה בניהול) */
 export const ACTIVITY_TYPES: { key: string; label: string; defaultWords: string }[] = [
   { key: "game", label: "משחקים ובינגו", defaultWords: "בינגו, משחק, חידון, טריוויה, קלפים, שבץ" },
   { key: "senses", label: "גרייה חושית", defaultWords: "גרייה, סנוזלן, חוש" },
-  { key: "animals", label: "בעלי חיים", defaultWords: "בע״ח, בעלי חיים, חיות, כלב" },
+  { key: "dog", label: "כלבנות טיפולית", defaultWords: "כלבנות, כלב" },
+  { key: "animals", label: "בעלי חיים", defaultWords: "בע״ח, בעלי חיים, חיות" },
   { key: "music", label: "מוזיקה ושירה", defaultWords: "מוזיקה, מוסיקה, שירה, שירים, זמר, צליל, מקהלה, נגינה, מנגן, תופים, ריתמיקה, פסנתר, גיטרה, כינור, כנר, חצוצרה, סקסופון, אקורדיון, \"שיר\"" },
   { key: "exercise", label: "התעמלות ותנועה", defaultWords: "התעמלות, כושר, ספורט, יוגה, פילאטיס, תנועה, ריקוד, מחול, הליכה, טאי צ'י, צ'י קונג" },
   { key: "news", label: "אקטואליה", defaultWords: "אקטואליה, עיתון, חדשות" },

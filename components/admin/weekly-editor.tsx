@@ -19,7 +19,7 @@ import ActivityIconPicker from "@/components/admin/activity-icon-picker";
 import {
   DAY_CODES, DAY_NAMES, activitiesByDay, addDaysISO, dayCodeIndex, dayIndexOf, displaySettings, israelDateISO, menuFromRows, menuNotesFromRows, shortDate,
   weekDatesISO, weekStartISO, weeklyBoardSettings, viewStyle, clampScale,
-  ICON_SCALES, STYLED_VIEWS, TEXT_SCALE_MAX, TEXT_SCALE_MIN, TEXT_SCALE_STEP,
+  ICON_SCALES, STYLED_VIEWS, TEXT_SCALE_MIN, TEXT_SCALE_STEP,
   type ActivityRow, type BoardActivity, type DisplaySettings, type MenuRow, type ViewStyle, type WeeklyBoardSettings,
 } from "@/lib/week";
 
@@ -818,7 +818,7 @@ export default function WeeklyEditor() {
                 <h2 className="mb-1 text-lg font-bold">גודל כתב ואייקונים</h2>
                 <p className="mb-3 text-sm text-[#3F2F2D]/60">לכל תצוגה בנפרד. לחיצה על שם התצוגה מראה אותה בתצוגה המקדימה.</p>
                 <div className="space-y-3">
-                  {STYLED_VIEWS.map(({ key: k, label }) => {
+                  {STYLED_VIEWS.map(({ key: k, label, max }) => {
                     const cur = viewStyle(display, board, k);
                     const setLook = (patch: ViewStyle) => saveDisplay({ ...display, view_style: { ...display.view_style, [k]: { ...cur, ...display.view_style?.[k], ...patch } } });
                     const isDefault = !display.view_style?.[k];
@@ -835,12 +835,15 @@ export default function WeeklyEditor() {
                           <div className="flex items-center gap-1.5" role="group" aria-label={`גודל הכתב — ${label}`}>
                             <span className="me-1 text-sm text-[#3F2F2D]/65">כתב</span>
                             <button type="button" aria-label="הקטנת הכתב" disabled={cur.text <= TEXT_SCALE_MIN}
-                              onClick={() => { setView(k as ViewKind); setLook({ text: clampScale(cur.text - TEXT_SCALE_STEP) }); }}
+                              onClick={() => { setView(k as ViewKind); setLook({ text: clampScale(cur.text - TEXT_SCALE_STEP, max) }); }}
                               className="grid h-8 w-8 place-items-center rounded-lg bg-white shadow-sm hover:bg-[#E3ECE7] disabled:opacity-40"><Minus className="h-4 w-4" /></button>
                             <span className="w-12 text-center text-sm font-bold tabular-nums">{Math.round(cur.text * 100)}%</span>
-                            <button type="button" aria-label="הגדלת הכתב" disabled={cur.text >= TEXT_SCALE_MAX}
-                              onClick={() => { setView(k as ViewKind); setLook({ text: clampScale(cur.text + TEXT_SCALE_STEP) }); }}
+                            <button type="button" aria-label="הגדלת הכתב" disabled={cur.text >= max}
+                              onClick={() => { setView(k as ViewKind); setLook({ text: clampScale(cur.text + TEXT_SCALE_STEP, max) }); }}
                               className="grid h-8 w-8 place-items-center rounded-lg bg-white shadow-sm hover:bg-[#E3ECE7] disabled:opacity-40"><Plus className="h-4 w-4" /></button>
+                            <button type="button" disabled={cur.text >= max}
+                              onClick={() => { setView(k as ViewKind); setLook({ text: max }); }}
+                              className="ms-1 rounded-lg bg-[#3F2F2D] px-2.5 py-1.5 text-xs font-semibold text-[#F6F2EE] hover:bg-[#3F2F2D]/90 disabled:opacity-40">הכי גדול</button>
                           </div>
                           <div className="flex items-center gap-1.5" role="group" aria-label={`גודל האייקונים — ${label}`}>
                             <span className="me-1 text-sm text-[#3F2F2D]/65">אייקונים</span>
@@ -860,7 +863,7 @@ export default function WeeklyEditor() {
                   })}
                 </div>
                 <p className="mt-3 text-xs text-[#3F2F2D]/55">
-                  הכול תמיד נכנס במסך: כשהתצוגה מלאה, הגדלה מפנה מקום (בלוח — מסתירה את המקום ואת שם המפעיל ביום עמוס), והקטנה משאירה מקום פנוי.
+                  הכול תמיד נכנס במסך, ולכן כתב גדול מפנה מקום: בלוח ובתפריט השבועי מוצגים רק היום והימים הבאים, ובלוח מוסתרים המקום ושם המפעיל ביום עמוס. בתצוגת ״היום״ — פחות פעילויות בהמשך היום.
                   {" "}<Link href="/admin/icons" className="font-semibold text-[#5A826F] hover:underline">עריכת האייקונים והתמונות</Link>
                 </p>
               </section>

@@ -35,6 +35,8 @@ export default function IconsManager() {
   const [dishCustom, setDishCustom] = useState<CustomIconType[]>([]);
   const [dishQuery, setDishQuery] = useState("");
   const [menuLines, setMenuLines] = useState<NonNullable<IconConfig["menu_lines"]>>({});
+  // בחירות לשורות מסוימות בתפריט (נעשות בטופס התפריט) — נשמרות כמו שהן
+  const [dishLines, setDishLines] = useState<Record<string, string>>({});
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -69,6 +71,7 @@ export default function IconsManager() {
       setDishImages(dImg); setDishWords(dWords);
       setDishCustom(cfg.dishes?.custom ?? []);
       setMenuLines(cfg.menu_lines ?? {});
+      setDishLines(cfg.dishes?.lines ?? {});
       const names: string[] = Array.from(new Set<string>((acts.data ?? []).map((a: any) => String(a.title ?? "").trim()).filter(Boolean)));
       setTitles(names.sort((a, b) => a.localeCompare(b, "he")));
       setLoading(false);
@@ -89,8 +92,8 @@ export default function IconsManager() {
       const words = parseWords(dishWords[d.key] ?? "");
       if (image || words.length) dTypes[d.key] = { image: image || null, words: words.length ? words : null };
     }
-    return { types, custom, titles: byTitle, meals, dishes: { types: dTypes, custom: dishCustom }, menu_lines: menuLines };
-  }, [images, wordsText, custom, byTitle, meals, dishImages, dishWords, dishCustom, menuLines]);
+    return { types, custom, titles: byTitle, meals, dishes: { types: dTypes, custom: dishCustom, lines: dishLines }, menu_lines: menuLines };
+  }, [images, wordsText, custom, byTitle, meals, dishImages, dishWords, dishCustom, dishLines, menuLines]);
 
   /* ── העלאת תמונה ── */
   const upload = async (key: string, file: File | undefined, done: (url: string) => void) => {
@@ -298,11 +301,10 @@ export default function IconsManager() {
             התמונה של כל מנה נבחרת לפי המילים שבשורה בתפריט. מנה שלא מזוהה מופיעה בלי תמונה.
             אפשר להחליף תמונה, לשנות מילים ולהוסיף מנה חדשה.
           </p>
-          <div className="mb-5 grid gap-x-8 rounded-xl bg-[#F6F2EE] px-4 py-1 sm:grid-cols-2">
-            <Toggle label="תמונה ליד כל מנה — בתפריט היום" on={menuLinePhotos(config, "today")}
-              onChange={v => { setMenuLines(m => ({ ...m, today: v })); touch(); }} />
-            <Toggle label="תמונה ליד כל מנה — בתפריט השבועי" on={menuLinePhotos(config, "week")}
-              onChange={v => { setMenuLines(m => ({ ...m, week: v })); touch(); }} />
+          <div className="mb-5 rounded-xl bg-[#F6F2EE] px-4 py-1">
+            <Toggle label="תמונה ליד כל מנה (בתפריט היום ובתפריט השבועי). כבוי — תמונה רק ליד שם הארוחה"
+              on={menuLinePhotos(config, "today") || menuLinePhotos(config, "week")}
+              onChange={v => { setMenuLines({ today: v, week: v }); touch(); }} />
           </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {shownDishes.map(d => (
@@ -333,7 +335,12 @@ export default function IconsManager() {
                 round
                 busy={busyKey === c.key}
                 onUpload={f => upload(c.key, f, url => setDishCustom(list => list.map(x => (x.key === c.key ? { ...x, image: url } : x))))}
-                onDelete={() => { setDishCustom(list => list.filter(x => x.key !== c.key)); touch(); }}
+                onDelete={() => {
+                  setDishCustom(list => list.filter(x => x.key !== c.key));
+                  // שורות בתפריט שהמנה הזו נבחרה להן חוזרות לזיהוי האוטומטי
+                  setDishLines(m => Object.fromEntries(Object.entries(m).filter(([, v]) => v !== c.key)));
+                  touch();
+                }}
               >
                 <input
                   className={inputCls + " mb-2 text-sm"} value={c.label} aria-label="שם המנה"

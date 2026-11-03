@@ -242,7 +242,8 @@ function DailyView({ today, nowMinutes, menu, messages, board, physio, topic, lo
 }) {
   const end = (a: BoardActivity) => (a.end ? toMinutes(a.end) : toMinutes(a.start) + 60);
   const current = today.find(a => nowMinutes >= toMinutes(a.start) && nowMinutes < end(a));
-  const upcoming = today.filter(a => toMinutes(a.start) > nowMinutes).slice(0, current ? 4 : 3);
+  // בכתב גדול — פחות פעילויות בהמשך היום, כדי שהכול ייכנס
+  const upcoming = today.filter(a => toMinutes(a.start) > nowMinutes).slice(0, look.text > 1.3 ? 2 : current ? 4 : 3);
   const nextOne = !current ? upcoming[0] : undefined;
   const nextMeals = nextMealsSummary(menu, nowMinutes);
   // פיזיותרפיה: מי עוד מוזמן היום (לפי שעה)

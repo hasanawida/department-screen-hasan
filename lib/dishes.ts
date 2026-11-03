@@ -84,10 +84,24 @@ export const DISH_TYPES: DishType[] = [
 
 export const defaultDishImage = (key: string) => `/dishes/${key}.jpg`;
 
+/** בחירה ידנית של "בלי תמונה" לשורה בתפריט */
+export const DISH_NONE = "none";
+
+/** הזיהוי האוטומטי בלבד (בלי הבחירה הידנית לשורה) — להצגה בבורר */
+export function autoDishKey(line: string, cfg?: IconConfig): string | null {
+  const lines = cfg?.dishes?.lines;
+  if (!lines) return dishKey(line, cfg);
+  return dishKey(line, { ...cfg, dishes: { ...cfg?.dishes, lines: {} } });
+}
+
 /** איזו מנה מתאימה לשורה בתפריט. null — אין תמונה מתאימה (עדיף בלי תמונה מאשר תמונה לא נכונה) */
 export function dishKey(line: string, cfg?: IconConfig): string | null {
   const t = line.trim();
   if (!t) return null;
+  // בחירה ידנית לשורה הזו (מהטופס של התפריט)
+  const manual = cfg?.dishes?.lines?.[t];
+  if (manual === DISH_NONE) return null;
+  if (manual && (DISH_TYPES.some(d => d.key === manual) || cfg?.dishes?.custom?.some(c => c.key === manual))) return manual;
   for (const c of cfg?.dishes?.custom ?? []) if (c.words?.some(w => w.trim() && t.includes(w.trim()))) return c.key;
   const pos = (d: DishType) => {
     // מילים שנערכו בניהול מחליפות את כל המילים של המנה

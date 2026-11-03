@@ -44,7 +44,10 @@ export default function WeeklyBoard(props: Props) {
   const configured = settings.days.filter(i => i >= 0 && i <= 6).sort((a, b) => a - b);
   const weekHasActivities = configured.some(i => visible[i].length > 0);
   const hideEmpty = settings.hide_empty_days && weekHasActivities;
-  const shown = configured.filter(i => editable || !hideEmpty || visible[i].length > 0 || i === todayIndex || marked(i));
+  // כתב גדול מהרגיל: במסך מציגים מהיום והלאה, כדי שיהיה מקום לכתב גדול יותר
+  const fromToday = !editable && textScale > 1 && todayIndex >= 0;
+  const shown = configured.filter(i => editable || !hideEmpty || visible[i].length > 0 || i === todayIndex || marked(i))
+    .filter(i => !fromToday || i >= todayIndex);
 
     // כל הימים באותו גודל כתב: גדלים יחד, ומתכווצים יחד כשיום אחד עמוס
   const { grow, report } = useUniformGrow(fit.max, true);

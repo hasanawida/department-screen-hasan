@@ -32,6 +32,8 @@ export type IconConfig = {
   dishes?: {
     types?: Record<string, IconTypeOverride>;
     custom?: CustomIconType[];
+    /** שורה מסוימת בתפריט ← מנה (בחירה ידנית שגוברת על הזיהוי לפי מילים). "none" = בלי תמונה */
+    lines?: Record<string, string>;
   };
   /** תמונה ליד כל מנה בפירוט התפריט — בתפריט היום ובתפריט השבועי. ברירת המחדל: בלי (רק בכותרות) */
   menu_lines?: { today?: boolean; week?: boolean };

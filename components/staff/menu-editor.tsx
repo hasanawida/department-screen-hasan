@@ -8,6 +8,8 @@ import { createClient } from "@/lib/supabase/client";
 import DepartmentDisplay, { type ViewKind } from "@/components/display/department-display";
 import { latestIconConfig, menuLinePhotos, type IconConfig } from "@/lib/icon-config";
 import { loadIconConfig, saveIconConfig } from "@/lib/icon-config-db";
+import DishIconPicker from "@/components/admin/dish-icon-picker";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { dishImage, dishKey, dishLabel } from "@/lib/dishes";
 import { ScreenFrame, Toggle, btnGhost, textareaCls, usePreviewCu } from "@/components/admin/brand-ui";
 import {
@@ -56,10 +58,10 @@ export default function MenuEditor() {
   }, [supabase]);
   // תמונה ליד כל מנה בפירוט (בתפריט היום / בשבועי) — משותף לכל המסכים, נשמר מיד
   const [linesMsg, setLinesMsg] = useState<string | null>(null);
-  async function setLinePhotos(view: "today" | "week", on: boolean) {
-    setIconConfig(c => ({ ...c, menu_lines: { ...c.menu_lines, [view]: on } }));
+  async function setLinePhotos(on: boolean) {
+    setIconConfig(c => ({ ...c, menu_lines: { today: on, week: on } }));
     const latest = await loadIconConfig(supabase);
-    const { failed, saved } = await saveIconConfig(supabase, { ...latest, menu_lines: { ...latest.menu_lines, [view]: on } });
+    const { failed, saved } = await saveIconConfig(supabase, { ...latest, menu_lines: { today: on, week: on } });
     setIconConfig(saved);
     setLinesMsg(failed ? "לא נשמר בכל המסכים. נסו שוב." : "נשמר. המסכים מתעדכנים.");
     setTimeout(() => setLinesMsg(null), 3000);
@@ -315,7 +317,7 @@ export default function MenuEditor() {
                 placeholder={PLACEHOLDER[meal]}
                 value={texts[key(day, meal)] ?? ""}
                 onChange={e => change(day, meal, e.target.value)} />
-              <DishPreview text={texts[key(day, meal)] ?? ""} config={iconConfig} />
+              <DishPreview text={texts[key(day, meal)] ?? ""} config={iconConfig} supabase={supabase} onSaved={setIconConfig} />
               <button type="button" onClick={() => copyToAllDays(meal)} disabled={loading || missingTable || !(texts[key(day, meal)] ?? "").trim()}
                 className="mt-1.5 rounded-lg px-2 py-1 text-sm font-semibold text-[#5A826F] hover:bg-[#E3ECE7] disabled:opacity-40">
                 {copied === meal ? "הועתק לכל הימים" : "העתקה לכל ימי השבוע"}
@@ -344,9 +346,9 @@ export default function MenuEditor() {
             </button>
           ))}
         </div>
-        <div className="mb-2 grid gap-x-8 rounded-2xl bg-white px-4 py-1 shadow-[0_1px_2px_rgba(63,47,45,0.06)] sm:grid-cols-2">
-          <Toggle label="תמונה ליד כל מנה — בתפריט היום" on={menuLinePhotos(iconConfig, "today")} onChange={v => setLinePhotos("today", v)} />
-          <Toggle label="תמונה ליד כל מנה — בתפריט השבועי" on={menuLinePhotos(iconConfig, "week")} onChange={v => setLinePhotos("week", v)} />
+        <div className="mb-2 rounded-2xl bg-white px-4 py-1 shadow-[0_1px_2px_rgba(63,47,45,0.06)]">
+          <Toggle label="תמונה ליד כל מנה (בתפריט היום ובתפריט השבועי). כבוי — תמונה רק ליד שם הארוחה"
+            on={menuLinePhotos(iconConfig, "today") || menuLinePhotos(iconConfig, "week")} onChange={setLinePhotos} />
         </div>
         {linesMsg && <p role="status" className="mb-2 text-sm font-semibold text-[#5A826F]">{linesMsg}</p>}
         <ScreenFrame frameRef={frameRef}>
@@ -386,24 +388,42 @@ function SaveChip({ state }: { state: SaveState }) {
   return <span role="status" className={"rounded-full px-3 py-1 text-sm font-semibold " + cls}>{text}</span>;
 }
 
-/** התמונות שיופיעו במסך ליד כל מנה — כדי לראות מראש שהן מתאימות */
-function DishPreview({ text, config }: { text: string; config: IconConfig }) {
+/**
+ * התמונה של כל מנה — לחיצה פותחת בחירה: אוטומטי, בלי תמונה, מנה אחרת או תמונה חדשה,
+ * ועריכה ומחיקה של מנות שנוספו
+ */
+function DishPreview({ text, config, supabase, onSaved }: {
+  text: string; config: IconConfig; supabase: SupabaseClient; onSaved: (cfg: IconConfig) => void;
+}) {
+  const [open, setOpen] = useState<string | null>(null);
   const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
   if (!lines.length) return null;
   return (
-    <ul className="mt-2 flex flex-wrap gap-1.5" aria-label="תמונות המנות במסך">
-      {lines.map((line, i) => {
-        const k = dishKey(line, config);
-        return (
-          <li key={i} title={line + (k ? " — " + dishLabel(k, config) : " — אין תמונה מתאימה")}
-            className={"flex items-center gap-1 rounded-full py-0.5 pe-2 ps-0.5 text-xs " + (k ? "bg-[#F6F2EE]" : "bg-[#FDE8E1] text-[#3F2F2D]/70")}>
-            {k
-              ? <img src={dishImage(k, config)} alt="" className="h-6 w-6 rounded-full object-cover" />
-              : <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white text-[10px]">?</span>}
-            <span className="max-w-[9rem] truncate">{k ? dishLabel(k, config) : "אין תמונה"}</span>
-          </li>
-        );
-      })}
-    </ul>
+    <div className="mt-2">
+      <ul className="flex flex-wrap gap-1.5" aria-label="תמונות המנות — לחיצה לשינוי">
+        {lines.map((line, i) => {
+          const k = dishKey(line, config);
+          const manual = !!config.dishes?.lines?.[line];
+          const on = open === line;
+          return (
+            <li key={i}>
+              <button type="button" onClick={() => setOpen(on ? null : line)} aria-expanded={on}
+                title={line + (k ? " — " + dishLabel(k, config) : " — בלי תמונה") + " · לחיצה לשינוי"}
+                className={"flex items-center gap-1 rounded-full py-0.5 pe-2 ps-0.5 text-xs hover:ring-2 hover:ring-[#A9C8B8] "
+                  + (on ? "ring-2 ring-[#5A826F] " : "") + (k ? "bg-[#F6F2EE]" : "bg-[#FDE8E1] text-[#3F2F2D]/70")}>
+                {k
+                  ? <img src={dishImage(k, config)} alt="" className="h-6 w-6 rounded-full object-cover" />
+                  : <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white text-[10px]">?</span>}
+                <span className="max-w-[9rem] truncate">{k ? dishLabel(k, config) : "אין תמונה"}</span>
+                {manual && <span className="text-[10px] text-[#5A826F]" aria-label="נבחר ידנית">●</span>}
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+      {open && lines.includes(open) && (
+        <DishIconPicker supabase={supabase} line={open} config={config} onSaved={onSaved} onClose={() => setOpen(null)} />
+      )}
+    </div>
   );
 }

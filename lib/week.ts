@@ -248,15 +248,17 @@ export type StyledView = "weekly" | "daily" | "menuToday" | "menu";
 /** text — גודל הכתב ביחס לרגיל (1); icons — גודל האייקונים ביחס לרגיל, 0 = בלי אייקונים */
 export type ViewStyle = { text?: number; icons?: number };
 
-export const STYLED_VIEWS: { key: StyledView; label: string }[] = [
-  { key: "weekly", label: "לוח שבועי" },
-  { key: "daily", label: "היום" },
-  { key: "menuToday", label: "תפריט היום" },
-  { key: "menu", label: "תפריט שבועי" },
+/** max — הכתב הכי גדול שאפשר בתצוגה (בתצוגת "היום" הגדלים קבועים ולא מתכווצים לבד, לכן פחות) */
+export const STYLED_VIEWS: { key: StyledView; label: string; max: number }[] = [
+  { key: "weekly", label: "לוח שבועי", max: 2.5 },
+  { key: "daily", label: "היום", max: 1.8 },
+  { key: "menuToday", label: "תפריט היום", max: 2.5 },
+  { key: "menu", label: "תפריט שבועי", max: 2.5 },
 ];
 export const TEXT_SCALE_MIN = 0.7;
-export const TEXT_SCALE_MAX = 1.5;
+export const TEXT_SCALE_MAX = 2.5;
 export const TEXT_SCALE_STEP = 0.1;
+export const textScaleMax = (view: StyledView) => STYLED_VIEWS.find(v => v.key === view)?.max ?? TEXT_SCALE_MAX;
 export const ICON_SCALES: { value: number; label: string }[] = [
   { value: 0, label: "בלי" },
   { value: 0.75, label: "קטן" },
@@ -273,11 +275,11 @@ export function viewStyle(settings: DisplaySettings, board: WeeklyBoardSettings,
   const boardIcons = board.show_icons === false ? 0 : 1;
   const text = s.text ?? (view === "weekly" ? OLD_TEXT_SIZE[board.text_size] ?? 1 : 1);
   const icons = s.icons ?? (view === "weekly" || view === "daily" ? boardIcons : 1);
-  return { text: clampScale(text), icons: Math.max(0, Math.min(2, icons)) };
+  return { text: clampScale(text, textScaleMax(view)), icons: Math.max(0, Math.min(2, icons)) };
 }
 
-export const clampScale = (v: number) =>
-  Math.round(Math.max(TEXT_SCALE_MIN, Math.min(TEXT_SCALE_MAX, Number(v) || 1)) * 100) / 100;
+export const clampScale = (v: number, max = TEXT_SCALE_MAX) =>
+  Math.round(Math.max(TEXT_SCALE_MIN, Math.min(max, Number(v) || 1)) * 100) / 100;
 
 export const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = {
   show_daily: true,

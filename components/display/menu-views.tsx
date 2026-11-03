@@ -119,7 +119,10 @@ export function WeeklyMenu({ menu, weekDates, todayIndex, notes, allDays, look =
   }, [menu]);
   const commonMeals = MEALS.filter(m => (common[m]?.lines.length ?? 0) > 0);
 
-  const shown = [0, 1, 2, 3, 4, 5, 6].filter(i => allDays || MEALS.some(m => (menu[i]?.[m]?.length ?? 0) > 0) || i === todayIndex);
+  // כתב גדול מהרגיל: מהיום והלאה (ימים שעברו כבר לא רלוונטיים), כדי שכל יום יקבל יותר מקום
+  const fromToday = look.text > 1 && todayIndex >= 0;
+  const shown = [0, 1, 2, 3, 4, 5, 6].filter(i => allDays || MEALS.some(m => (menu[i]?.[m]?.length ?? 0) > 0) || i === todayIndex)
+    .filter(i => !fromToday || i >= todayIndex);
   const fit = fitForText(look.text);
   const { grow, report } = useUniformGrow(fit.max);
 

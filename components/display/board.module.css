@@ -1677,3 +1677,19 @@ button.gOne, button.gRow {
 }
 button.gOne:hover, button.gRow:hover { background: rgba(90, 130, 111, 0.1); }
 .gSelected { box-shadow: 0 0 0 calc(var(--cu) * 0.35) var(--sage); }
+
+/* בעורך: הוספה ידנית למשבצת */
+.gCellAddEmpty {
+  border: 2px dashed var(--sage-soft); background: transparent; color: var(--sage);
+  border-radius: calc(var(--cu) * 1.2); padding: calc(var(--cu) * 0.8) calc(var(--cu) * 1.6);
+  font: inherit; font-size: calc(var(--cu) * 2.2); font-weight: 700; cursor: pointer;
+}
+.gCellAddEmpty:hover { background: var(--sage-tint); }
+.gCellAdd {
+  position: absolute; bottom: calc(var(--cu) * 0.6); left: calc(var(--cu) * 0.6);
+  width: calc(var(--cu) * 3.2); height: calc(var(--cu) * 3.2); border-radius: 50%;
+  border: 0; background: var(--sage); color: #fff; font-size: calc(var(--cu) * 2.4); font-weight: 700; line-height: 1;
+  cursor: pointer; opacity: 0.85; z-index: 1;
+}
+.gCellAdd:hover { opacity: 1; }
+.gEditing .gCell:not(.gEmpty) { padding-bottom: calc(var(--cu) * 4.2); }

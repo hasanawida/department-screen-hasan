@@ -228,12 +228,12 @@ export default function WeeklyEditor() {
       location: a.location, instructor: assignName ?? a.instructor, repeat: a.recurring, fromCalendar: a.fromCalendar, parentId: a.parentId,
     });
   };
-  const openNew = (dayIndex: number) => {
+  const openNew = (dayIndex: number, start = "10:00", end = "") => {
     setView("weekly");
     setCopyDays([]);
     setRegQuery("");
     setRegistered([]);
-    setDraft({ id: null, kind: "new", title: "", dayIndex, originalDayIndex: dayIndex, start: "10:00", end: "", location: "", instructor: assignName ?? "", repeat: true, fromCalendar: false, parentId: null });
+    setDraft({ id: null, kind: "new", title: "", dayIndex, originalDayIndex: dayIndex, start, end, location: "", instructor: assignName ?? "", repeat: true, fromCalendar: false, parentId: null });
   };
 
   /** שם המפעיל לשמירה: בלי רווחים מיותרים, ובכתיב של מפעיל שכבר קיים */
@@ -790,7 +790,7 @@ export default function WeeklyEditor() {
                       const on = (board.layout ?? "columns") === v;
                       return (
                         <button key={v} type="button" role="radio" aria-checked={on}
-                          onClick={() => { setBoard({ layout: v }); setView("weekly"); setAsScreen(true); }}
+                          onClick={() => { setBoard({ layout: v }); setView("weekly"); setAsScreen(false); }}
                           className={"rounded-lg px-2 py-2 text-start " + (on ? "bg-white shadow-sm" : "text-[#3F2F2D]/60 hover:bg-white/60")}>
                           <span className="block">{label}</span>
                           <span className="block text-xs font-normal text-[#3F2F2D]/55">{hint}</span>
@@ -815,6 +815,7 @@ export default function WeeklyEditor() {
                           onBlur={e => { const v = e.target.value.trim(); const s = parseSlots(v)[0]; setBoard({ grid_afternoon: s ? slotLabel(s) : "" }); }} />
                       </Field>
                       <p className="text-xs text-[#3F2F2D]/55 sm:col-span-2">ריק = לפי הפעילויות (מוצג באפור). כל פעילות נכנסת לשורה של השעה שלה; פעילות שמתחילה בשעה אחרת — השעה שלה כתובה בקטן.</p>
+                      <p className="text-xs text-[#3F2F2D]/55 sm:col-span-2">בתצוגה המקדימה: לחיצה על פעילות פותחת את העריכה שלה (שם, מי, איפה, מתי), ו־״+ הוספה״ בכל משבצת מוסיף פעילות ביום ובשעה של המשבצת.</p>
                     </div>
                   );
                 })()}

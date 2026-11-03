@@ -8,7 +8,7 @@ import React, { useEffect, useLayoutEffect, useRef } from "react";
 import { Moon } from "lucide-react";
 import { Pin, BRAND } from "@/components/orientation/eshkolot-logo";
 import {
-  DAY_NAMES, GRID_LUNCH_MINUTES, gridRows, shortDate, slotIndexFor, slotLabel, toMinutes, visibleActivities, withWeeklyTopic,
+  DAY_NAMES, GRID_LUNCH_MINUTES, gridRows, minutesToHM, parseSlots, shortDate, slotIndexFor, slotLabel, toMinutes, visibleActivities, withWeeklyTopic,
   type BoardActivity, type GridSlot, type WeeklyBoardSettings,
 } from "@/lib/week";
 import type { DayInfo } from "@/lib/jewish-calendar";
@@ -28,7 +28,8 @@ type Props = {
   editable?: boolean;
   selectedId?: string | null;
   onSelect?: (a: BoardActivity) => void;
-  onAdd?: (dayIndex: number) => void;
+  /** הוספה ידנית: יום, ושעות המשבצת שלחצו עליה */
+  onAdd?: (dayIndex: number, start?: string, end?: string) => void;
   textScale?: number;
   iconScale?: number;
 };
@@ -93,7 +94,12 @@ export default function GridBoard(props: Props) {
   const shown = configured.filter(i => editable || !settings.hide_empty_days || !weekHasActivities || visible[i].length > 0 || i === todayIndex || holiday(i));
 
   const all = shown.flatMap(i => visible[i]);
-  const { morning, afternoon } = gridRows(all, settings);
+  let { morning, afternoon } = gridRows(all, settings);
+  // בעורך תמיד יש משבצות להוספה — גם כשהשבוע ריק או שאין עדיין פעילויות אחר הצהריים
+  if (editable) {
+    if (!morning.length) morning = parseSlots("10:00-11:00, 11:00-12:00");
+    if (!afternoon) afternoon = parseSlots(settings.grid_afternoon)[0] ?? { start: 16 * 60, end: 18 * 60 };
+  }
   const pmAll = all.filter(isPm);
   const pmLocation = pmAll.length && pmAll.every(a => a.location && a.location === pmAll[0].location) ? pmAll[0].location : "";
   const amLocation = commonLocation(all.filter(a => !isPm(a)));
@@ -193,11 +199,20 @@ export default function GridBoard(props: Props) {
       );
     }
     const empty = !groups.length && !content;
+    // בעורך: הוספה ידנית למשבצת — היום והשעה כבר ממולאים
+    const add = editable && slot ? (
+      <button type="button" className={empty ? styles.gCellAddEmpty : styles.gCellAdd}
+        onClick={() => onAdd?.(d, minutesToHM(slot.start), pm ? "" : minutesToHM(slot.end))}
+        aria-label={`הוספת פעילות ביום ${DAY_NAMES[d]} ב-${minutesToHM(slot.start)}`}>
+        {empty ? "+ הוספה" : "+"}
+      </button>
+    ) : null;
     return (
       <div key={col + "-" + row} data-gfit=""
         className={styles.gCell + (isToday ? " " + styles.gToday : "") + (now ? " " + styles.gNow : "") + (empty ? " " + styles.gEmpty : "")}>
         {now && <span className={styles.gNowTag}>עכשיו</span>}
         {content}
+        {add}
       </div>
     );
   };
@@ -206,7 +221,7 @@ export default function GridBoard(props: Props) {
   const rowsTpl = ["auto", ...morning.map(() => "minmax(0, 1fr)"), ...(afternoon ? ["calc(var(--cu) * 5)", "minmax(0, 1fr)"] : [])].join(" ");
 
   return (
-    <div className={styles.board + " " + styles.gridBoard + (iconScale > 0 ? "" : " " + styles.noIcons)}
+    <div className={styles.board + " " + styles.gridBoard + (editable ? " " + styles.gEditing : "") + (iconScale > 0 ? "" : " " + styles.noIcons)}
       style={{ "--ic": iconScale || 1 } as React.CSSProperties}>
       <div ref={gridRef} className={styles.gGrid} style={{ gridTemplateColumns: cols, gridTemplateRows: rowsTpl }}>
         {/* פינה: נושא השבוע */}
@@ -240,7 +255,6 @@ export default function GridBoard(props: Props) {
                   {info.sacred.label} <bdi dir="ltr">{info.sacred.time}</bdi>
                 </span>
               )}
-              {editable && <button type="button" className={styles.gAdd} onClick={() => onAdd?.(d)} aria-label={`הוספה ליום ${DAY_NAMES[d]}`}>+</button>}
             </div>
           );
         })}

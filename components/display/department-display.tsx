@@ -39,7 +39,7 @@ export type DepartmentDisplayProps = {
   /** אייקונים ותמונות שנערכו בניהול */
   iconConfig?: IconConfig;
   /** בעורך: לחיצה על פעילות בלוח השבועי */
-  editor?: { selectedId?: string | null; onSelect: (a: BoardActivity) => void; onAdd: (dayIndex: number) => void };
+  editor?: { selectedId?: string | null; onSelect: (a: BoardActivity) => void; onAdd: (dayIndex: number, start?: string, end?: string) => void };
 };
 
 export type ViewKind = "weekly" | "daily" | "physio" | "menuToday" | "menu" | "media";

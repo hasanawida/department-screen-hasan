@@ -389,7 +389,9 @@ export const GRID_LUNCH_MINUTES = 13 * 60;
 
 export type GridSlot = { start: number; end: number };
 
-const hm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+/** דקות מתחילת היום ← "09:30" */
+export const minutesToHM = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+const hm = minutesToHM;
 export const slotLabel = (s: GridSlot) => `${hm(s.start)}–${hm(s.end)}`;
 
 /** "09:30-10:30, 10:30-11:00" ← משבצות */

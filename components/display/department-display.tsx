@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Clock3, MapPin, User, Utensils, Megaphone, HeartPulse } from "lucide-react";
 import { EshkolotLogo, Pin, BRAND } from "@/components/orientation/eshkolot-logo";
 import WeeklyBoard, { type WeeklyTopic } from "./weekly-board";
+import GridBoard from "./grid-board";
 import {
   DAY_NAMES, MEAL_SHORT, boardDayInfos, dayIndexOf, israelDateISO, israelTimeHM, shortDate, toMinutes, viewStyle, visibleActivities, withWeeklyTopic,
   type BoardActivity, type DisplaySettings, type WeekMenu, type WeeklyBoardSettings,
@@ -159,7 +160,12 @@ export default function DepartmentDisplay(props: DepartmentDisplayProps) {
 
         {/* תצוגה */}
         <main key={view.kind + (view.media?.url ?? "")} className={styles.view}>
-          {view.kind === "weekly" && (
+          {view.kind === "weekly" && board.layout === "grid" && (
+            <GridBoard days={days} weekDates={weekDates} todayIndex={todayIndex} nowMinutes={nowMinutes} settings={board} topic={topic} dayInfos={dayInfos}
+              textScale={viewStyle(settings, board, "weekly").text} iconScale={viewStyle(settings, board, "weekly").icons}
+              editable={!!editor} selectedId={editor?.selectedId} onSelect={editor?.onSelect} onAdd={editor?.onAdd} />
+          )}
+          {view.kind === "weekly" && board.layout !== "grid" && (
             <WeeklyBoard days={days} weekDates={weekDates} todayIndex={todayIndex} nowMinutes={nowMinutes} settings={board} topic={topic} dayInfos={dayInfos}
               textScale={viewStyle(settings, board, "weekly").text} iconScale={viewStyle(settings, board, "weekly").icons}
               editable={!!editor} selectedId={editor?.selectedId} onSelect={editor?.onSelect} onAdd={editor?.onAdd} />

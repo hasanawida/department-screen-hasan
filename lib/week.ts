@@ -171,6 +171,12 @@ export type WeeklyBoardSettings = {
   show_shabbat_times?: boolean;
   /** העיר שלפיה מחושבים זמני השבת (id מתוך SHABBAT_CITIES) */
   shabbat_city?: string;
+  /** סגנון הלוח: עמודה לכל יום (columns), או טבלה של שעות × ימים (grid) */
+  layout?: "columns" | "grid";
+  /** בטבלה: שעות השורות בבוקר, למשל "09:30-10:30, 10:30-11:00". ריק = לפי הפעילויות */
+  grid_slots?: string;
+  /** בטבלה: שעות אחר הצהריים, למשל "16:00-18:00". ריק = לפי הפעילויות */
+  grid_afternoon?: string;
 };
 
 export const DEFAULT_WEEKLY_BOARD: WeeklyBoardSettings = {
@@ -373,4 +379,95 @@ export function commonMenuLines(menu: WeekMenu, meal: Meal, minDays = 4): { line
   const missing = Array.from(new Set(nearly.flatMap(l => days.filter(i => !has(i, l)))));
   if (nearly.length > all.length && missing.length === 1) return { lines: nearly, except: missing[0] };
   return { lines: all, except: null };
+}
+
+
+/* ───────────── לוח בסגנון טבלה: שורות של שעות × עמודות של ימים ───────────── */
+
+/** מכאן ואילך — אחר הצהריים (אחרי מנוחת הצהריים) */
+export const GRID_LUNCH_MINUTES = 13 * 60;
+
+export type GridSlot = { start: number; end: number };
+
+const hm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+export const slotLabel = (s: GridSlot) => `${hm(s.start)}–${hm(s.end)}`;
+
+/** "09:30-10:30, 10:30-11:00" ← משבצות */
+export function parseSlots(text: string | undefined | null): GridSlot[] {
+  const out: GridSlot[] = [];
+  for (const m of String(text ?? "").matchAll(/(\d{1,2}):(\d{2})\s*[-–—]\s*(\d{1,2}):(\d{2})/g)) {
+    const start = Number(m[1]) * 60 + Number(m[2]);
+    const end = Number(m[3]) * 60 + Number(m[4]);
+    if (end > start) out.push({ start, end });
+  }
+  return out.sort((a, b) => a.start - b.start);
+}
+export const formatSlots = (slots: GridSlot[]) => slots.map(slotLabel).join(", ");
+
+const actRange = (a: BoardActivity) => {
+  const s = toMinutes(a.start);
+  const e = a.end ? toMinutes(a.end) : s + 60;
+  return { s, e: e > s ? e : s + 60 };
+};
+
+/**
+ * שעות השורות בבוקר לפי הפעילויות: הטווחים (התחלה–סיום) שחוזרים הכי הרבה, בלי חפיפה.
+ * למשל 10:00–11:00 ו-11:00–12:00. אם אין לפעילויות שעת סיום — שורה לכל שעה עגולה.
+ */
+export function autoMorningSlots(acts: BoardActivity[]): GridSlot[] {
+  const morning = acts.filter(a => a.start && toMinutes(a.start) < GRID_LUNCH_MINUTES);
+  const count = new Map<string, { slot: GridSlot; n: number }>();
+  for (const a of morning) {
+    if (!a.end) continue;
+    const s = toMinutes(a.start), e = toMinutes(a.end);
+    if (e <= s) continue;
+    const k = s + "-" + e;
+    const cur = count.get(k) ?? { slot: { start: s, end: e }, n: 0 };
+    cur.n++; count.set(k, cur);
+  }
+  const ranked = Array.from(count.values()).sort((x, y) => y.n - x.n || (y.slot.end - y.slot.start) - (x.slot.end - x.slot.start) || x.slot.start - y.slot.start);
+  const picked: GridSlot[] = [];
+  for (const { slot } of ranked) {
+    if (picked.some(p => slot.start < p.end && p.start < slot.end)) continue;
+    picked.push(slot);
+  }
+  if (!picked.length) {
+    const hours = Array.from(new Set(morning.map(a => Math.floor(toMinutes(a.start) / 60)))).sort((a, b) => a - b);
+    return hours.map(h => ({ start: h * 60, end: h * 60 + 60 }));
+  }
+  return picked.sort((a, b) => a.start - b.start);
+}
+
+/** שעות אחר הצהריים לפי הפעילויות: מההתחלה המוקדמת ועד הסיום המאוחר */
+export function autoAfternoonSlot(acts: BoardActivity[]): GridSlot | null {
+  const pm = acts.filter(a => a.start && toMinutes(a.start) >= GRID_LUNCH_MINUTES).map(actRange);
+  if (!pm.length) return null;
+  return { start: Math.min(...pm.map(r => r.s)), end: Math.max(...pm.map(r => r.e)) };
+}
+
+/** לאיזו שורה שייכת פעילות: השורה שהכי חופפת לזמן שלה (בתיקו — זו שהפעילות מתחילה בה) */
+export function slotIndexFor(a: BoardActivity, slots: GridSlot[]): number {
+  if (!slots.length) return -1;
+  const { s, e } = actRange(a);
+  let best = -1, bestOverlap = 0;
+  slots.forEach((slot, i) => {
+    const overlap = Math.min(e, slot.end) - Math.max(s, slot.start);
+    const starts = s >= slot.start && s < slot.end;
+    if (overlap > bestOverlap || (overlap === bestOverlap && overlap > 0 && starts)) { best = i; bestOverlap = overlap; }
+  });
+  if (best >= 0) return best;
+  // לא חופף לשום שורה — הקרובה ביותר
+  let near = 0;
+  slots.forEach((slot, i) => { if (Math.abs(s - slot.start) < Math.abs(s - slots[near].start)) near = i; });
+  return near;
+}
+
+/** השורות של הלוח: בוקר (לפי ההגדרה או אוטומטי) ואחר הצהריים */
+export function gridRows(acts: BoardActivity[], settings: WeeklyBoardSettings): { morning: GridSlot[]; afternoon: GridSlot | null } {
+  const manual = parseSlots(settings.grid_slots);
+  const morning = manual.length ? manual : autoMorningSlots(acts);
+  const hasPm = acts.some(a => a.start && toMinutes(a.start) >= GRID_LUNCH_MINUTES);
+  const manualPm = parseSlots(settings.grid_afternoon)[0];
+  const afternoon = hasPm ? (manualPm ?? autoAfternoonSlot(acts)) : null;
+  return { morning, afternoon };
 }

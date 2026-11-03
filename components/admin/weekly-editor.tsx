@@ -18,7 +18,7 @@ import { latestIconConfig, type IconConfig } from "@/lib/icon-config";
 import ActivityIconPicker from "@/components/admin/activity-icon-picker";
 import {
   DAY_CODES, DAY_NAMES, activitiesByDay, addDaysISO, dayCodeIndex, dayIndexOf, displaySettings, israelDateISO, menuFromRows, menuNotesFromRows, shortDate,
-  weekDatesISO, weekStartISO, weeklyBoardSettings, viewStyle, clampScale,
+  weekDatesISO, weekStartISO, weeklyBoardSettings, viewStyle, clampScale, gridRows, formatSlots, parseSlots, slotLabel,
   ICON_SCALES, STYLED_VIEWS, TEXT_SCALE_MIN, TEXT_SCALE_STEP,
   type ActivityRow, type BoardActivity, type DisplaySettings, type MenuRow, type ViewStyle, type WeeklyBoardSettings,
 } from "@/lib/week";
@@ -784,6 +784,40 @@ export default function WeeklyEditor() {
               <section className="rounded-2xl bg-white p-5 shadow-sm">
                 <h2 className="mb-1 text-lg font-bold">מה רואים בלוח</h2>
                 <p className="mb-3 text-sm text-[#3F2F2D]/60">כל שינוי נשמר מיד ומופיע במסך.</p>
+                <Field label="סגנון הלוח">
+                  <div className="grid grid-cols-2 gap-1 rounded-xl bg-[#F6F2EE] p-1 text-sm font-semibold" role="radiogroup" aria-label="סגנון הלוח">
+                    {([["columns", "עמודה לכל יום", "כל הפעילויות של היום ברשימה"], ["grid", "טבלה לפי שעות", "שורות של שעות, מנוחת צהריים באמצע"]] as const).map(([v, label, hint]) => {
+                      const on = (board.layout ?? "columns") === v;
+                      return (
+                        <button key={v} type="button" role="radio" aria-checked={on}
+                          onClick={() => { setBoard({ layout: v }); setView("weekly"); setAsScreen(true); }}
+                          className={"rounded-lg px-2 py-2 text-start " + (on ? "bg-white shadow-sm" : "text-[#3F2F2D]/60 hover:bg-white/60")}>
+                          <span className="block">{label}</span>
+                          <span className="block text-xs font-normal text-[#3F2F2D]/55">{hint}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </Field>
+                {board.layout === "grid" && (() => {
+                  // השורות שהלוח מחשב לבד מהפעילויות של השבוע — מוצגות כהצעה
+                  const auto = gridRows(previewDays.flat(), { ...board, grid_slots: "", grid_afternoon: "" });
+                  return (
+                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                      <Field label="שעות השורות בבוקר">
+                        <input key={"slots-" + (board.grid_slots ?? "")} className={inputCls} dir="ltr" defaultValue={board.grid_slots ?? ""}
+                          placeholder={formatSlots(auto.morning) || "09:30-10:30, 11:00-12:00"}
+                          onBlur={e => { const v = e.target.value.trim(); setBoard({ grid_slots: v ? formatSlots(parseSlots(v)) : "" }); }} />
+                      </Field>
+                      <Field label="שעות אחר הצהריים">
+                        <input key={"pm-" + (board.grid_afternoon ?? "")} className={inputCls} dir="ltr" defaultValue={board.grid_afternoon ?? ""}
+                          placeholder={auto.afternoon ? slotLabel(auto.afternoon) : "16:00-18:00"}
+                          onBlur={e => { const v = e.target.value.trim(); const s = parseSlots(v)[0]; setBoard({ grid_afternoon: s ? slotLabel(s) : "" }); }} />
+                      </Field>
+                      <p className="text-xs text-[#3F2F2D]/55 sm:col-span-2">ריק = לפי הפעילויות (מוצג באפור). כל פעילות נכנסת לשורה של השעה שלה; פעילות שמתחילה בשעה אחרת — השעה שלה כתובה בקטן.</p>
+                    </div>
+                  );
+                })()}
                 <Field label="ימים">
                   <div className="grid grid-cols-7 gap-1">
                     {DAY_NAMES.map((n, i) => {

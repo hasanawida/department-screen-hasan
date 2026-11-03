@@ -3,14 +3,15 @@
 // התפריט במסך המחלקה: "תפריט היום" בגדול, ו"תפריט שבועי" מסודר
 // (מנות שחוזרות בכל יום מוצגות פעם אחת, תחת "בכל יום")
 
-import React, { useEffect, useMemo, useRef } from "react";
+import React, { useContext, useEffect, useMemo, useRef } from "react";
 import { Pin, BRAND } from "@/components/orientation/eshkolot-logo";
 import {
   DAY_NAMES, MAIN_MEALS, MEALS, MEAL_LABELS, MEAL_SHORT, MEAL_TIME, SNACK_MEALS, commonMenuLines, shortDate, splitMenuLine, toMinutes,
   type Meal, type WeekMenu,
 } from "@/lib/week";
 import { useFillScale, useUniformGrow } from "./use-fill";
-import { DishPhoto, MealIcon, MealPhoto } from "./icons";
+import { DishPhoto, IconConfigContext, MealIcon, MealPhoto, SnackMealPhoto } from "./icons";
+import { menuLinePhotos } from "@/lib/icon-config";
 import styles from "./board.module.css";
 
 type DayMeals = Partial<Record<Meal, string[]>>;
@@ -28,6 +29,9 @@ function MenuLine({ line, className, photo = true }: { line: string; className?:
     </li>
   );
 }
+
+/** המנות של הארוחה בלי המנה הטחונה */
+const plainLines = (lines: string[]) => lines.filter(l => !isSpecial(splitMenuLine(l).label));
 
 /** ארוחת ביניים: תמונה של המנה הראשונה (בלי המנה הטחונה) */
 function SnackPhotos({ lines }: { lines: string[] }) {
@@ -49,10 +53,12 @@ export function TodayMenu({ meals, notes, nowMinutes }: { meals: DayMeals; notes
   const present = MEALS.filter(m => (meals[m]?.length ?? 0) > 0);
   const nowIdx = currentMealIndex(present, nowMinutes);
   const nowMeal = nowIdx >= 0 ? present[nowIdx] : null;
+  // תמונה ליד כל מנה בפירוט — לפי ההגדרה (ברירת מחדל: רק בכותרת)
+  const linePhotos = menuLinePhotos(useContext(IconConfigContext), "today");
 
   const areaRef = useRef<HTMLDivElement>(null);
   const appliedRef = useRef(1);
-  const bs = useFillScale(areaRef, appliedRef, JSON.stringify(meals) + notes.join("|"));
+  const bs = useFillScale(areaRef, appliedRef, JSON.stringify(meals) + notes.join("|") + linePhotos);
   appliedRef.current = bs;
 
   return (
@@ -62,7 +68,7 @@ export function TodayMenu({ meals, notes, nowMinutes }: { meals: DayMeals; notes
           <div className={styles.tmSnacks}>
             {snacks.map(m => (
               <div key={m} className={styles.tmSnack + (m === nowMeal ? " " + styles.tmNow : "")}>
-                <span className={styles.tmSnackName}><MealPhoto meal={m} className={styles.tmSnackPhoto} fallbackClassName={styles.mealIcon} />{MEAL_LABELS[m]}</span>
+                <span className={styles.tmSnackName}><SnackMealPhoto meal={m} lines={plainLines(meals[m]!)} className={styles.tmSnackPhoto} fallbackClassName={styles.mealIcon} />{MEAL_LABELS[m]}</span>
                 <span className={styles.tmSnackText}>
                   {meals[m]!.map(l => splitMenuLine(l)).filter(x => !isSpecial(x.label)).map(x => x.text).join(", ")}
                 </span>
@@ -73,13 +79,13 @@ export function TodayMenu({ meals, notes, nowMinutes }: { meals: DayMeals; notes
         <div className={styles.tmMeals} style={{ gridTemplateColumns: `repeat(${Math.max(1, main.length)}, minmax(0, 1fr))` }}>
           {main.map(m => (
             <section key={m} className={styles.tmMeal + (m === nowMeal ? " " + styles.tmNow : "")}>
-              {/* בתפריט היום: צילום של כל הארוחה בכותרת, והשורות בלי תמונות */}
+              {/* בתפריט היום: צילום של כל הארוחה בכותרת; ליד השורות — רק אם הופעל בהגדרות */}
               <header className={styles.tmMealHead}>
                 <span className={styles.tmMealName}><MealPhoto meal={m} className={styles.tmMealPhoto} fallbackClassName={styles.tmMealIcon} />{MEAL_LABELS[m]}</span>
                 {m === nowMeal && <span className={styles.tmTag}>{nowMinutes >= toMinutes(MEAL_TIME[m]) ? "עכשיו" : "הארוחה הבאה"}</span>}
               </header>
               <ul className={styles.tmList}>
-                {meals[m]!.map((l, k) => <MenuLine key={k} line={l} photo={false} />)}
+                {meals[m]!.map((l, k) => <MenuLine key={k} line={l} photo={linePhotos} />)}
               </ul>
             </section>
           ))}
@@ -137,6 +143,7 @@ export function WeeklyMenu({ menu, weekDates, todayIndex, notes, allDays }: {
 
 /** שורה בפס "בכל יום": המנות, ובסוף בקטן המנה הטחונה */
 function CommonRow({ meal, lines, except }: { meal: Meal; lines: string[]; except: number | null }) {
+  const linePhotos = menuLinePhotos(useContext(IconConfigContext), "week");
   const parts = lines.map(l => splitMenuLine(l));
   const plain = parts.filter(x => !isSpecial(x.label));
   const special = parts.filter(x => isSpecial(x.label)).map(x => x.text);
@@ -147,7 +154,7 @@ function CommonRow({ meal, lines, except }: { meal: Meal; lines: string[]; excep
         {plain.map((x, k) => (
           <React.Fragment key={k}>
             {k > 0 && ", "}
-            <DishPhoto line={lines.filter(l => !isSpecial(splitMenuLine(l).label))[k]} className={styles.dishPhoto} />
+            {linePhotos && <DishPhoto line={lines.filter(l => !isSpecial(splitMenuLine(l).label))[k]} className={styles.dishPhoto} />}
             {x.label && <span className={styles.menuLineLabel}>{x.label}</span>}
             {x.text}
           </React.Fragment>
@@ -163,10 +170,11 @@ function MenuDay({ dayIndex, date, isToday, meals, grow, report }: {
   dayIndex: number; date: string; isToday: boolean; meals: DayMeals;
   grow: number; report: (id: string, value: number | null) => void;
 }) {
+  const linePhotos = menuLinePhotos(useContext(IconConfigContext), "week");
   const listRef = useRef<HTMLDivElement>(null);
   const appliedRef = useRef(1);
   const has = MEALS.some(m => (meals[m]?.length ?? 0) > 0);
-  const desired = useFillScale(listRef, appliedRef, JSON.stringify(meals));
+  const desired = useFillScale(listRef, appliedRef, JSON.stringify(meals) + linePhotos);
   const applied = Math.min(desired, grow);
   appliedRef.current = applied;
   const id = "menu" + dayIndex;
@@ -187,13 +195,13 @@ function MenuDay({ dayIndex, date, isToday, meals, grow, report }: {
           SNACK_MEALS.includes(m) ? (
             <div key={m} className={styles.meal + " " + styles.mealSnack}>
               <span className={styles.mealName}><MealIcon meal={m} className={styles.mealIcon} />{MEAL_SHORT[m]}</span>{" "}
-              <span className={styles.mealSnackText}><SnackPhotos lines={meals[m]!} />{meals[m]!.map(l => splitMenuLine(l)).filter(x => !isSpecial(x.label)).map(x => x.text).join(", ")}</span>
+              <span className={styles.mealSnackText}>{linePhotos && <SnackPhotos lines={meals[m]!} />}{meals[m]!.map(l => splitMenuLine(l)).filter(x => !isSpecial(x.label)).map(x => x.text).join(", ")}</span>
             </div>
           ) : (
             <div key={m} className={styles.meal}>
               <div className={styles.mealName}><MealIcon meal={m} className={styles.mealIcon} />{MEAL_SHORT[m]}</div>
               <ul className={styles.mealList}>
-                {meals[m]!.map((item, k) => <MenuLine key={k} line={item} className={styles.mealItem} />)}
+                {meals[m]!.map((item, k) => <MenuLine key={k} line={item} className={styles.mealItem} photo={linePhotos} />)}
               </ul>
             </div>
           )

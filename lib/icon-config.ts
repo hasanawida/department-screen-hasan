@@ -33,7 +33,14 @@ export type IconConfig = {
     types?: Record<string, IconTypeOverride>;
     custom?: CustomIconType[];
   };
+  /** תמונה ליד כל מנה בפירוט התפריט — בתפריט היום (ברירת מחדל: בלי) ובתפריט השבועי (ברירת מחדל: עם) */
+  menu_lines?: { today?: boolean; week?: boolean };
 };
+
+/** האם להציג תמונה ליד כל מנה בפירוט, בתפריט היום או בתפריט השבועי */
+export function menuLinePhotos(cfg: IconConfig | undefined, view: "today" | "week"): boolean {
+  return view === "today" ? cfg?.menu_lines?.today === true : cfg?.menu_lines?.week !== false;
+}
 
 /** סוגי הפעילויות המובנים: מפתח, שם בעברית, ומה מזהה אותם כברירת מחדל (להצגה בניהול) */
 export const ACTIVITY_TYPES: { key: string; label: string; defaultWords: string }[] = [

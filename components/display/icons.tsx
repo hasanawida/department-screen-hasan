@@ -74,6 +74,24 @@ export function DishPhoto({ line, className }: { line: string; className?: strin
   return <img src={src} alt="" aria-hidden="true" className={className} onError={() => setFailed(src)} />;
 }
 
+/**
+ * תמונה בכותרת של השכמה / ארוחת עשר / ארוחת ארבע: המנה שמוגשת בה לפי התפריט
+ * (תפוח אפוי, עוגה, ביסקוויטים...). אם אף מנה לא זוהתה — תמונת הארוחה הקבועה.
+ */
+export function SnackMealPhoto({ meal, lines, className, fallbackClassName }: {
+  meal: Meal; lines: string[]; className?: string; fallbackClassName?: string;
+}) {
+  const cfg = useContext(IconConfigContext);
+  const [failed, setFailed] = useState<string | null>(null);
+  let src: string | null = null;
+  for (const line of lines) {
+    const key = dishKey(line, cfg);
+    if (key) { src = dishImage(key, cfg); break; }
+  }
+  if (!src || failed === src) return <MealPhoto meal={meal} className={className} fallbackClassName={fallbackClassName} />;
+  return <img src={src} alt="" aria-hidden="true" className={className} onError={() => setFailed(src)} />;
+}
+
 /** מילה שלמה בעברית (גבול מילה רגיל לא עובד עם אותיות עבריות) */
 const word = (w: string) => `(^|[\\s,/(])${w}($|[\\s,/)])`;
 

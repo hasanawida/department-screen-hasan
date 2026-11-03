@@ -8,10 +8,10 @@ import { ImagePlus, Loader2, Plus, RotateCcw, Search, Trash2 } from "lucide-reac
 import { createClient } from "@/lib/supabase/client";
 import { uploadImage } from "@/lib/screens";
 import { saveIconConfig } from "@/lib/icon-config-db";
-import { Card, PageShell, btnGhost, btnPrimary, inputCls, textareaCls } from "@/components/admin/brand-ui";
+import { Card, PageShell, Toggle, btnGhost, btnPrimary, inputCls, textareaCls } from "@/components/admin/brand-ui";
 import { activityKey } from "@/components/display/icons";
 import {
-  ACTIVITY_TYPES, activityImage, activityTypeLabel, latestIconConfig, parseWords,
+  ACTIVITY_TYPES, activityImage, activityTypeLabel, latestIconConfig, menuLinePhotos, parseWords,
   type CustomIconType, type IconConfig,
 } from "@/lib/icon-config";
 import { DISH_LIST, dishImage } from "@/lib/dishes";
@@ -34,6 +34,7 @@ export default function IconsManager() {
   const [dishWords, setDishWords] = useState<Record<string, string>>({});
   const [dishCustom, setDishCustom] = useState<CustomIconType[]>([]);
   const [dishQuery, setDishQuery] = useState("");
+  const [menuLines, setMenuLines] = useState<NonNullable<IconConfig["menu_lines"]>>({});
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -67,6 +68,7 @@ export default function IconsManager() {
       }
       setDishImages(dImg); setDishWords(dWords);
       setDishCustom(cfg.dishes?.custom ?? []);
+      setMenuLines(cfg.menu_lines ?? {});
       const names: string[] = Array.from(new Set<string>((acts.data ?? []).map((a: any) => String(a.title ?? "").trim()).filter(Boolean)));
       setTitles(names.sort((a, b) => a.localeCompare(b, "he")));
       setLoading(false);
@@ -87,8 +89,8 @@ export default function IconsManager() {
       const words = parseWords(dishWords[d.key] ?? "");
       if (image || words.length) dTypes[d.key] = { image: image || null, words: words.length ? words : null };
     }
-    return { types, custom, titles: byTitle, meals, dishes: { types: dTypes, custom: dishCustom } };
-  }, [images, wordsText, custom, byTitle, meals, dishImages, dishWords, dishCustom]);
+    return { types, custom, titles: byTitle, meals, dishes: { types: dTypes, custom: dishCustom }, menu_lines: menuLines };
+  }, [images, wordsText, custom, byTitle, meals, dishImages, dishWords, dishCustom, menuLines]);
 
   /* ── העלאת תמונה ── */
   const upload = async (key: string, file: File | undefined, done: (url: string) => void) => {
@@ -288,9 +290,15 @@ export default function IconsManager() {
           }
         >
           <p className="mb-4 text-sm text-[#3F2F2D]/65">
-            ליד כל מנה בתפריט היום ובתפריט השבועי מופיעה תמונה לפי המילים שבשורה. מנה שלא מזוהה מופיעה בלי תמונה.
+            התמונה של כל מנה נבחרת לפי המילים שבשורה בתפריט. מנה שלא מזוהה מופיעה בלי תמונה.
             אפשר להחליף תמונה, לשנות מילים ולהוסיף מנה חדשה.
           </p>
+          <div className="mb-5 grid gap-x-8 rounded-xl bg-[#F6F2EE] px-4 py-1 sm:grid-cols-2">
+            <Toggle label="תמונה ליד כל מנה — בתפריט היום" on={menuLinePhotos(config, "today")}
+              onChange={v => { setMenuLines(m => ({ ...m, today: v })); touch(); }} />
+            <Toggle label="תמונה ליד כל מנה — בתפריט השבועי" on={menuLinePhotos(config, "week")}
+              onChange={v => { setMenuLines(m => ({ ...m, week: v })); touch(); }} />
+          </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {shownDishes.map(d => (
               <TypeCard

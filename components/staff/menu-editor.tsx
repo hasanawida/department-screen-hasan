@@ -6,9 +6,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import DepartmentDisplay, { type ViewKind } from "@/components/display/department-display";
-import { latestIconConfig, type IconConfig } from "@/lib/icon-config";
+import { latestIconConfig, menuLinePhotos, type IconConfig } from "@/lib/icon-config";
+import { loadIconConfig, saveIconConfig } from "@/lib/icon-config-db";
 import { dishImage, dishKey, dishLabel } from "@/lib/dishes";
-import { ScreenFrame, btnGhost, textareaCls, usePreviewCu } from "@/components/admin/brand-ui";
+import { ScreenFrame, Toggle, btnGhost, textareaCls, usePreviewCu } from "@/components/admin/brand-ui";
 import {
   DAY_NAMES, MEALS, MEAL_LABELS, MEAL_TIME, MENU_NOTES, SNACK_MEALS, addDaysISO, displaySettings, israelDateISO, menuFromRows,
   shortDate, weekDatesISO, weekStartISO, weeklyBoardSettings, type Meal, type MenuRow,
@@ -53,6 +54,16 @@ export default function MenuEditor() {
   useEffect(() => {
     supabase.from("screen_settings").select("display_settings").then(({ data }) => setIconConfig(latestIconConfig(data as { display_settings?: unknown }[] | null)));
   }, [supabase]);
+  // תמונה ליד כל מנה בפירוט (בתפריט היום / בשבועי) — משותף לכל המסכים, נשמר מיד
+  const [linesMsg, setLinesMsg] = useState<string | null>(null);
+  async function setLinePhotos(view: "today" | "week", on: boolean) {
+    setIconConfig(c => ({ ...c, menu_lines: { ...c.menu_lines, [view]: on } }));
+    const latest = await loadIconConfig(supabase);
+    const { failed, saved } = await saveIconConfig(supabase, { ...latest, menu_lines: { ...latest.menu_lines, [view]: on } });
+    setIconConfig(saved);
+    setLinesMsg(failed ? "לא נשמר בכל המסכים. נסו שוב." : "נשמר. המסכים מתעדכנים.");
+    setTimeout(() => setLinesMsg(null), 3000);
+  }
   // שכפול לשבועות הבאים
   const [fwdOpen, setFwdOpen] = useState(false);
   const [fwdCount, setFwdCount] = useState(4);
@@ -333,6 +344,11 @@ export default function MenuEditor() {
             </button>
           ))}
         </div>
+        <div className="mb-2 grid gap-x-8 rounded-2xl bg-white px-4 py-1 shadow-[0_1px_2px_rgba(63,47,45,0.06)] sm:grid-cols-2">
+          <Toggle label="תמונה ליד כל מנה — בתפריט היום" on={menuLinePhotos(iconConfig, "today")} onChange={v => setLinePhotos("today", v)} />
+          <Toggle label="תמונה ליד כל מנה — בתפריט השבועי" on={menuLinePhotos(iconConfig, "week")} onChange={v => setLinePhotos("week", v)} />
+        </div>
+        {linesMsg && <p role="status" className="mb-2 text-sm font-semibold text-[#5A826F]">{linesMsg}</p>}
         <ScreenFrame frameRef={frameRef}>
           <DepartmentDisplay
             iconConfig={iconConfig}

@@ -15,6 +15,7 @@ import InstructorSelect, { resolveInstructorName } from "@/components/admin/inst
 import type { TopicData } from "@/lib/topics";
 import { SHABBAT_CITIES, shabbatCity } from "@/lib/jewish-calendar";
 import { latestIconConfig, type IconConfig } from "@/lib/icon-config";
+import ActivityIconPicker from "@/components/admin/activity-icon-picker";
 import {
   DAY_CODES, DAY_NAMES, activitiesByDay, addDaysISO, dayCodeIndex, dayIndexOf, displaySettings, israelDateISO, menuFromRows, menuNotesFromRows, shortDate,
   weekDatesISO, weekStartISO, weeklyBoardSettings,
@@ -648,6 +649,11 @@ export default function WeeklyEditor() {
                 <Field label="שם הפעילות">
                   <input autoFocus value={draft.title} onChange={e => setDraft({ ...draft, title: e.target.value })} className={inputCls} placeholder="למשל: ערב שירה" />
                 </Field>
+                {board.show_icons !== false && draft.title.trim() && (
+                  <Field label="אייקון">
+                    <ActivityIconPicker supabase={supabase} title={draft.title} config={iconConfig} onSaved={setIconConfig} />
+                  </Field>
+                )}
                 <Field label="יום">
                   <div className="grid grid-cols-7 gap-1">
                     {DAY_NAMES.map((n, i) => (

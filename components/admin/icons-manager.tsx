@@ -6,7 +6,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ImagePlus, Loader2, Plus, RotateCcw, Search, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { uploadImage, refreshDepartmentScreens } from "@/lib/screens";
+import { uploadImage } from "@/lib/screens";
+import { saveIconConfig } from "@/lib/icon-config-db";
 import { Card, PageShell, btnGhost, btnPrimary, inputCls, textareaCls } from "@/components/admin/brand-ui";
 import { activityKey } from "@/components/display/icons";
 import {
@@ -20,7 +21,6 @@ type Row = { id: string; department_id: string; display_settings: any };
 export default function IconsManager() {
   const supabase = useMemo(() => createClient(), []);
   const [loading, setLoading] = useState(true);
-  const [deptIds, setDeptIds] = useState<string[]>([]);
   const [titles, setTitles] = useState<string[]>([]);
 
   // מה שנערך (נשמר רק בלחיצה על "שמירה")
@@ -41,12 +41,10 @@ export default function IconsManager() {
   /* ── טעינה ── */
   useEffect(() => {
     (async () => {
-      const [depts, ss, acts] = await Promise.all([
-        supabase.from("departments").select("id"),
+      const [ss, acts] = await Promise.all([
         supabase.from("screen_settings").select("id, department_id, display_settings"),
         supabase.from("activities").select("title").eq("is_active", true),
       ]);
-      setDeptIds((depts.data ?? []).map((d: any) => String(d.id)));
       const cfg = latestIconConfig((ss.data ?? []) as Row[]);
       const img: Record<string, string> = {}, words: Record<string, string> = {};
       for (const [k, v] of Object.entries(cfg.types ?? {})) {
@@ -87,23 +85,11 @@ export default function IconsManager() {
   /* ── שמירה: לכל המחלקות, ורענון המסכים ── */
   const save = useCallback(async () => {
     setSaving(true);
-    const icons: IconConfig = { ...config, updated_at: new Date().toISOString() };
-    const { data: rows } = await supabase.from("screen_settings").select("id, department_id, display_settings");
-    const byDept = new Map(((rows ?? []) as Row[]).map(r => [String(r.department_id), r]));
-    let failed = 0;
-    for (const deptId of deptIds) {
-      const cur = byDept.get(deptId);
-      const merged = { ...(cur?.display_settings ?? {}), icons };
-      const res = cur
-        ? await supabase.from("screen_settings").update({ display_settings: merged }).eq("id", cur.id)
-        : await supabase.from("screen_settings").insert({ department_id: deptId, display_settings: merged });
-      if (res.error) failed++;
-      else refreshDepartmentScreens(supabase, deptId);
-    }
+    const { failed } = await saveIconConfig(supabase, config);
     setSaving(false);
     if (failed) flash(`לא נשמר ב-${failed} מחלקות. נסו שוב.`);
     else { setDirty(false); flash("נשמר. המסכים מתעדכנים."); }
-  }, [config, deptIds, supabase]);
+  }, [config, supabase]);
 
   /* ── סוג חדש ── */
   const [newLabel, setNewLabel] = useState("");

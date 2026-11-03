@@ -219,6 +219,7 @@ export default function WeeklyEditor() {
 
   /* ── עריכת פעילות ── */
   const openActivity = (a: BoardActivity) => {
+    setAsScreen(false);
     setView("weekly");
     setCopyDays([]);
     setRegQuery("");
@@ -230,6 +231,7 @@ export default function WeeklyEditor() {
   };
   const openNew = (dayIndex: number, start = "10:00", end = "") => {
     setView("weekly");
+    setAsScreen(false);
     setCopyDays([]);
     setRegQuery("");
     setRegistered([]);
@@ -554,7 +556,7 @@ export default function WeeklyEditor() {
             {view === "weekly" && (
               <button type="button" onClick={() => setAsScreen(v => !v)} aria-pressed={asScreen}
                 className={"rounded-full px-3 py-1.5 font-semibold ring-1 ring-[#3F2F2D]/15 " + (asScreen ? "bg-[#FAB822] text-[#3F2F2D]" : "bg-white text-[#3F2F2D]/70 hover:bg-[#FDF0CC]")}>
-                {asScreen ? "חזרה לעריכה" : "כמו במסך"}
+                {asScreen ? "חזרה לעריכה" : "כמו במסך (בלי עריכה)"}
               </button>
             )}
             <span className="ms-auto text-[#3F2F2D]/60">
@@ -878,14 +880,14 @@ export default function WeeklyEditor() {
                           <div className="flex items-center gap-1.5" role="group" aria-label={`גודל הכתב — ${label}`}>
                             <span className="me-1 text-sm text-[#3F2F2D]/65">כתב</span>
                             <button type="button" aria-label="הקטנת הכתב" disabled={cur.text <= TEXT_SCALE_MIN}
-                              onClick={() => { setView(k as ViewKind); setAsScreen(true); setLook({ text: clampScale(cur.text - TEXT_SCALE_STEP, max) }); }}
+                              onClick={() => { setView(k as ViewKind); setLook({ text: clampScale(cur.text - TEXT_SCALE_STEP, max) }); }}
                               className="grid h-8 w-8 place-items-center rounded-lg bg-white shadow-sm hover:bg-[#E3ECE7] disabled:opacity-40"><Minus className="h-4 w-4" /></button>
                             <span className="w-12 text-center text-sm font-bold tabular-nums">{Math.round(cur.text * 100)}%</span>
                             <button type="button" aria-label="הגדלת הכתב" disabled={cur.text >= max}
-                              onClick={() => { setView(k as ViewKind); setAsScreen(true); setLook({ text: clampScale(cur.text + TEXT_SCALE_STEP, max) }); }}
+                              onClick={() => { setView(k as ViewKind); setLook({ text: clampScale(cur.text + TEXT_SCALE_STEP, max) }); }}
                               className="grid h-8 w-8 place-items-center rounded-lg bg-white shadow-sm hover:bg-[#E3ECE7] disabled:opacity-40"><Plus className="h-4 w-4" /></button>
                             <button type="button" disabled={cur.text >= max}
-                              onClick={() => { setView(k as ViewKind); setAsScreen(true); setLook({ text: max }); }}
+                              onClick={() => { setView(k as ViewKind); setLook({ text: max }); }}
                               className="ms-1 rounded-lg bg-[#3F2F2D] px-2.5 py-1.5 text-xs font-semibold text-[#F6F2EE] hover:bg-[#3F2F2D]/90 disabled:opacity-40">הכי גדול</button>
                           </div>
                           <div className="flex items-center gap-1.5" role="group" aria-label={`גודל האייקונים — ${label}`}>
@@ -893,7 +895,7 @@ export default function WeeklyEditor() {
                             <div className="flex gap-0.5 rounded-lg bg-white/70 p-0.5 text-xs font-semibold">
                               {ICON_SCALES.map(o => (
                                 <button key={o.value} type="button" aria-pressed={cur.icons === o.value}
-                                  onClick={() => { setView(k as ViewKind); setAsScreen(true); setLook({ icons: o.value }); }}
+                                  onClick={() => { setView(k as ViewKind); setLook({ icons: o.value }); }}
                                   className={"rounded-md px-2 py-1.5 " + (cur.icons === o.value ? "bg-[#3F2F2D] text-[#F6F2EE]" : "text-[#3F2F2D]/70 hover:bg-white")}>
                                   {o.label}
                                 </button>

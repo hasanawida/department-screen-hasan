@@ -19,6 +19,8 @@
   --muted: rgba(63, 47, 45, 0.62);
 
   --cu: min(1vh, 0.5625vw);
+  /* יחידת הבסיס, לתצוגה שמגדילה/מקטינה את הכתב (--cu של התצוגה = --cu0 × גודל) */
+  --cu0: min(1vh, 0.5625vw);
 
   position: fixed;
   inset: 0;
@@ -36,6 +38,7 @@
 .stage[data-embedded] {
   position: absolute;
   --cu: var(--frame-cu, 1px);
+  --cu0: var(--frame-cu, 1px);
 }
 
 /* הקנבס ממלא את כל המסך בכל יחס (גם מסך רחב או צר מ-16:9); הגדלים לפי --cu */
@@ -1307,8 +1310,8 @@
 .actIcon,
 .mealIcon {
   display: inline-block;
-  width: 0.95em;
-  height: 0.95em;
+  width: calc(0.95em * var(--ic, 1));
+  height: calc(0.95em * var(--ic, 1));
   vertical-align: -0.13em;
   margin-inline-end: 0.35em;
   color: var(--sage);
@@ -1318,8 +1321,8 @@
 /* צילום אמיתי של סוג הפעילות, ליד השם: מזהים מה קורה גם בלי לקרוא */
 .actPhoto {
   display: inline-block;
-  width: 1.5em;
-  height: 1.5em;
+  width: calc(1.5em * var(--ic, 1));
+  height: calc(1.5em * var(--ic, 1));
   border-radius: 0.35em;
   object-fit: cover;
   vertical-align: middle;
@@ -1331,8 +1334,8 @@
 
 .nowPhoto {
   display: inline-block;
-  width: 1.3em;
-  height: 1.3em;
+  width: calc(1.3em * var(--ic, 1));
+  height: calc(1.3em * var(--ic, 1));
   border-radius: 0.3em;
   object-fit: cover;
   vertical-align: -0.2em;
@@ -1342,8 +1345,8 @@
 
 .nowIcon {
   display: inline-block;
-  width: 0.78em;
-  height: 0.78em;
+  width: calc(0.78em * var(--ic, 1));
+  height: calc(0.78em * var(--ic, 1));
   vertical-align: -0.06em;
   margin-inline-end: 0.22em;
   color: var(--sage);
@@ -1357,8 +1360,8 @@
 }
 
 .tmMealIcon {
-  width: 1.15em;
-  height: 1.15em;
+  width: calc(1.15em * var(--ic, 1));
+  height: calc(1.15em * var(--ic, 1));
   padding: 0.16em;
   border-radius: 0.35em;
   background: var(--sage-tint, #E3ECE7);
@@ -1372,8 +1375,8 @@
 
 /* צילום אמיתי של הארוחה: עיגול גדול ליד שם הארוחה — מזהים מה אוכלים בלי לקרוא */
 .tmMealPhoto {
-  width: 2.3em;
-  height: 2.3em;
+  width: calc(2.3em * var(--ic, 1));
+  height: calc(2.3em * var(--ic, 1));
   border-radius: 50%;
   object-fit: cover;
   flex-shrink: 0;
@@ -1384,8 +1387,8 @@
 /* צילום של המנה עצמה, לפני השם שלה בתפריט — מזהים מה אוכלים גם בלי לקרוא */
 .dishPhoto {
   display: inline-block;
-  width: 1.45em;
-  height: 1.45em;
+  width: calc(1.45em * var(--ic, 1));
+  height: calc(1.45em * var(--ic, 1));
   border-radius: 50%;
   object-fit: cover;
   vertical-align: middle;
@@ -1399,8 +1402,8 @@
 /* צילום קטן של הארוחה ליד שמה — בתפריט השבועי, בפס "בכל יום" ובתצוגת "היום" */
 .mealPhoto {
   display: inline-block;
-  width: 1.7em;
-  height: 1.7em;
+  width: calc(1.7em * var(--ic, 1));
+  height: calc(1.7em * var(--ic, 1));
   border-radius: 50%;
   object-fit: cover;
   vertical-align: middle;
@@ -1412,22 +1415,22 @@
 
 /* תפריט שבועי: התמונה בכותרת של כל ארוחה בעמודת היום, ובפס "בכל יום" */
 .mealName .mealPhoto {
-  width: 2.2em;
-  height: 2.2em;
+  width: calc(2.2em * var(--ic, 1));
+  height: calc(2.2em * var(--ic, 1));
   margin-block: -0.2em;
 }
 
 .menuCommonMeal .mealPhoto {
-  width: 1.45em;
-  height: 1.45em;
+  width: calc(1.45em * var(--ic, 1));
+  height: calc(1.45em * var(--ic, 1));
   margin-block: -0.2em;
   margin-inline-end: 0.3em;
 }
 
 .tmSnackPhoto {
   display: inline-block;
-  width: 2.2em;
-  height: 2.2em;
+  width: calc(2.2em * var(--ic, 1));
+  height: calc(2.2em * var(--ic, 1));
   border-radius: 50%;
   object-fit: cover;
   vertical-align: middle;
@@ -1461,7 +1464,12 @@
 /* אייקון החושים (ארבעה סמלים קטנים) — קצת גדול יותר בשורות רגילות */
 .actIcon[data-senses],
 .mealIcon[data-senses] {
-  width: 1.22em;
-  height: 1.22em;
+  width: calc(1.22em * var(--ic, 1));
+  height: calc(1.22em * var(--ic, 1));
   vertical-align: -0.26em;
+}
+
+/* בלי אייקונים בתצוגה (הגדרת "גודל אייקונים: בלי" במחלקה) */
+.noIcons :is(.actIcon, .actPhoto, .nowIcon, .nowPhoto, .tmMealPhoto, .tmMealIcon, .tmSnackPhoto, .mealPhoto, .mealIcon, .dishPhoto) {
+  display: none !important;
 }

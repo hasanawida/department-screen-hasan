@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { CalendarDays, ChevronRight, ChevronLeft, Copy, ExternalLink, Loader2, RefreshCw, Repeat, Trash2, Undo2, Users, X, Check, Plus } from "lucide-react";
+import { CalendarDays, ChevronRight, ChevronLeft, Copy, ExternalLink, Loader2, RefreshCw, Repeat, Trash2, Undo2, Users, X, Check, Plus, Minus } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import DepartmentDisplay, { type ViewKind } from "@/components/display/department-display";
 import { insertActivities, updateActivity } from "@/lib/activities-db";
@@ -18,8 +18,9 @@ import { latestIconConfig, type IconConfig } from "@/lib/icon-config";
 import ActivityIconPicker from "@/components/admin/activity-icon-picker";
 import {
   DAY_CODES, DAY_NAMES, activitiesByDay, addDaysISO, dayCodeIndex, dayIndexOf, displaySettings, israelDateISO, menuFromRows, menuNotesFromRows, shortDate,
-  weekDatesISO, weekStartISO, weeklyBoardSettings,
-  type ActivityRow, type BoardActivity, type DisplaySettings, type MenuRow, type WeeklyBoardSettings,
+  weekDatesISO, weekStartISO, weeklyBoardSettings, viewStyle, clampScale,
+  ICON_SCALES, STYLED_VIEWS, TEXT_SCALE_MAX, TEXT_SCALE_MIN, TEXT_SCALE_STEP,
+  type ActivityRow, type BoardActivity, type DisplaySettings, type MenuRow, type ViewStyle, type WeeklyBoardSettings,
 } from "@/lib/week";
 
 type Dept = { id: string; name: string; code: string; color: string | null };
@@ -542,10 +543,10 @@ export default function WeeklyEditor() {
         {/* תצוגה מקדימה — בדיוק כמו בטלוויזיה */}
         <div className="min-w-0">
           <div className="mb-3 flex items-center gap-2 text-sm">
-            {(["weekly", "daily", "menu"] as ViewKind[]).map(k => (
+            {(["weekly", "daily", "menuToday", "menu"] as ViewKind[]).map(k => (
               <button key={k} onClick={() => setView(k)}
                 className={"rounded-full px-3 py-1.5 font-semibold " + (view === k ? "bg-[#3F2F2D] text-[#F6F2EE]" : "bg-white text-[#3F2F2D]/70 hover:bg-[#E3ECE7]")}>
-                {k === "weekly" ? "לוח שבועי" : k === "daily" ? "היום" : "תפריט"}
+                {k === "weekly" ? "לוח שבועי" : k === "daily" ? "היום" : k === "menuToday" ? "תפריט היום" : "תפריט שבועי"}
               </button>
             ))}
             <span className="ms-auto text-[#3F2F2D]/60">
@@ -792,10 +793,6 @@ export default function WeeklyEditor() {
                 <div className="mt-3 divide-y divide-[#3F2F2D]/10">
                   <Toggle label="מקום הפעילות" on={board.show_location} onChange={v => setBoard({ show_location: v })} />
                   <Toggle label="שם המפעיל/ה" on={board.show_instructor} onChange={v => setBoard({ show_instructor: v })} />
-                  <Toggle label="אייקון ליד כל פעילות" on={board.show_icons !== false} onChange={v => setBoard({ show_icons: v })} />
-                  {board.show_icons !== false && (
-                    <Link href="/admin/icons" className="block py-2 text-sm font-semibold text-[#5A826F] hover:underline">עריכת האייקונים והתמונות</Link>
-                  )}
                   <Toggle label="שעת סיום" on={board.show_end_time} onChange={v => setBoard({ show_end_time: v })} />
                   <Toggle label="נושא השבוע" on={board.show_topic} onChange={v => setBoard({ show_topic: v })} />
                   <Toggle label="ימים שעברו בצבע חלש" on={board.dim_past_days} onChange={v => setBoard({ dim_past_days: v })} />
@@ -814,17 +811,58 @@ export default function WeeklyEditor() {
                     </select>
                   </Field>
                 )}
-                <Field label="גודל טקסט" className="mt-3">
-                  <div className="grid grid-cols-3 gap-1 rounded-xl bg-[#F6F2EE] p-1 text-sm font-semibold">
-                    {(["s", "m", "l"] as const).map(sz => (
-                      <button key={sz} type="button" onClick={() => setBoard({ text_size: sz })}
-                        className={"rounded-lg py-2 " + (board.text_size === sz ? "bg-white shadow-sm" : "text-[#3F2F2D]/60")}>
-                        {sz === "s" ? "קטן" : sz === "m" ? "רגיל" : "גדול"}
-                      </button>
-                    ))}
-                  </div>
-                </Field>
-                <p className="mt-2 text-xs text-[#3F2F2D]/55">יום עמוס מתכווץ לבד כדי שהכול ייכנס במסך.</p>
+              </section>
+
+              {/* גודל כתב ואייקונים — לכל תצוגה בנפרד */}
+              <section className="rounded-2xl bg-white p-5 shadow-sm">
+                <h2 className="mb-1 text-lg font-bold">גודל כתב ואייקונים</h2>
+                <p className="mb-3 text-sm text-[#3F2F2D]/60">לכל תצוגה בנפרד. לחיצה על שם התצוגה מראה אותה בתצוגה המקדימה.</p>
+                <div className="space-y-3">
+                  {STYLED_VIEWS.map(({ key: k, label }) => {
+                    const cur = viewStyle(display, board, k);
+                    const setLook = (patch: ViewStyle) => saveDisplay({ ...display, view_style: { ...display.view_style, [k]: { ...cur, ...display.view_style?.[k], ...patch } } });
+                    const isDefault = !display.view_style?.[k];
+                    return (
+                      <div key={k} className={"rounded-xl p-3 " + (view === k ? "bg-[#E3ECE7]" : "bg-[#F6F2EE]")}>
+                        <div className="mb-2 flex items-center justify-between gap-2">
+                          <button type="button" onClick={() => setView(k as ViewKind)} className="font-bold hover:underline">{label}</button>
+                          {!isDefault && (
+                            <button type="button" onClick={() => saveDisplay({ ...display, view_style: Object.fromEntries(Object.entries(display.view_style ?? {}).filter(([x]) => x !== k)) as DisplaySettings["view_style"] })}
+                              className="text-xs font-semibold text-[#5A826F] hover:underline">חזרה לרגיל</button>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                          <div className="flex items-center gap-1.5" role="group" aria-label={`גודל הכתב — ${label}`}>
+                            <span className="me-1 text-sm text-[#3F2F2D]/65">כתב</span>
+                            <button type="button" aria-label="הקטנת הכתב" disabled={cur.text <= TEXT_SCALE_MIN}
+                              onClick={() => { setView(k as ViewKind); setLook({ text: clampScale(cur.text - TEXT_SCALE_STEP) }); }}
+                              className="grid h-8 w-8 place-items-center rounded-lg bg-white shadow-sm hover:bg-[#E3ECE7] disabled:opacity-40"><Minus className="h-4 w-4" /></button>
+                            <span className="w-12 text-center text-sm font-bold tabular-nums">{Math.round(cur.text * 100)}%</span>
+                            <button type="button" aria-label="הגדלת הכתב" disabled={cur.text >= TEXT_SCALE_MAX}
+                              onClick={() => { setView(k as ViewKind); setLook({ text: clampScale(cur.text + TEXT_SCALE_STEP) }); }}
+                              className="grid h-8 w-8 place-items-center rounded-lg bg-white shadow-sm hover:bg-[#E3ECE7] disabled:opacity-40"><Plus className="h-4 w-4" /></button>
+                          </div>
+                          <div className="flex items-center gap-1.5" role="group" aria-label={`גודל האייקונים — ${label}`}>
+                            <span className="me-1 text-sm text-[#3F2F2D]/65">אייקונים</span>
+                            <div className="flex gap-0.5 rounded-lg bg-white/70 p-0.5 text-xs font-semibold">
+                              {ICON_SCALES.map(o => (
+                                <button key={o.value} type="button" aria-pressed={cur.icons === o.value}
+                                  onClick={() => { setView(k as ViewKind); setLook({ icons: o.value }); }}
+                                  className={"rounded-md px-2 py-1.5 " + (cur.icons === o.value ? "bg-[#3F2F2D] text-[#F6F2EE]" : "text-[#3F2F2D]/70 hover:bg-white")}>
+                                  {o.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <p className="mt-3 text-xs text-[#3F2F2D]/55">
+                  הכול תמיד נכנס במסך: כשהתצוגה מלאה, הגדלה מפנה מקום (בלוח — מסתירה את המקום ואת שם המפעיל ביום עמוס), והקטנה משאירה מקום פנוי.
+                  {" "}<Link href="/admin/icons" className="font-semibold text-[#5A826F] hover:underline">עריכת האייקונים והתמונות</Link>
+                </p>
               </section>
 
               <section className="rounded-2xl bg-white p-5 shadow-sm">

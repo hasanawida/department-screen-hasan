@@ -9,7 +9,7 @@ import {
   DAY_NAMES, MAIN_MEALS, MEALS, MEAL_LABELS, MEAL_SHORT, MEAL_TIME, SNACK_MEALS, commonMenuLines, shortDate, splitMenuLine, toMinutes,
   type Meal, type WeekMenu,
 } from "@/lib/week";
-import { useFillScale, useUniformGrow } from "./use-fill";
+import { fitForText, useFillScale, useUniformGrow } from "./use-fill";
 import { DishPhoto, IconConfigContext, MealPhoto, SnackMealPhoto } from "./icons";
 import { menuLinePhotos } from "@/lib/icon-config";
 import styles from "./board.module.css";
@@ -51,7 +51,10 @@ export function currentMealIndex(meals: Meal[], nowMinutes: number): number {
 
 /* ───────────── תפריט היום ───────────── */
 
-export function TodayMenu({ meals, notes, nowMinutes }: { meals: DayMeals; notes: string[]; nowMinutes: number }) {
+type Look = { text: number; icons: number };
+const NORMAL: Look = { text: 1, icons: 1 };
+
+export function TodayMenu({ meals, notes, nowMinutes, look = NORMAL }: { meals: DayMeals; notes: string[]; nowMinutes: number; look?: Look }) {
   const main = MAIN_MEALS.filter(m => (meals[m]?.length ?? 0) > 0);
   const snacks = SNACK_MEALS.filter(m => (meals[m]?.length ?? 0) > 0);
   const present = MEALS.filter(m => (meals[m]?.length ?? 0) > 0);
@@ -59,14 +62,15 @@ export function TodayMenu({ meals, notes, nowMinutes }: { meals: DayMeals; notes
   const nowMeal = nowIdx >= 0 ? present[nowIdx] : null;
   // תמונה ליד כל מנה בפירוט — לפי ההגדרה (ברירת מחדל: רק בכותרת)
   const linePhotos = menuLinePhotos(useContext(IconConfigContext), "today");
+  const fit = fitForText(look.text);
 
   const areaRef = useRef<HTMLDivElement>(null);
   const appliedRef = useRef(1);
-  const bs = useFillScale(areaRef, appliedRef, JSON.stringify(meals) + notes.join("|") + linePhotos);
+  const bs = useFillScale(areaRef, appliedRef, JSON.stringify(meals) + notes.join("|") + linePhotos + "|" + look.icons, fit.max, fit.min, fit.target);
   appliedRef.current = bs;
 
   return (
-    <div className={styles.todayMenu} style={{ "--bs": bs } as React.CSSProperties}>
+    <div className={styles.todayMenu + (look.icons > 0 ? "" : " " + styles.noIcons)} style={{ "--bs": bs, "--ic": look.icons || 1 } as React.CSSProperties}>
       <div ref={areaRef} className={styles.tmArea}>
         {snacks.length > 0 && (
           <div className={styles.tmSnacks}>
@@ -104,8 +108,8 @@ export function TodayMenu({ meals, notes, nowMinutes }: { meals: DayMeals; notes
 
 /* ───────────── תפריט שבועי ───────────── */
 
-export function WeeklyMenu({ menu, weekDates, todayIndex, notes, allDays }: {
-  menu: WeekMenu; weekDates: string[]; todayIndex: number; notes: string[]; allDays?: boolean;
+export function WeeklyMenu({ menu, weekDates, todayIndex, notes, allDays, look = NORMAL }: {
+  menu: WeekMenu; weekDates: string[]; todayIndex: number; notes: string[]; allDays?: boolean; look?: Look;
 }) {
   // מנות שחוזרות בכל ימי השבוע — פעם אחת למעלה
   const common = useMemo(() => {
@@ -116,10 +120,11 @@ export function WeeklyMenu({ menu, weekDates, todayIndex, notes, allDays }: {
   const commonMeals = MEALS.filter(m => (common[m]?.lines.length ?? 0) > 0);
 
   const shown = [0, 1, 2, 3, 4, 5, 6].filter(i => allDays || MEALS.some(m => (menu[i]?.[m]?.length ?? 0) > 0) || i === todayIndex);
-  const { grow, report } = useUniformGrow();
+  const fit = fitForText(look.text);
+  const { grow, report } = useUniformGrow(fit.max);
 
   return (
-    <div className={styles.board} style={{ "--size": 1 } as React.CSSProperties}>
+    <div className={styles.board + (look.icons > 0 ? "" : " " + styles.noIcons)} style={{ "--size": 1, "--ic": look.icons || 1 } as React.CSSProperties}>
       {(commonMeals.length > 0 || notes.length > 0) && (
         <div className={styles.menuCommon}>
           <span className={styles.menuCommonTitle}>בכל יום</span>
@@ -138,7 +143,7 @@ export function WeeklyMenu({ menu, weekDates, todayIndex, notes, allDays }: {
             const rest = (menu[i]?.[m] ?? []).filter(l => !(common[m]?.lines ?? []).includes(l));
             if (rest.length) day[m] = rest;
           }
-          return <MenuDay key={i} dayIndex={i} date={weekDates[i]} isToday={i === todayIndex} meals={day} grow={grow} report={report} />;
+          return <MenuDay key={i} dayIndex={i} date={weekDates[i]} isToday={i === todayIndex} meals={day} grow={grow} report={report} look={look} />;
         })}
       </div>
     </div>
@@ -171,15 +176,16 @@ function CommonRow({ meal, lines, except }: { meal: Meal; lines: string[]; excep
   );
 }
 
-function MenuDay({ dayIndex, date, isToday, meals, grow, report }: {
+function MenuDay({ dayIndex, date, isToday, meals, grow, report, look }: {
   dayIndex: number; date: string; isToday: boolean; meals: DayMeals;
-  grow: number; report: (id: string, value: number | null) => void;
+  grow: number; report: (id: string, value: number | null) => void; look: Look;
 }) {
+  const fit = fitForText(look.text);
   const linePhotos = menuLinePhotos(useContext(IconConfigContext), "week");
   const listRef = useRef<HTMLDivElement>(null);
   const appliedRef = useRef(1);
   const has = MEALS.some(m => (meals[m]?.length ?? 0) > 0);
-  const desired = useFillScale(listRef, appliedRef, JSON.stringify(meals) + linePhotos);
+  const desired = useFillScale(listRef, appliedRef, JSON.stringify(meals) + linePhotos + "|" + look.icons, fit.max, fit.min, fit.target);
   const applied = Math.min(desired, grow);
   appliedRef.current = applied;
   const id = "menu" + dayIndex;

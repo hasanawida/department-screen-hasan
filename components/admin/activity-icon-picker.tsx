@@ -7,7 +7,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { Check, ImagePlus, Loader2, Wand2 } from "lucide-react";
+import { Check, ImagePlus, Loader2, Trash2, Wand2 } from "lucide-react";
 import { uploadImage } from "@/lib/screens";
 import { loadIconConfig, saveIconConfig } from "@/lib/icon-config-db";
 import { activityKey } from "@/components/display/icons";
@@ -25,6 +25,7 @@ export default function ActivityIconPicker({ supabase, title, config, onSaved }:
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [newLabel, setNewLabel] = useState("");
+  const [confirmDel, setConfirmDel] = useState<string | null>(null);
 
   const manual = config.titles?.[name];
   const autoKey = activityKey(name, { ...config, titles: {} });
@@ -65,6 +66,30 @@ export default function ActivityIconPicker({ supabase, title, config, onSaved }:
     setNewLabel("");
   };
 
+  /* ── האייקונים שנוספו: שינוי שם, החלפת תמונה, מחיקה ── */
+  const renameCustom = (key: string, label: string) => {
+    const v = label.trim();
+    if (!v || v === config.custom?.find(c => c.key === key)?.label) return;
+    update("rename-" + key, cfg => ({ ...cfg, custom: (cfg.custom ?? []).map(c => (c.key === key ? { ...c, label: v } : c)) }));
+  };
+  const replaceImage = async (key: string, file: File | undefined) => {
+    if (!file) return;
+    setBusy("img-" + key); setErr(null);
+    const res = await uploadImage(supabase, file, "icons");
+    if ("error" in res) { setBusy(null); setErr(res.error); return; }
+    await update("img-" + key, cfg => ({ ...cfg, custom: (cfg.custom ?? []).map(c => (c.key === key ? { ...c, image: res.url } : c)) }));
+  };
+  const removeCustom = (key: string) => {
+    setConfirmDel(null);
+    update("del-" + key, cfg => ({
+      ...cfg,
+      custom: (cfg.custom ?? []).filter(c => c.key !== key),
+      // פעילויות שהאייקון הזה נבחר להן חוזרות לבחירה האוטומטית
+      titles: Object.fromEntries(Object.entries(cfg.titles ?? {}).filter(([, v]) => v !== key)),
+    }));
+  };
+  const customs = config.custom ?? [];
+
   if (!name) return null;
 
   return (
@@ -99,6 +124,39 @@ export default function ActivityIconPicker({ supabase, title, config, onSaved }:
               );
             })}
           </div>
+
+          {customs.length > 0 && (
+            <div className="mt-3 border-t border-[#3F2F2D]/10 pt-3">
+              <div className="mb-1 text-sm font-semibold text-[#5A826F]">האייקונים שהוספתם</div>
+              <ul className="space-y-1.5">
+                {customs.map(c => (
+                  <li key={c.key} className="flex items-center gap-2">
+                    <label className="relative shrink-0 cursor-pointer" title="החלפת התמונה">
+                      <img src={c.image} alt="" className="h-10 w-10 rounded-md object-cover ring-1 ring-[#3F2F2D]/10" />
+                      {busy === "img-" + c.key && <Loader2 className="absolute inset-0 m-auto h-4 w-4 animate-spin text-white" />}
+                      <input type="file" accept="image/*" className="sr-only" aria-label={`החלפת התמונה של ${c.label}`}
+                        onChange={e => { replaceImage(c.key, e.target.files?.[0]); e.currentTarget.value = ""; }} />
+                    </label>
+                    <input className={inputCls + " h-9 min-w-0 flex-1 text-sm"} defaultValue={c.label} aria-label="שם האייקון"
+                      onBlur={e => renameCustom(c.key, e.target.value)}
+                      onKeyDown={e => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} />
+                    <label className="shrink-0 cursor-pointer rounded-lg px-2 py-1.5 text-xs font-semibold text-[#5A826F] hover:bg-white">
+                      תמונה אחרת
+                      <input type="file" accept="image/*" className="sr-only" aria-label={`תמונה אחרת ל${c.label}`}
+                        onChange={e => { replaceImage(c.key, e.target.files?.[0]); e.currentTarget.value = ""; }} />
+                    </label>
+                    {confirmDel === c.key ? (
+                      <button type="button" onClick={() => removeCustom(c.key)} disabled={!!busy}
+                        className="shrink-0 rounded-lg bg-[#B56262] px-2 py-1.5 text-xs font-semibold text-white">למחוק?</button>
+                    ) : (
+                      <button type="button" onClick={() => setConfirmDel(c.key)} disabled={!!busy} aria-label={`מחיקת ${c.label}`}
+                        className="shrink-0 rounded-lg p-1.5 text-[#B56262] hover:bg-white"><Trash2 className="h-4 w-4" /></button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           <div className="mt-3 border-t border-[#3F2F2D]/10 pt-3">
             <div className="mb-1 text-sm font-semibold text-[#5A826F]">אייקון חדש מתמונה</div>

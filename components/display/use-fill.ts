@@ -22,7 +22,7 @@ function contentHeight(el: HTMLElement) {
  * appliedRef — קנה המידה שמוצג עכשיו בפועל (לפיו מודדים). מתעדכן בכל רינדור.
  * key — כשהתוכן משתנה מתחילים מדידה מחדש.
  */
-export function useFillScale(ref: RefObject<HTMLElement | null>, appliedRef: { current: number }, key: string, max = FILL_MAX, min = FILL_MIN) {
+export function useFillScale(ref: RefObject<HTMLElement | null>, appliedRef: { current: number }, key: string, max = FILL_MAX, min = FILL_MIN, target = 1) {
   const [desired, setDesired] = useState(1);
   const tries = useRef(0);
   // מה כבר ידוע: הגודל הגדול ביותר שנכנס, והקטן ביותר שלא נכנס (כדי לא לקפוץ הלוך ושוב כשטקסט נשבר לשורה חדשה)
@@ -32,7 +32,7 @@ export function useFillScale(ref: RefObject<HTMLElement | null>, appliedRef: { c
 
   const restart = () => { tries.current = 0; fitMax.current = 0; overMin.current = Infinity; };
 
-  useLayoutEffect(() => { restart(); }, [key]);
+  useLayoutEffect(() => { restart(); }, [key, target, max]);
 
   useEffect(() => {
     const el = ref.current;
@@ -55,7 +55,8 @@ export function useFillScale(ref: RefObject<HTMLElement | null>, appliedRef: { c
     const el = ref.current;
     if (!el || tries.current > 20) return;
     const content = contentHeight(el);
-    const avail = el.clientHeight;
+    // target < 1: הכתב קטן יותר — ממלאים רק חלק מהגובה
+    const avail = el.clientHeight * target;
     if (!content || !avail) return;
     const s = appliedRef.current;
     const ratio = avail / content;
@@ -87,6 +88,15 @@ export function useFillScale(ref: RefObject<HTMLElement | null>, appliedRef: { c
  * גודל אחיד לכמה עמודות (ימים): כולן גדלות יחד כל עוד יש מקום בכולן.
  * עמודה עמוסה מתכווצת לבד ולא מקטינה את האחרות (אלא אם shrinkTogether).
  */
+/**
+ * גודל הכתב שנבחר בהגדרות ← איך ממלאים את המסך.
+ * קטן מהרגיל: ממלאים רק חלק מהמקום. גדול מהרגיל: מותר לגדול יותר כשיש מקום
+ * (הכול תמיד נכנס במסך — בתצוגה מלאה אין לאן לגדול).
+ */
+export function fitForText(text = 1): { max: number; min: number; target: number } {
+  return { max: FILL_MAX * Math.max(1, text), min: FILL_MIN * Math.min(1, text), target: Math.min(1, text) };
+}
+
 export function useUniformGrow(max = FILL_MAX, shrinkTogether = false) {
   const [map, setMap] = useState<Record<string, number>>({});
   const report = useCallback((id: string, value: number | null) => {

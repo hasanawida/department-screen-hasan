@@ -5,7 +5,7 @@ import { CalendarDays, Flame, MapPin, Star, User } from "lucide-react";
 import { Pin, BRAND } from "@/components/orientation/eshkolot-logo";
 import { DAY_NAMES, isManualActivity, shortDate, toMinutes, visibleActivities, withWeeklyTopic, type BoardActivity, type WeeklyBoardSettings } from "@/lib/week";
 import type { DayInfo, HolidayKind } from "@/lib/jewish-calendar";
-import { useFillScale, useUniformGrow } from "./use-fill";
+import { fitForText, useFillScale, useUniformGrow } from "./use-fill";
 import { ActivityIcon, HavdalahStarsIcon, HolidayIcon as FestivalIcon, ShabbatCandlesIcon } from "./icons";
 import styles from "./board.module.css";
 
@@ -25,13 +25,16 @@ type Props = {
   selectedId?: string | null;
   onSelect?: (a: BoardActivity) => void;
   onAdd?: (dayIndex: number) => void;
+  /** גודל הכתב ביחס לרגיל (מהגדרות המחלקה) */
+  textScale?: number;
+  /** גודל האייקונים ביחס לרגיל; 0 = בלי אייקונים */
+  iconScale?: number;
 };
-
-const SIZE: Record<WeeklyBoardSettings["text_size"], number> = { s: 0.88, m: 1, l: 1.14 };
 
 /** הלוח השבועי — אותו רכיב במסך במחלקה ובעורך */
 export default function WeeklyBoard(props: Props) {
-  const { days, weekDates, todayIndex, settings, topic, editable, dayInfos } = props;
+  const { days, weekDates, todayIndex, settings, topic, editable, dayInfos, textScale = 1, iconScale = 1 } = props;
+  const fit = fitForText(textScale);
   // בחג ובערב חג מוצגות במסך רק פעילויות שהוכנסו ידנית לתאריך
   const visible = days.map((list, i) => visibleActivities(list, dayInfos?.[i]));
   // יום עם חג או זמני שבת מוצג תמיד, גם בלי פעילויות — כדי שיראו אותו
@@ -44,12 +47,12 @@ export default function WeeklyBoard(props: Props) {
   const shown = configured.filter(i => editable || !hideEmpty || visible[i].length > 0 || i === todayIndex || marked(i));
 
     // כל הימים באותו גודל כתב: גדלים יחד, ומתכווצים יחד כשיום אחד עמוס
-  const { grow, report } = useUniformGrow(undefined, true);
+  const { grow, report } = useUniformGrow(fit.max, true);
 
   return (
     <div
-      className={styles.board + " " + styles.activityBoard + (editable ? " " + styles.editable : "")}
-      style={{ "--size": SIZE[settings.text_size] ?? 1 } as React.CSSProperties}
+      className={styles.board + " " + styles.activityBoard + (editable ? " " + styles.editable : "") + (iconScale > 0 ? "" : " " + styles.noIcons)}
+      style={{ "--ic": iconScale || 1 } as React.CSSProperties}
     >
       {settings.show_topic && topic?.title && (
         <div className={styles.topic}>
@@ -79,6 +82,7 @@ export default function WeeklyBoard(props: Props) {
 /** יום אחד בלוח: גדל עם שאר הימים כשיש מקום, ומתכווץ לבד כשהוא עמוס */
 function DayColumn({
   days, dayIndex, date, isToday, isPast, hiddenOnScreen, info, nowMinutes, settings, editable, selectedId, onSelect, onAdd, grow, report, topic,
+  textScale = 1, iconScale = 1,
 }: Props & {
   dayIndex: number; date: string; isToday: boolean; isPast: boolean; hiddenOnScreen?: boolean;
   info?: DayInfo;
@@ -95,13 +99,15 @@ function DayColumn({
   useEffect(() => { setCompact(false); }, [contentKey]);
 
   const appliedRef = useRef(1);
-  const desired = useFillScale(listRef, appliedRef, contentKey + (compact ? "|c" : ""));
+  const fit = fitForText(textScale);
+  const desired = useFillScale(listRef, appliedRef, contentKey + (compact ? "|c" : "") + "|" + textScale + "|" + iconScale, fit.max, fit.min, fit.target);
   const applied = Math.min(desired, grow);
   appliedRef.current = applied;
 
+  // כשהכתב לא נכנס בגודל הרגיל — או שביקשו כתב גדול והיום עמוס — מסתירים מקום ומפעיל כדי לפנות מקום
   useEffect(() => {
-    if (!compact && !editable && desired < 0.72) setCompact(true);
-  }, [desired, compact, editable]);
+    if (!compact && !editable && desired < 0.72 * fit.target * Math.max(1, textScale)) setCompact(true);
+  }, [desired, compact, editable, fit.target, textScale]);
 
   // רק ימים עם פעילויות קובעים כמה הלוח יכול לגדול
   const id = String(dayIndex);
@@ -158,7 +164,7 @@ function DayColumn({
                 {isNow && <span className={styles.nowTag}>עכשיו</span>}
               </span>
               <span className={styles.actTitle}>
-                {settings.show_icons !== false && <ActivityIcon key={a.title} title={a.title} className={styles.actIcon} photoClassName={styles.actPhoto} />}
+                {iconScale > 0 && <ActivityIcon key={a.title} title={a.title} className={styles.actIcon} photoClassName={styles.actPhoto} />}
                 {withWeeklyTopic(a.title, topic?.title)}
               </span>
               {showMeta && ((settings.show_location && a.location) || (settings.show_instructor && a.instructor)) && (

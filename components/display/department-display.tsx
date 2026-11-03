@@ -5,7 +5,7 @@ import { Clock3, MapPin, User, Utensils, Megaphone, HeartPulse } from "lucide-re
 import { EshkolotLogo, Pin, BRAND } from "@/components/orientation/eshkolot-logo";
 import WeeklyBoard, { type WeeklyTopic } from "./weekly-board";
 import {
-  DAY_NAMES, MEAL_SHORT, boardDayInfos, dayIndexOf, israelDateISO, israelTimeHM, shortDate, toMinutes, visibleActivities, withWeeklyTopic,
+  DAY_NAMES, MEAL_SHORT, boardDayInfos, dayIndexOf, israelDateISO, israelTimeHM, shortDate, toMinutes, viewStyle, visibleActivities, withWeeklyTopic,
   type BoardActivity, type DisplaySettings, type WeekMenu, type WeeklyBoardSettings,
 } from "@/lib/week";
 import { TodayMenu, WeeklyMenu, nextMealsSummary } from "./menu-views";
@@ -161,13 +161,14 @@ export default function DepartmentDisplay(props: DepartmentDisplayProps) {
         <main key={view.kind + (view.media?.url ?? "")} className={styles.view}>
           {view.kind === "weekly" && (
             <WeeklyBoard days={days} weekDates={weekDates} todayIndex={todayIndex} nowMinutes={nowMinutes} settings={board} topic={topic} dayInfos={dayInfos}
+              textScale={viewStyle(settings, board, "weekly").text} iconScale={viewStyle(settings, board, "weekly").icons}
               editable={!!editor} selectedId={editor?.selectedId} onSelect={editor?.onSelect} onAdd={editor?.onAdd} />
           )}
 
           {view.kind === "daily" && (
             <DailyView today={today} nowMinutes={nowMinutes} menu={todayIndex >= 0 ? menu[todayIndex] : undefined}
               messages={settings.show_announcements ? messages : []} board={board}
-              physio={settings.show_physio !== false ? physio : []} topic={topic} />
+              physio={settings.show_physio !== false ? physio : []} topic={topic} look={viewStyle(settings, board, "daily")} />
           )}
 
           {view.kind === "physio" && (
@@ -179,11 +180,13 @@ export default function DepartmentDisplay(props: DepartmentDisplayProps) {
 
           {view.kind === "menuToday" && (
             <TodayMenu meals={menu[props.menuDayIndex ?? todayIndex] ?? {}} notes={menuNotes}
-              nowMinutes={props.menuDayIndex === undefined || props.menuDayIndex === todayIndex ? nowMinutes : -1} />
+              nowMinutes={props.menuDayIndex === undefined || props.menuDayIndex === todayIndex ? nowMinutes : -1}
+              look={viewStyle(settings, board, "menuToday")} />
           )}
 
           {view.kind === "menu" && (
-            <WeeklyMenu menu={menu} weekDates={weekDates} todayIndex={todayIndex} notes={menuNotes} allDays={!!fixedView} />
+            <WeeklyMenu menu={menu} weekDates={weekDates} todayIndex={todayIndex} notes={menuNotes} allDays={!!fixedView}
+              look={viewStyle(settings, board, "menu")} />
           )}
 
           {view.kind === "media" && view.media && (
@@ -226,7 +229,7 @@ const EMPTY_ICONS: IconConfig = {};
 
 /* ───────────── היום ───────────── */
 
-function DailyView({ today, nowMinutes, menu, messages, board, physio, topic }: {
+function DailyView({ today, nowMinutes, menu, messages, board, physio, topic, look = { text: 1, icons: 1 } }: {
   today: BoardActivity[];
   nowMinutes: number;
   menu?: WeekMenu[number];
@@ -234,6 +237,8 @@ function DailyView({ today, nowMinutes, menu, messages, board, physio, topic }: 
   board: WeeklyBoardSettings;
   physio: PhysioAppt[];
   topic?: WeeklyTopic;
+  /** גודל הכתב והאייקונים (מהגדרות המחלקה) */
+  look?: { text: number; icons: number };
 }) {
   const end = (a: BoardActivity) => (a.end ? toMinutes(a.end) : toMinutes(a.start) + 60);
   const current = today.find(a => nowMinutes >= toMinutes(a.start) && nowMinutes < end(a));
@@ -245,7 +250,8 @@ function DailyView({ today, nowMinutes, menu, messages, board, physio, topic }: 
     .filter(a => toMinutes(a.end || a.time) + (a.end ? 0 : 30) > nowMinutes).slice(0, 3);
 
   return (
-    <div className={styles.daily}>
+    <div className={styles.daily + (look.icons > 0 ? "" : " " + styles.noIcons)}
+      style={{ "--cu": `calc(var(--cu0) * ${look.text})`, "--ic": look.icons || 1 } as React.CSSProperties}>
       <div className={styles.dailyCol}>
         <section className={styles.nowPanel}>
           <span className={styles.panelTitle}><Pin color={BRAND.sun} className={styles.dayPin} />עכשיו</span>
@@ -253,7 +259,7 @@ function DailyView({ today, nowMinutes, menu, messages, board, physio, topic }: 
             <>
               <span className={styles.nowTime}>{current.start}{current.end ? "–" + current.end : ""}</span>
               <span className={styles.nowTitle}>
-                {board.show_icons !== false && <ActivityIcon key={current.title} title={current.title} className={styles.nowIcon} photoClassName={styles.nowPhoto} />}
+                {look.icons > 0 && <ActivityIcon key={current.title} title={current.title} className={styles.nowIcon} photoClassName={styles.nowPhoto} />}
                 {withWeeklyTopic(current.title, topic?.title)}
               </span>
               {(current.location || current.instructor) && (
@@ -300,7 +306,7 @@ function DailyView({ today, nowMinutes, menu, messages, board, physio, topic }: 
               <span className={styles.nextTime}>{a.start}</span>
               <div>
                 <div className={styles.nextTitle}>
-                  {board.show_icons !== false && <ActivityIcon key={a.title} title={a.title} className={styles.actIcon} photoClassName={styles.actPhoto} />}
+                  {look.icons > 0 && <ActivityIcon key={a.title} title={a.title} className={styles.actIcon} photoClassName={styles.actPhoto} />}
                   {withWeeklyTopic(a.title, topic?.title)}
                 </div>
                 {((board.show_location && a.location) || (board.show_instructor && a.instructor)) && (

@@ -200,7 +200,12 @@ export default function IconsManager() {
                 image={c.image}
                 busy={busyKey === c.key}
                 onUpload={f => upload(c.key, f, url => setCustom(list => list.map(x => (x.key === c.key ? { ...x, image: url } : x))))}
-                onDelete={() => { setCustom(list => list.filter(x => x.key !== c.key)); touch(); }}
+                onDelete={() => {
+                  setCustom(list => list.filter(x => x.key !== c.key));
+                  // פעילויות שהאייקון הזה נבחר להן חוזרות לבחירה האוטומטית
+                  setByTitle(m => Object.fromEntries(Object.entries(m).filter(([, v]) => v !== c.key)));
+                  touch();
+                }}
               >
                 <input
                   className={inputCls + " mb-2 text-sm"} value={c.label} aria-label="שם הסוג"

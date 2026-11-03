@@ -238,7 +238,46 @@ export type DisplaySettings = {
   ticker_source: TickerSource;
   view_interval_seconds: number;
   weekly_board?: Partial<WeeklyBoardSettings>;
+  /** גודל הכתב והאייקונים בכל תצוגה (לכל מחלקה בנפרד) */
+  view_style?: Partial<Record<StyledView, ViewStyle>>;
 };
+
+/* ───────────── גודל כתב ואייקונים בכל תצוגה ───────────── */
+
+export type StyledView = "weekly" | "daily" | "menuToday" | "menu";
+/** text — גודל הכתב ביחס לרגיל (1); icons — גודל האייקונים ביחס לרגיל, 0 = בלי אייקונים */
+export type ViewStyle = { text?: number; icons?: number };
+
+export const STYLED_VIEWS: { key: StyledView; label: string }[] = [
+  { key: "weekly", label: "לוח שבועי" },
+  { key: "daily", label: "היום" },
+  { key: "menuToday", label: "תפריט היום" },
+  { key: "menu", label: "תפריט שבועי" },
+];
+export const TEXT_SCALE_MIN = 0.7;
+export const TEXT_SCALE_MAX = 1.5;
+export const TEXT_SCALE_STEP = 0.1;
+export const ICON_SCALES: { value: number; label: string }[] = [
+  { value: 0, label: "בלי" },
+  { value: 0.75, label: "קטן" },
+  { value: 1, label: "רגיל" },
+  { value: 1.3, label: "גדול" },
+  { value: 1.6, label: "גדול מאוד" },
+];
+
+const OLD_TEXT_SIZE = { s: 0.9, m: 1, l: 1.1 } as const;
+
+/** גודל הכתב והאייקונים בתצוגה. בלוח (ובתצוגת היום) — גם לפי ההגדרות הישנות של הלוח, אם לא נקבע אחרת */
+export function viewStyle(settings: DisplaySettings, board: WeeklyBoardSettings, view: StyledView): { text: number; icons: number } {
+  const s = settings.view_style?.[view] ?? {};
+  const boardIcons = board.show_icons === false ? 0 : 1;
+  const text = s.text ?? (view === "weekly" ? OLD_TEXT_SIZE[board.text_size] ?? 1 : 1);
+  const icons = s.icons ?? (view === "weekly" || view === "daily" ? boardIcons : 1);
+  return { text: clampScale(text), icons: Math.max(0, Math.min(2, icons)) };
+}
+
+export const clampScale = (v: number) =>
+  Math.round(Math.max(TEXT_SCALE_MIN, Math.min(TEXT_SCALE_MAX, Number(v) || 1)) * 100) / 100;
 
 export const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = {
   show_daily: true,

@@ -1473,3 +1473,72 @@
 .noIcons :is(.actIcon, .actPhoto, .nowIcon, .nowPhoto, .tmMealPhoto, .tmMealIcon, .tmSnackPhoto, .mealPhoto, .mealIcon, .dishPhoto) {
   display: none !important;
 }
+
+/* ───────── כתב גדול מ-100%: כל צעד מפנה עוד מקום, בלי להסתיר ימים או פרטים ───────── */
+/* (הכתב ממלא את המקום לבד — כל רווח שמתפנה הופך לכתב גדול יותר) */
+
+/* צעד 1 — רווחים צפופים יותר בין הפעילויות */
+.activityBoard.big1 .list { padding: 0; }
+.activityBoard.big1 .act {
+  padding: calc(var(--bu) * 0.6) calc(var(--cu) * 1.2);
+  gap: calc(var(--bu) * 0.15);
+}
+.activityBoard.big1 .actTitle { line-height: 1.08; }
+
+/* צעד 2 — כותרת היום בשורה אחת (שם היום והתאריך זה ליד זה) */
+.activityBoard.big2 .dayHead {
+  flex-direction: row;
+  align-items: baseline;
+  gap: calc(var(--cu) * 1);
+  padding: calc(var(--cu) * 0.8) calc(var(--cu) * 1);
+}
+.activityBoard.big2 .dayName { font-size: calc(var(--cu) * 3.4); }
+.activityBoard.big2 .dayDate { font-size: calc(var(--cu) * 2.6); }
+
+/* צעד 3 — האייקון בצד (ליד השעה והשם), והשם מקבל את כל הרוחב שמתחתיו */
+.activityBoard.big3 .act { display: block; }
+.activityBoard.big3 .actTime { display: flex; }
+.activityBoard.big3 .actTitle { display: block; }
+.activityBoard.big3 .actMeta { display: flex; clear: both; }
+.actFloat {
+  float: right;
+  font-size: calc(var(--bu) * 2.7);
+  line-height: 0;
+  margin: 0.1em 0 0.12em 0.4em;
+}
+.actFloat .actPhoto,
+.actFloat .actIcon { margin: 0; vertical-align: top; }
+.actNow .actFloat { font-size: calc(var(--bu) * 3.2); }
+
+/* צעד 4 — פס נושא השבוע נמוך יותר, ופרטי המקום והמפעיל בכתב מעט קטן יותר */
+.activityBoard.big4 .topic { padding: calc(var(--cu) * 0.6) calc(var(--cu) * 1); }
+.activityBoard.big4 .topicImg { width: calc(var(--cu) * 12); height: calc(var(--cu) * 7.5); }
+.activityBoard.big4 .actMeta { font-size: calc(var(--bu) * 1.65); }
+
+/* צעד 5 — הכי צפוף: רווחים קטנים בין הימים, בין הפעילויות ובכותרות הימים */
+.activityBoard.big5 { gap: calc(var(--cu) * 0.8); }
+.activityBoard.big5 .days { gap: calc(var(--cu) * 0.7); }
+.activityBoard.big5 .act { padding: calc(var(--bu) * 0.4) calc(var(--cu) * 1); }
+.activityBoard.big5 .actTime { line-height: 1; }
+.activityBoard.big5 .actMeta { line-height: 1.1; }
+.activityBoard.big5 .dayHead { padding: calc(var(--cu) * 0.5) calc(var(--cu) * 0.8); }
+
+/* תפריט שבועי */
+.board.big1 .meal { padding: calc(var(--bu) * 0.55) calc(var(--cu) * 1.2); }
+.board.big1 .mealList { line-height: 1.18; }
+.board.big1 .mealItem + .mealItem { margin-top: calc(var(--bu) * 0.15); }
+.board.big1 .mealName { margin-bottom: calc(var(--bu) * 0.15); }
+.board.big2 .menuDay .dayHead { padding: calc(var(--cu) * 0.8) calc(var(--cu) * 1.2); }
+.board.big3 { gap: calc(var(--cu) * 0.8); }
+.board.big3 .days { gap: calc(var(--cu) * 0.7); }
+.board.big3 .menuCommon { padding: calc(var(--cu) * 0.7) calc(var(--cu) * 1.6); }
+.board.big3 .menuCommonBody { gap: calc(var(--cu) * 0.3) calc(var(--cu) * 2); }
+
+/* תפריט היום */
+.todayMenu.big1 .tmMeal { padding: calc(var(--bu) * 1.1) calc(var(--bu) * 1.8); }
+.todayMenu.big1 .tmList { line-height: 1.15; }
+.todayMenu.big1 .tmList li + li { margin-top: calc(var(--bu) * 0.4); }
+.todayMenu.big2 .tmMealHead { padding-bottom: calc(var(--bu) * 0.5); margin-bottom: calc(var(--bu) * 0.4); }
+.todayMenu.big2 .tmSnack { padding: calc(var(--bu) * 0.8) calc(var(--bu) * 1.6); }
+.todayMenu.big3 .tmArea { gap: calc(var(--cu) * 0.9); }
+.todayMenu.big3 .tmNotes { padding: calc(var(--cu) * 0.6) calc(var(--cu) * 1.8); }

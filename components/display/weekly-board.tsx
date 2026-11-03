@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { CalendarDays, Flame, MapPin, Star, User } from "lucide-react";
 import { Pin, BRAND } from "@/components/orientation/eshkolot-logo";
-import { DAY_NAMES, daysForTextScale, isManualActivity, shortDate, toMinutes, visibleActivities, withWeeklyTopic, type BoardActivity, type WeeklyBoardSettings } from "@/lib/week";
+import { DAY_NAMES, bigTextLevel, isManualActivity, shortDate, toMinutes, visibleActivities, withWeeklyTopic, type BoardActivity, type WeeklyBoardSettings } from "@/lib/week";
 import type { DayInfo, HolidayKind } from "@/lib/jewish-calendar";
 import { fitForText, useFillScale, useUniformGrow } from "./use-fill";
 import { ActivityIcon, HavdalahStarsIcon, HolidayIcon as FestivalIcon, ShabbatCandlesIcon } from "./icons";
@@ -44,18 +44,19 @@ export default function WeeklyBoard(props: Props) {
   const configured = settings.days.filter(i => i >= 0 && i <= 6).sort((a, b) => a - b);
   const weekHasActivities = configured.some(i => visible[i].length > 0);
   const hideEmpty = settings.hide_empty_days && weekHasActivities;
-  // כתב גדול מהרגיל: במסך מציגים מהיום והלאה, כדי שיהיה מקום לכתב גדול יותר
-  const fromToday = !editable && textScale > 1 && todayIndex >= 0;
-  const shown = configured.filter(i => editable || !hideEmpty || visible[i].length > 0 || i === todayIndex || marked(i))
-    .filter(i => !fromToday || i >= todayIndex)
-    .slice(0, fromToday ? daysForTextScale(textScale) : 7);
+  const shown = configured.filter(i => editable || !hideEmpty || visible[i].length > 0 || i === todayIndex || marked(i));
+  // כתב גדול מ-100%: כל השבוע וכל הפרטים נשארים — מפנים מקום ברווחים ובסידור (ראו big1–big5 ב-CSS)
+  const level = bigTextLevel(textScale);
+  const bigClasses = [styles.big1, styles.big2, styles.big3, styles.big4, styles.big5].slice(0, level).join(" ");
+  // מצעד 3: יום בלי פעילויות צר יותר, וכך הימים העמוסים מקבלים יותר רוחב
+  const colWidth = (i: number) => i === todayIndex ? (level >= 3 ? 1.3 : 1.6) : level >= 3 && visible[i].length === 0 && !editable ? 0.6 : 1;
 
     // כל הימים באותו גודל כתב: גדלים יחד, ומתכווצים יחד כשיום אחד עמוס
   const { grow, report } = useUniformGrow(fit.max, true);
 
   return (
     <div
-      className={styles.board + " " + styles.activityBoard + (editable ? " " + styles.editable : "") + (iconScale > 0 ? "" : " " + styles.noIcons)}
+      className={styles.board + " " + styles.activityBoard + (editable ? " " + styles.editable : "") + (iconScale > 0 ? "" : " " + styles.noIcons) + (bigClasses ? " " + bigClasses : "")}
       style={{ "--ic": iconScale || 1 } as React.CSSProperties}
     >
       {settings.show_topic && topic?.title && (
@@ -70,7 +71,7 @@ export default function WeeklyBoard(props: Props) {
       )}
 
       {/* היום רחב יותר משאר הימים — העין מוצאת אותו מיד */}
-      <div className={styles.days} style={{ gridTemplateColumns: shown.map(i => (i === todayIndex ? "1.6fr" : "1fr")).map(f => `minmax(0, ${f})`).join(" ") }}>
+      <div className={styles.days} style={{ gridTemplateColumns: shown.map(i => `minmax(0, ${colWidth(i)}fr)`).join(" ") }}>
         {shown.map(i => (
           <DayColumn key={i} {...props} dayIndex={i} date={weekDates[i]} isToday={i === todayIndex}
             info={dayInfos?.[i]}
@@ -108,10 +109,13 @@ function DayColumn({
   const applied = Math.min(desired, grow);
   appliedRef.current = applied;
 
-  // כשהכתב לא נכנס בגודל הרגיל — או שביקשו כתב גדול והיום עמוס — מסתירים מקום ומפעיל כדי לפנות מקום
+  // כשהכתב לא נכנס גם בגודל קטן — מסתירים מקום ומפעיל כדי שיהיה מקום לשעה ולשם הפעילות
   useEffect(() => {
-    if (!compact && !editable && desired < 0.72 * fit.target * Math.max(1, textScale)) setCompact(true);
-  }, [desired, compact, editable, fit.target, textScale]);
+    if (!compact && !editable && desired < 0.72 * fit.target) setCompact(true);
+  }, [desired, compact, editable, fit.target]);
+
+  // מצעד 3 של כתב גדול: האייקון בצד, ליד השעה והשם — השם מקבל את כל הרוחב שמתחתיו
+  const floatIcon = bigTextLevel(textScale) >= 3 && iconScale > 0;
 
   // רק ימים עם פעילויות קובעים כמה הלוח יכול לגדול
   const id = String(dayIndex);
@@ -163,12 +167,13 @@ function DayColumn({
             + (editable && holidayHides(a) ? " " + styles.actHolidayHidden : "");
           const body = (
             <>
+              {floatIcon && <span className={styles.actFloat}><ActivityIcon key={a.title} title={a.title} className={styles.actIcon} photoClassName={styles.actPhoto} /></span>}
               <span className={styles.actTime}>
                 <bdi>{a.start}{settings.show_end_time && a.end ? "–" + a.end : ""}</bdi>
                 {isNow && <span className={styles.nowTag}>עכשיו</span>}
               </span>
               <span className={styles.actTitle}>
-                {iconScale > 0 && <ActivityIcon key={a.title} title={a.title} className={styles.actIcon} photoClassName={styles.actPhoto} />}
+                {iconScale > 0 && !floatIcon && <ActivityIcon key={a.title} title={a.title} className={styles.actIcon} photoClassName={styles.actPhoto} />}
                 {withWeeklyTopic(a.title, topic?.title)}
               </span>
               {showMeta && ((settings.show_location && a.location) || (settings.show_instructor && a.instructor)) && (

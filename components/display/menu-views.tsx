@@ -6,7 +6,7 @@
 import React, { useContext, useEffect, useMemo, useRef } from "react";
 import { Pin, BRAND } from "@/components/orientation/eshkolot-logo";
 import {
-  DAY_NAMES, MAIN_MEALS, MEALS, MEAL_LABELS, MEAL_SHORT, MEAL_TIME, SNACK_MEALS, commonMenuLines, daysForTextScale, shortDate, splitMenuLine, toMinutes,
+  DAY_NAMES, MAIN_MEALS, MEALS, MEAL_LABELS, MEAL_SHORT, MEAL_TIME, SNACK_MEALS, commonMenuLines, bigTextLevel, shortDate, splitMenuLine, toMinutes,
   type Meal, type WeekMenu,
 } from "@/lib/week";
 import { fitForText, useFillScale, useUniformGrow } from "./use-fill";
@@ -52,6 +52,12 @@ export function currentMealIndex(meals: Meal[], nowMinutes: number): number {
 /* ───────────── תפריט היום ───────────── */
 
 type Look = { text: number; icons: number };
+
+/** כתב גדול מ-100%: כל צעד מצמצם עוד רווחים, כדי שהכתב יגדל בלי לוותר על ימים או מנות */
+const bigMenuClasses = (text: number) => {
+  const level = bigTextLevel(text);
+  return level ? " " + [styles.big1, styles.big2, styles.big3].slice(0, level).join(" ") : "";
+};
 const NORMAL: Look = { text: 1, icons: 1 };
 
 export function TodayMenu({ meals, notes, nowMinutes, look = NORMAL }: { meals: DayMeals; notes: string[]; nowMinutes: number; look?: Look }) {
@@ -70,7 +76,7 @@ export function TodayMenu({ meals, notes, nowMinutes, look = NORMAL }: { meals: 
   appliedRef.current = bs;
 
   return (
-    <div className={styles.todayMenu + (look.icons > 0 ? "" : " " + styles.noIcons)} style={{ "--bs": bs, "--ic": look.icons || 1 } as React.CSSProperties}>
+    <div className={styles.todayMenu + (look.icons > 0 ? "" : " " + styles.noIcons) + bigMenuClasses(look.text)} style={{ "--bs": bs, "--ic": look.icons || 1 } as React.CSSProperties}>
       <div ref={areaRef} className={styles.tmArea}>
         {snacks.length > 0 && (
           <div className={styles.tmSnacks}>
@@ -119,16 +125,12 @@ export function WeeklyMenu({ menu, weekDates, todayIndex, notes, allDays, look =
   }, [menu]);
   const commonMeals = MEALS.filter(m => (common[m]?.lines.length ?? 0) > 0);
 
-  // כתב גדול מהרגיל: מהיום והלאה (ימים שעברו כבר לא רלוונטיים), כדי שכל יום יקבל יותר מקום
-  const fromToday = look.text > 1 && todayIndex >= 0;
-  const shown = [0, 1, 2, 3, 4, 5, 6].filter(i => allDays || MEALS.some(m => (menu[i]?.[m]?.length ?? 0) > 0) || i === todayIndex)
-    .filter(i => !fromToday || i >= todayIndex)
-    .slice(0, fromToday ? daysForTextScale(look.text) : 7);
+  const shown = [0, 1, 2, 3, 4, 5, 6].filter(i => allDays || MEALS.some(m => (menu[i]?.[m]?.length ?? 0) > 0) || i === todayIndex);
   const fit = fitForText(look.text);
   const { grow, report } = useUniformGrow(fit.max);
 
   return (
-    <div className={styles.board + (look.icons > 0 ? "" : " " + styles.noIcons)} style={{ "--size": 1, "--ic": look.icons || 1 } as React.CSSProperties}>
+    <div className={styles.board + (look.icons > 0 ? "" : " " + styles.noIcons) + bigMenuClasses(look.text)} style={{ "--size": 1, "--ic": look.icons || 1 } as React.CSSProperties}>
       {(commonMeals.length > 0 || notes.length > 0) && (
         <div className={styles.menuCommon}>
           <span className={styles.menuCommonTitle}>בכל יום</span>

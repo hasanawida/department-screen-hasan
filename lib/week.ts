@@ -248,28 +248,22 @@ export type StyledView = "weekly" | "daily" | "menuToday" | "menu";
 /** text — גודל הכתב ביחס לרגיל (1); icons — גודל האייקונים ביחס לרגיל, 0 = בלי אייקונים */
 export type ViewStyle = { text?: number; icons?: number };
 
-/** max — הכתב הכי גדול שאפשר בתצוגה (בתצוגת "היום" הגדלים קבועים ולא מתכווצים לבד, לכן פחות) */
+/**
+ * max — הכתב הכי גדול בתצוגה. בלוח ובתפריטים הכתב ממלא את המסך לבד, וכל צעד מעל 100%
+ * מצמצם רווחים ומסדר מחדש כדי לפנות לו מקום — בלי להסתיר ימים או פרטים.
+ */
 export const STYLED_VIEWS: { key: StyledView; label: string; max: number }[] = [
-  { key: "weekly", label: "לוח שבועי", max: 2.5 },
+  { key: "weekly", label: "לוח שבועי", max: 1.5 },
   { key: "daily", label: "היום", max: 1.8 },
-  { key: "menuToday", label: "תפריט היום", max: 2.5 },
-  { key: "menu", label: "תפריט שבועי", max: 2.5 },
+  { key: "menuToday", label: "תפריט היום", max: 1.3 },
+  { key: "menu", label: "תפריט שבועי", max: 1.3 },
 ];
+
+/** כמה צעדים מעל 100% (0–5): כל צעד מפנה עוד מקום לכתב */
+export const bigTextLevel = (text: number) => (text > 1 ? Math.max(1, Math.min(5, Math.round((text - 1) * 10))) : 0);
 export const TEXT_SCALE_MIN = 0.7;
 export const TEXT_SCALE_MAX = 2.5;
 export const TEXT_SCALE_STEP = 0.1;
-/**
- * כתב גדול צריך מקום: כמה ימים מציגים (מהיום והלאה) לפי גודל הכתב.
- * עד 100% — כל הימים. מעל — מהיום והלאה, ובכתב גדול מאוד רק היום והימים הקרובים.
- */
-export function daysForTextScale(text: number): number {
-  if (text >= 2.2) return 1;
-  if (text >= 1.8) return 2;
-  if (text >= 1.5) return 3;
-  if (text > 1) return 7;
-  return 7;
-}
-
 export const textScaleMax = (view: StyledView) => STYLED_VIEWS.find(v => v.key === view)?.max ?? TEXT_SCALE_MAX;
 export const ICON_SCALES: { value: number; label: string }[] = [
   { value: 0, label: "בלי" },

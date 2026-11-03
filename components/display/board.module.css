@@ -1211,7 +1211,7 @@
 
 .tmSnack {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: calc(var(--bu) * 1.2);
   background: #fff;
   border-radius: calc(var(--cu) * 2);
@@ -1221,9 +1221,6 @@
 
 .tmSnackName {
   flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4em;
   font-size: calc(var(--bu) * 2.3);
   font-weight: 700;
   color: var(--sage);
@@ -1264,7 +1261,8 @@
 .tmMealHead {
   display: flex;
   align-items: center;
-  gap: calc(var(--bu) * 1.4);
+  justify-content: space-between;
+  gap: calc(var(--bu) * 1);
   font-size: calc(var(--bu) * 3.6);
   font-weight: 800;
   padding-bottom: calc(var(--bu) * 1);
@@ -1370,47 +1368,6 @@
 
 .tmNow .tmMealIcon {
   background: #fff;
-}
-
-/* תפריט היום: שם הארוחה, ומתחתיו "הארוחה הבאה" */
-.tmMealTitles {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: calc(var(--bu) * 0.5);
-  min-width: 0;
-}
-
-/* "הצלחת" בכותרת של תפריט היום: צילומי המנות של הארוחה, עיגולים חופפים */
-.tmPlate {
-  display: inline-flex;
-  align-items: center;
-  flex-shrink: 0;
-}
-
-.tmPlatePhoto {
-  position: relative;
-  width: 1.9em;
-  height: 1.9em;
-  border-radius: 50%;
-  object-fit: cover;
-  background: #fff;
-  box-shadow: 0 0 0 calc(var(--cu) * 0.3) #fff, 0 0 0 calc(var(--cu) * 0.5) var(--hair);
-}
-
-.tmPlatePhoto + .tmPlatePhoto { margin-inline-start: -0.5em; }
-/* המנה הראשונה (העיקרית) מלמעלה */
-.tmPlatePhoto:nth-child(1) { z-index: 3; }
-.tmPlatePhoto:nth-child(2) { z-index: 2; }
-.tmPlatePhoto:nth-child(3) { z-index: 1; }
-
-.tmNow .tmPlatePhoto {
-  box-shadow: 0 0 0 calc(var(--cu) * 0.3) var(--sun-tint), 0 0 0 calc(var(--cu) * 0.5) var(--sun);
-}
-
-.tmSnackName .tmPlatePhoto {
-  width: 2.2em;
-  height: 2.2em;
 }
 
 /* צילום אמיתי של הארוחה: עיגול גדול ליד שם הארוחה — מזהים מה אוכלים בלי לקרוא */

@@ -6,7 +6,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import DepartmentDisplay, { type ViewKind } from "@/components/display/department-display";
-import { latestIconConfig, mealImage, type IconConfig } from "@/lib/icon-config";
+import { latestIconConfig, type IconConfig } from "@/lib/icon-config";
+import { dishImage, dishKey, dishLabel } from "@/lib/dishes";
 import { ScreenFrame, btnGhost, textareaCls, usePreviewCu } from "@/components/admin/brand-ui";
 import {
   DAY_NAMES, MEALS, MEAL_LABELS, MEAL_TIME, MENU_NOTES, SNACK_MEALS, addDaysISO, displaySettings, israelDateISO, menuFromRows,
@@ -295,11 +296,7 @@ export default function MenuEditor() {
           return (
             <section key={meal} className={"rounded-2xl p-4 shadow-[0_1px_2px_rgba(63,47,45,0.06)] " + (snack ? "bg-[#FBF9F7]" : "bg-white")}>
               <div className="mb-2 flex items-baseline justify-between gap-2">
-                <label htmlFor={"meal-" + meal} className="flex items-center gap-2 text-lg font-bold">
-                  <img src={mealImage(meal, iconConfig)} alt="" className="h-9 w-9 shrink-0 rounded-full object-cover ring-1 ring-[#3F2F2D]/10"
-                    onError={e => { e.currentTarget.style.display = "none"; }} />
-                  {MEAL_LABELS[meal]}
-                </label>
+                <label htmlFor={"meal-" + meal} className="text-lg font-bold">{MEAL_LABELS[meal]}</label>
                 <span className="text-xs tabular-nums text-[#3F2F2D]/50">בערך {MEAL_TIME[meal]}</span>
               </div>
               <textarea id={"meal-" + meal} rows={snack ? 2 : 7} disabled={loading || missingTable}
@@ -307,6 +304,7 @@ export default function MenuEditor() {
                 placeholder={PLACEHOLDER[meal]}
                 value={texts[key(day, meal)] ?? ""}
                 onChange={e => change(day, meal, e.target.value)} />
+              <DishPreview text={texts[key(day, meal)] ?? ""} config={iconConfig} />
               <button type="button" onClick={() => copyToAllDays(meal)} disabled={loading || missingTable || !(texts[key(day, meal)] ?? "").trim()}
                 className="mt-1.5 rounded-lg px-2 py-1 text-sm font-semibold text-[#5A826F] hover:bg-[#E3ECE7] disabled:opacity-40">
                 {copied === meal ? "הועתק לכל הימים" : "העתקה לכל ימי השבוע"}
@@ -370,4 +368,26 @@ function SaveChip({ state }: { state: SaveState }) {
   } as const;
   const [text, cls] = map[state];
   return <span role="status" className={"rounded-full px-3 py-1 text-sm font-semibold " + cls}>{text}</span>;
+}
+
+/** התמונות שיופיעו במסך ליד כל מנה — כדי לראות מראש שהן מתאימות */
+function DishPreview({ text, config }: { text: string; config: IconConfig }) {
+  const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
+  if (!lines.length) return null;
+  return (
+    <ul className="mt-2 flex flex-wrap gap-1.5" aria-label="תמונות המנות במסך">
+      {lines.map((line, i) => {
+        const k = dishKey(line, config);
+        return (
+          <li key={i} title={line + (k ? " — " + dishLabel(k, config) : " — אין תמונה מתאימה")}
+            className={"flex items-center gap-1 rounded-full py-0.5 pe-2 ps-0.5 text-xs " + (k ? "bg-[#F6F2EE]" : "bg-[#FDE8E1] text-[#3F2F2D]/70")}>
+            {k
+              ? <img src={dishImage(k, config)} alt="" className="h-6 w-6 rounded-full object-cover" />
+              : <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white text-[10px]">?</span>}
+            <span className="max-w-[9rem] truncate">{k ? dishLabel(k, config) : "אין תמונה"}</span>
+          </li>
+        );
+      })}
+    </ul>
+  );
 }

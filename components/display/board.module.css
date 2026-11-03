@@ -1381,6 +1381,21 @@
   box-shadow: 0 0 0 calc(var(--cu) * 0.3) #fff, 0 0 0 calc(var(--cu) * 0.55) var(--hair);
 }
 
+/* צילום של המנה עצמה, לפני השם שלה בתפריט — מזהים מה אוכלים גם בלי לקרוא */
+.dishPhoto {
+  display: inline-block;
+  width: 1.45em;
+  height: 1.45em;
+  border-radius: 50%;
+  object-fit: cover;
+  vertical-align: middle;
+  margin-inline-end: 0.35em;
+  margin-block: -0.15em;
+  flex-shrink: 0;
+  background: #fff;
+  box-shadow: 0 0 0 1px var(--hair);
+}
+
 /* צילום קטן של הארוחה ליד שמה — בתפריט השבועי, בפס "בכל יום" ובתצוגת "היום" */
 .mealPhoto {
   display: inline-block;

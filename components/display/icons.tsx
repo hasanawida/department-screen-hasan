@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import type { Meal } from "@/lib/week";
 import { activityImage, mealImage, titleMatchesWords, type IconConfig } from "@/lib/icon-config";
+import { dishImage, dishKey } from "@/lib/dishes";
 
 /** הגדרות האייקונים (תמונות, מילים, בחירה לפי שם) — מגיעות מהניהול */
 export const IconConfigContext = createContext<IconConfig>({});
@@ -57,6 +58,19 @@ export function MealPhoto({ meal, className, fallbackClassName }: { meal: Meal; 
   const src = mealImage(meal, cfg);
   const [failed, setFailed] = useState<string | null>(null);
   if (failed === src) return <MealIcon meal={meal} className={fallbackClassName ?? className} />;
+  return <img src={src} alt="" aria-hidden="true" className={className} onError={() => setFailed(src)} />;
+}
+
+/**
+ * צילום של המנה לפי השם שלה בתפריט (שניצל, מרק עדשים...).
+ * אם אין מנה מתאימה או שהתמונה לא נטענת — לא מציגים כלום (עדיף מתמונה לא נכונה).
+ */
+export function DishPhoto({ line, className }: { line: string; className?: string }) {
+  const cfg = useContext(IconConfigContext);
+  const key = dishKey(line, cfg);
+  const src = key ? dishImage(key, cfg) : null;
+  const [failed, setFailed] = useState<string | null>(null);
+  if (!src || failed === src) return null;
   return <img src={src} alt="" aria-hidden="true" className={className} onError={() => setFailed(src)} />;
 }
 

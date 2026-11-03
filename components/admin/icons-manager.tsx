@@ -1,7 +1,7 @@
 "use client";
 
-// עריכת האייקונים והתמונות שבמסכים: תמונה לכל סוג פעילות ולכל ארוחה, המילים שמזהות כל סוג,
-// סוגים חדשים, ובחירה ידנית של אייקון לשם פעילות מסוים.
+// עריכת האייקונים והתמונות שבמסכים: תמונה לכל סוג פעילות ולכל מנה בתפריט, המילים שמזהות כל אחד,
+// סוגים ומנות חדשים, ובחירה ידנית של אייקון לשם פעילות מסוים.
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ImagePlus, Loader2, Plus, RotateCcw, Search, Trash2 } from "lucide-react";
@@ -11,10 +11,10 @@ import { saveIconConfig } from "@/lib/icon-config-db";
 import { Card, PageShell, btnGhost, btnPrimary, inputCls, textareaCls } from "@/components/admin/brand-ui";
 import { activityKey } from "@/components/display/icons";
 import {
-  ACTIVITY_TYPES, activityImage, activityTypeLabel, latestIconConfig, mealImage, parseWords,
+  ACTIVITY_TYPES, activityImage, activityTypeLabel, latestIconConfig, parseWords,
   type CustomIconType, type IconConfig,
 } from "@/lib/icon-config";
-import { MEALS, MEAL_LABELS, type Meal } from "@/lib/week";
+import { DISH_LIST, dishImage } from "@/lib/dishes";
 
 type Row = { id: string; department_id: string; display_settings: any };
 
@@ -28,7 +28,12 @@ export default function IconsManager() {
   const [wordsText, setWordsText] = useState<Record<string, string>>({}); // סוג מובנה ← מילים (טקסט חופשי)
   const [custom, setCustom] = useState<CustomIconType[]>([]);
   const [byTitle, setByTitle] = useState<Record<string, string>>({});
-  const [meals, setMeals] = useState<Partial<Record<Meal, string>>>({});
+  const [meals, setMeals] = useState<IconConfig["meals"]>({});
+  // מנות בתפריט
+  const [dishImages, setDishImages] = useState<Record<string, string>>({});
+  const [dishWords, setDishWords] = useState<Record<string, string>>({});
+  const [dishCustom, setDishCustom] = useState<CustomIconType[]>([]);
+  const [dishQuery, setDishQuery] = useState("");
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -55,6 +60,13 @@ export default function IconsManager() {
       setCustom(cfg.custom ?? []);
       setByTitle(cfg.titles ?? {});
       setMeals(cfg.meals ?? {});
+      const dImg: Record<string, string> = {}, dWords: Record<string, string> = {};
+      for (const [k, v] of Object.entries(cfg.dishes?.types ?? {})) {
+        if (v?.image) dImg[k] = v.image;
+        if (v?.words?.length) dWords[k] = v.words.join(", ");
+      }
+      setDishImages(dImg); setDishWords(dWords);
+      setDishCustom(cfg.dishes?.custom ?? []);
       const names: string[] = Array.from(new Set<string>((acts.data ?? []).map((a: any) => String(a.title ?? "").trim()).filter(Boolean)));
       setTitles(names.sort((a, b) => a.localeCompare(b, "he")));
       setLoading(false);
@@ -69,8 +81,14 @@ export default function IconsManager() {
       const words = parseWords(wordsText[t.key] ?? "");
       if (image || words.length) types[t.key] = { image: image || null, words: words.length ? words : null };
     }
-    return { types, custom, titles: byTitle, meals };
-  }, [images, wordsText, custom, byTitle, meals]);
+    const dTypes: NonNullable<IconConfig["dishes"]>["types"] = {};
+    for (const d of DISH_LIST) {
+      const image = dishImages[d.key];
+      const words = parseWords(dishWords[d.key] ?? "");
+      if (image || words.length) dTypes[d.key] = { image: image || null, words: words.length ? words : null };
+    }
+    return { types, custom, titles: byTitle, meals, dishes: { types: dTypes, custom: dishCustom } };
+  }, [images, wordsText, custom, byTitle, meals, dishImages, dishWords, dishCustom]);
 
   /* ── העלאת תמונה ── */
   const upload = async (key: string, file: File | undefined, done: (url: string) => void) => {
@@ -102,6 +120,20 @@ export default function IconsManager() {
     setCustom(list => [...list, { key, label, image: newImage, words: parseWords(newWords) }]);
     setNewLabel(""); setNewWords(""); setNewImage(""); touch();
   };
+
+  /* ── מנה חדשה ── */
+  const [newDishLabel, setNewDishLabel] = useState("");
+  const [newDishWords, setNewDishWords] = useState("");
+  const [newDishImage, setNewDishImage] = useState("");
+  const addDish = () => {
+    const label = newDishLabel.trim();
+    if (!label || !newDishImage) return;
+    const words = parseWords(newDishWords);
+    setDishCustom(list => [...list, { key: "dish-" + Date.now().toString(36), label, image: newDishImage, words: words.length ? words : [label] }]);
+    setNewDishLabel(""); setNewDishWords(""); setNewDishImage(""); touch();
+  };
+  const q = dishQuery.trim();
+  const shownDishes = DISH_LIST.filter(d => !q || d.label.includes(q) || d.words.some(w => w.includes(q) || q.includes(w)));
 
   const allTypes = [...ACTIVITY_TYPES.map(t => ({ key: t.key, label: t.label })), ...custom.map(c => ({ key: c.key, label: c.label }))];
   const shownTitles = titles.filter(t => !query.trim() || t.includes(query.trim()));
@@ -245,21 +277,85 @@ export default function IconsManager() {
           )}
         </Card>
 
-        {/* ── ארוחות ── */}
-        <Card title="תמונה לכל ארוחה (תפריט היום)">
+        {/* ── מנות בתפריט ── */}
+        <Card
+          title="תמונות למנות בתפריט"
+          aside={
+            <div className="relative w-56">
+              <Search className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#3F2F2D]/40" />
+              <input className={inputCls + " pr-9 text-sm"} value={dishQuery} onChange={e => setDishQuery(e.target.value)} placeholder="חיפוש מנה" aria-label="חיפוש מנה" />
+            </div>
+          }
+        >
+          <p className="mb-4 text-sm text-[#3F2F2D]/65">
+            ליד כל מנה בתפריט היום ובתפריט השבועי מופיעה תמונה לפי המילים שבשורה. מנה שלא מזוהה מופיעה בלי תמונה.
+            אפשר להחליף תמונה, לשנות מילים ולהוסיף מנה חדשה.
+          </p>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {MEALS.map(m => (
+            {shownDishes.map(d => (
               <TypeCard
-                key={m}
-                label={MEAL_LABELS[m]}
-                image={mealImage(m, config)}
+                key={d.key}
+                label={d.label}
+                image={dishImage(d.key, config)}
                 round
-                busy={busyKey === "meal-" + m}
-                changedImage={!!meals[m]}
-                onUpload={f => upload("meal-" + m, f, url => setMeals(x => ({ ...x, [m]: url })))}
-                onResetImage={() => { setMeals(x => { const n = { ...x }; delete n[m]; return n; }); touch(); }}
-              />
+                busy={busyKey === "dish-" + d.key}
+                changedImage={!!dishImages[d.key]}
+                onUpload={f => upload("dish-" + d.key, f, url => setDishImages(m => ({ ...m, [d.key]: url })))}
+                onResetImage={() => { setDishImages(m => { const n = { ...m }; delete n[d.key]; return n; }); touch(); }}
+              >
+                <textarea
+                  className={textareaCls + " text-sm"} rows={2}
+                  value={dishWords[d.key] ?? ""} placeholder={d.words.join(", ")}
+                  aria-label={`מילים שמזהות ${d.label}`}
+                  onChange={e => { const v = e.target.value; setDishWords(m => ({ ...m, [d.key]: v })); touch(); }}
+                />
+                <div className="mt-1 text-xs text-[#3F2F2D]/50">{dishWords[d.key]?.trim() ? "מילים שנערכו" : "ריק = מילות ברירת המחדל"}</div>
+              </TypeCard>
             ))}
+            {dishCustom.filter(c => !q || c.label.includes(q)).map(c => (
+              <TypeCard
+                key={c.key}
+                label={c.label}
+                image={c.image}
+                round
+                busy={busyKey === c.key}
+                onUpload={f => upload(c.key, f, url => setDishCustom(list => list.map(x => (x.key === c.key ? { ...x, image: url } : x))))}
+                onDelete={() => { setDishCustom(list => list.filter(x => x.key !== c.key)); touch(); }}
+              >
+                <input
+                  className={inputCls + " mb-2 text-sm"} value={c.label} aria-label="שם המנה"
+                  onChange={e => { const v = e.target.value; setDishCustom(list => list.map(x => (x.key === c.key ? { ...x, label: v } : x))); touch(); }}
+                />
+                <textarea
+                  className={textareaCls + " text-sm"} rows={2} defaultValue={c.words.join(", ")} placeholder="מילים, מופרדות בפסיק"
+                  aria-label={`מילים שמזהות ${c.label}`}
+                  onChange={e => { const v = parseWords(e.target.value); setDishCustom(list => list.map(x => (x.key === c.key ? { ...x, words: v } : x))); touch(); }}
+                />
+              </TypeCard>
+            ))}
+          </div>
+
+          <div className="mt-5 border-t border-[#3F2F2D]/10 pt-4">
+            <div className="mb-2 font-bold">הוספת מנה חדשה</div>
+            <div className="grid gap-3 sm:grid-cols-[auto_1fr_1fr_auto] sm:items-end">
+              <label className="flex h-20 w-20 cursor-pointer items-center justify-center overflow-hidden rounded-full border-2 border-dashed border-[#A9C8B8] bg-[#F6F2EE] text-[#5A826F]" title="העלאת תמונה">
+                {busyKey === "__newdish" ? <Loader2 className="h-5 w-5 animate-spin" /> : newDishImage ? <img src={newDishImage} alt="" className="h-full w-full object-cover" /> : <ImagePlus className="h-6 w-6" />}
+                <input type="file" accept="image/*" className="sr-only" aria-label="תמונה למנה החדשה"
+                  onChange={e => upload("__newdish", e.target.files?.[0], url => setNewDishImage(url))} />
+              </label>
+              <div>
+                <span className="mb-1 block text-sm font-semibold text-[#5A826F]">שם המנה</span>
+                <input className={inputCls} value={newDishLabel} onChange={e => setNewDishLabel(e.target.value)} placeholder="למשל: מוסקה" />
+              </div>
+              <div>
+                <span className="mb-1 block text-sm font-semibold text-[#5A826F]">מילים בתפריט</span>
+                <input className={inputCls} value={newDishWords} onChange={e => setNewDishWords(e.target.value)} placeholder="מוסקה, חצילים ממולאים" />
+              </div>
+              <button type="button" className={btnGhost} onClick={addDish} disabled={!newDishLabel.trim() || !newDishImage}>
+                <Plus className="h-4 w-4" /> הוספה
+              </button>
+            </div>
+            <p className="mt-2 text-xs text-[#3F2F2D]/55">מנה חדשה גוברת על המנות המובנות כשהמילים שלה מופיעות בשורה.</p>
           </div>
         </Card>
       </div>

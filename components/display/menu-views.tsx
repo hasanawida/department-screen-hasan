@@ -10,7 +10,7 @@ import {
   type Meal, type WeekMenu,
 } from "@/lib/week";
 import { useFillScale, useUniformGrow } from "./use-fill";
-import { MealPhoto } from "./icons";
+import { DishPhoto, MealIcon } from "./icons";
 import styles from "./board.module.css";
 
 type DayMeals = Partial<Record<Meal, string[]>>;
@@ -22,10 +22,17 @@ function MenuLine({ line, className }: { line: string; className?: string }) {
   const { label, text } = splitMenuLine(line);
   return (
     <li className={(className ?? "") + (isSpecial(label) ? " " + styles.menuSpecial : "")}>
+      <DishPhoto line={line} className={styles.dishPhoto} />
       {label && <span className={styles.menuLineLabel}>{label}</span>}
       <span>{text}</span>
     </li>
   );
+}
+
+/** ארוחת ביניים: תמונה של המנה הראשונה (בלי המנה הטחונה) */
+function SnackPhotos({ lines }: { lines: string[] }) {
+  const first = lines.find(l => !isSpecial(splitMenuLine(l).label));
+  return first ? <DishPhoto line={first} className={styles.dishPhoto} /> : null;
 }
 
 /** הארוחה שמתקיימת עכשיו (עד 45 דקות מתחילתה) או הבאה בתור, לפי השעות המשוערות */
@@ -55,8 +62,9 @@ export function TodayMenu({ meals, notes, nowMinutes }: { meals: DayMeals; notes
           <div className={styles.tmSnacks}>
             {snacks.map(m => (
               <div key={m} className={styles.tmSnack + (m === nowMeal ? " " + styles.tmNow : "")}>
-                <span className={styles.tmSnackName}><MealPhoto meal={m} className={styles.tmSnackPhoto} fallbackClassName={styles.mealIcon} />{MEAL_LABELS[m]}</span>
+                <span className={styles.tmSnackName}><MealIcon meal={m} className={styles.mealIcon} />{MEAL_LABELS[m]}</span>
                 <span className={styles.tmSnackText}>
+                  <SnackPhotos lines={meals[m]!} />
                   {meals[m]!.map(l => splitMenuLine(l)).filter(x => !isSpecial(x.label)).map(x => x.text).join(", ")}
                 </span>
               </div>
@@ -67,7 +75,7 @@ export function TodayMenu({ meals, notes, nowMinutes }: { meals: DayMeals; notes
           {main.map(m => (
             <section key={m} className={styles.tmMeal + (m === nowMeal ? " " + styles.tmNow : "")}>
               <header className={styles.tmMealHead}>
-                <span className={styles.tmMealName}><MealPhoto meal={m} className={styles.tmMealPhoto} fallbackClassName={styles.tmMealIcon} />{MEAL_LABELS[m]}</span>
+                <span className={styles.tmMealName}><MealIcon meal={m} className={styles.tmMealIcon} />{MEAL_LABELS[m]}</span>
                 {m === nowMeal && <span className={styles.tmTag}>{nowMinutes >= toMinutes(MEAL_TIME[m]) ? "עכשיו" : "הארוחה הבאה"}</span>}
               </header>
               <ul className={styles.tmList}>
@@ -134,11 +142,12 @@ function CommonRow({ meal, lines, except }: { meal: Meal; lines: string[]; excep
   const special = parts.filter(x => isSpecial(x.label)).map(x => x.text);
   return (
     <div className={styles.menuCommonRow}>
-      <span className={styles.menuCommonMeal}><MealPhoto meal={meal} className={styles.mealPhoto} fallbackClassName={styles.mealIcon} />{MEAL_SHORT[meal]}</span>
+      <span className={styles.menuCommonMeal}><MealIcon meal={meal} className={styles.mealIcon} />{MEAL_SHORT[meal]}</span>
       <span>
         {plain.map((x, k) => (
           <React.Fragment key={k}>
             {k > 0 && ", "}
+            <DishPhoto line={lines.filter(l => !isSpecial(splitMenuLine(l).label))[k]} className={styles.dishPhoto} />
             {x.label && <span className={styles.menuLineLabel}>{x.label}</span>}
             {x.text}
           </React.Fragment>
@@ -177,12 +186,12 @@ function MenuDay({ dayIndex, date, isToday, meals, grow, report }: {
         {MEALS.map(m => (meals[m]?.length ?? 0) > 0 && (
           SNACK_MEALS.includes(m) ? (
             <div key={m} className={styles.meal + " " + styles.mealSnack}>
-              <span className={styles.mealName}><MealPhoto meal={m} className={styles.mealPhoto} fallbackClassName={styles.mealIcon} />{MEAL_SHORT[m]}</span>{" "}
-              <span className={styles.mealSnackText}>{meals[m]!.map(l => splitMenuLine(l)).filter(x => !isSpecial(x.label)).map(x => x.text).join(", ")}</span>
+              <span className={styles.mealName}><MealIcon meal={m} className={styles.mealIcon} />{MEAL_SHORT[m]}</span>{" "}
+              <span className={styles.mealSnackText}><SnackPhotos lines={meals[m]!} />{meals[m]!.map(l => splitMenuLine(l)).filter(x => !isSpecial(x.label)).map(x => x.text).join(", ")}</span>
             </div>
           ) : (
             <div key={m} className={styles.meal}>
-              <div className={styles.mealName}><MealPhoto meal={m} className={styles.mealPhoto} fallbackClassName={styles.mealIcon} />{MEAL_SHORT[m]}</div>
+              <div className={styles.mealName}><MealIcon meal={m} className={styles.mealIcon} />{MEAL_SHORT[m]}</div>
               <ul className={styles.mealList}>
                 {meals[m]!.map((item, k) => <MenuLine key={k} line={item} className={styles.mealItem} />)}
               </ul>

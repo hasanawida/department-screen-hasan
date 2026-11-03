@@ -28,6 +28,11 @@ export type IconConfig = {
   titles?: Record<string, string>;
   /** תמונה לכל ארוחה במקום ברירת המחדל */
   meals?: Partial<Record<Meal, string>>;
+  /** תמונות למנות בתפריט: החלפת תמונה/מילים למנה קיימת, ומנות חדשות */
+  dishes?: {
+    types?: Record<string, IconTypeOverride>;
+    custom?: CustomIconType[];
+  };
 };
 
 /** סוגי הפעילויות המובנים: מפתח, שם בעברית, ומה מזהה אותם כברירת מחדל (להצגה בניהול) */

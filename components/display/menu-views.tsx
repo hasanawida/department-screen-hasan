@@ -6,7 +6,7 @@
 import React, { useContext, useEffect, useMemo, useRef } from "react";
 import { Pin, BRAND } from "@/components/orientation/eshkolot-logo";
 import {
-  DAY_NAMES, MAIN_MEALS, MEALS, MEAL_LABELS, MEAL_SHORT, MEAL_TIME, SNACK_MEALS, commonMenuLines, shortDate, splitMenuLine, toMinutes,
+  DAY_NAMES, MAIN_MEALS, MEALS, MEAL_LABELS, MEAL_SHORT, MEAL_TIME, SNACK_MEALS, commonMenuLines, daysForTextScale, shortDate, splitMenuLine, toMinutes,
   type Meal, type WeekMenu,
 } from "@/lib/week";
 import { fitForText, useFillScale, useUniformGrow } from "./use-fill";
@@ -122,7 +122,8 @@ export function WeeklyMenu({ menu, weekDates, todayIndex, notes, allDays, look =
   // כתב גדול מהרגיל: מהיום והלאה (ימים שעברו כבר לא רלוונטיים), כדי שכל יום יקבל יותר מקום
   const fromToday = look.text > 1 && todayIndex >= 0;
   const shown = [0, 1, 2, 3, 4, 5, 6].filter(i => allDays || MEALS.some(m => (menu[i]?.[m]?.length ?? 0) > 0) || i === todayIndex)
-    .filter(i => !fromToday || i >= todayIndex);
+    .filter(i => !fromToday || i >= todayIndex)
+    .slice(0, fromToday ? daysForTextScale(look.text) : 7);
   const fit = fitForText(look.text);
   const { grow, report } = useUniformGrow(fit.max);
 

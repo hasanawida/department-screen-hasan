@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { CalendarDays, Flame, MapPin, Star, User } from "lucide-react";
 import { Pin, BRAND } from "@/components/orientation/eshkolot-logo";
-import { DAY_NAMES, isManualActivity, shortDate, toMinutes, visibleActivities, withWeeklyTopic, type BoardActivity, type WeeklyBoardSettings } from "@/lib/week";
+import { DAY_NAMES, daysForTextScale, isManualActivity, shortDate, toMinutes, visibleActivities, withWeeklyTopic, type BoardActivity, type WeeklyBoardSettings } from "@/lib/week";
 import type { DayInfo, HolidayKind } from "@/lib/jewish-calendar";
 import { fitForText, useFillScale, useUniformGrow } from "./use-fill";
 import { ActivityIcon, HavdalahStarsIcon, HolidayIcon as FestivalIcon, ShabbatCandlesIcon } from "./icons";
@@ -47,7 +47,8 @@ export default function WeeklyBoard(props: Props) {
   // כתב גדול מהרגיל: במסך מציגים מהיום והלאה, כדי שיהיה מקום לכתב גדול יותר
   const fromToday = !editable && textScale > 1 && todayIndex >= 0;
   const shown = configured.filter(i => editable || !hideEmpty || visible[i].length > 0 || i === todayIndex || marked(i))
-    .filter(i => !fromToday || i >= todayIndex);
+    .filter(i => !fromToday || i >= todayIndex)
+    .slice(0, fromToday ? daysForTextScale(textScale) : 7);
 
     // כל הימים באותו גודל כתב: גדלים יחד, ומתכווצים יחד כשיום אחד עמוס
   const { grow, report } = useUniformGrow(fit.max, true);

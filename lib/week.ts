@@ -258,6 +258,18 @@ export const STYLED_VIEWS: { key: StyledView; label: string; max: number }[] = [
 export const TEXT_SCALE_MIN = 0.7;
 export const TEXT_SCALE_MAX = 2.5;
 export const TEXT_SCALE_STEP = 0.1;
+/**
+ * כתב גדול צריך מקום: כמה ימים מציגים (מהיום והלאה) לפי גודל הכתב.
+ * עד 100% — כל הימים. מעל — מהיום והלאה, ובכתב גדול מאוד רק היום והימים הקרובים.
+ */
+export function daysForTextScale(text: number): number {
+  if (text >= 2.2) return 1;
+  if (text >= 1.8) return 2;
+  if (text >= 1.5) return 3;
+  if (text > 1) return 7;
+  return 7;
+}
+
 export const textScaleMax = (view: StyledView) => STYLED_VIEWS.find(v => v.key === view)?.max ?? TEXT_SCALE_MAX;
 export const ICON_SCALES: { value: number; label: string }[] = [
   { value: 0, label: "בלי" },

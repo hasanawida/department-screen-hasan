@@ -87,6 +87,8 @@ export default function WeeklyEditor() {
   const restoreRef = useRef<{ dept: string; weekOffset: number; draft: Draft; registered: string[]; copyDays: number[]; instructor: string } | null>(null);
   const [copyDays, setCopyDays] = useState<number[]>([]);
   const [view, setView] = useState<ViewKind>("weekly");
+  // הלוח בתצוגה המקדימה בדיוק כמו במסך (בלי עריכה) — כדי לראות את גודל הכתב בפועל
+  const [asScreen, setAsScreen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string>("");
   const [syncing, setSyncing] = useState(false);
@@ -549,8 +551,14 @@ export default function WeeklyEditor() {
                 {k === "weekly" ? "לוח שבועי" : k === "daily" ? "היום" : k === "menuToday" ? "תפריט היום" : "תפריט שבועי"}
               </button>
             ))}
+            {view === "weekly" && (
+              <button type="button" onClick={() => setAsScreen(v => !v)} aria-pressed={asScreen}
+                className={"rounded-full px-3 py-1.5 font-semibold ring-1 ring-[#3F2F2D]/15 " + (asScreen ? "bg-[#FAB822] text-[#3F2F2D]" : "bg-white text-[#3F2F2D]/70 hover:bg-[#FDF0CC]")}>
+                {asScreen ? "חזרה לעריכה" : "כמו במסך"}
+              </button>
+            )}
             <span className="ms-auto text-[#3F2F2D]/60">
-              {view === "weekly" ? "לוחצים על פעילות כדי לערוך, או על ״+ הוספה״" : "כך זה ייראה במסך במחלקה"}
+              {view === "weekly" && !asScreen ? "לוחצים על פעילות כדי לערוך, או על ״+ הוספה״" : "כך זה ייראה במסך במחלקה"}
               {calendarCount > 0 && <span className="ms-3 whitespace-nowrap"><CalendarDays className="inline h-4 w-4 align-[-3px] text-[#5A826F]" /> {calendarCount} מהיומן</span>}
             </span>
           </div>
@@ -594,7 +602,7 @@ export default function WeeklyEditor() {
               embeddedCu={cu}
               iconConfig={iconConfig}
               fixedView={view}
-              editor={view === "weekly" ? { selectedId: draft?.id ?? (draft ? "__draft" : null), onSelect: openActivity, onAdd: openNew } : undefined}
+              editor={view === "weekly" && !asScreen ? { selectedId: draft?.id ?? (draft ? "__draft" : null), onSelect: openActivity, onAdd: openNew } : undefined}
             />
           </div>
 
@@ -835,14 +843,14 @@ export default function WeeklyEditor() {
                           <div className="flex items-center gap-1.5" role="group" aria-label={`גודל הכתב — ${label}`}>
                             <span className="me-1 text-sm text-[#3F2F2D]/65">כתב</span>
                             <button type="button" aria-label="הקטנת הכתב" disabled={cur.text <= TEXT_SCALE_MIN}
-                              onClick={() => { setView(k as ViewKind); setLook({ text: clampScale(cur.text - TEXT_SCALE_STEP, max) }); }}
+                              onClick={() => { setView(k as ViewKind); setAsScreen(true); setLook({ text: clampScale(cur.text - TEXT_SCALE_STEP, max) }); }}
                               className="grid h-8 w-8 place-items-center rounded-lg bg-white shadow-sm hover:bg-[#E3ECE7] disabled:opacity-40"><Minus className="h-4 w-4" /></button>
                             <span className="w-12 text-center text-sm font-bold tabular-nums">{Math.round(cur.text * 100)}%</span>
                             <button type="button" aria-label="הגדלת הכתב" disabled={cur.text >= max}
-                              onClick={() => { setView(k as ViewKind); setLook({ text: clampScale(cur.text + TEXT_SCALE_STEP, max) }); }}
+                              onClick={() => { setView(k as ViewKind); setAsScreen(true); setLook({ text: clampScale(cur.text + TEXT_SCALE_STEP, max) }); }}
                               className="grid h-8 w-8 place-items-center rounded-lg bg-white shadow-sm hover:bg-[#E3ECE7] disabled:opacity-40"><Plus className="h-4 w-4" /></button>
                             <button type="button" disabled={cur.text >= max}
-                              onClick={() => { setView(k as ViewKind); setLook({ text: max }); }}
+                              onClick={() => { setView(k as ViewKind); setAsScreen(true); setLook({ text: max }); }}
                               className="ms-1 rounded-lg bg-[#3F2F2D] px-2.5 py-1.5 text-xs font-semibold text-[#F6F2EE] hover:bg-[#3F2F2D]/90 disabled:opacity-40">הכי גדול</button>
                           </div>
                           <div className="flex items-center gap-1.5" role="group" aria-label={`גודל האייקונים — ${label}`}>
@@ -850,7 +858,7 @@ export default function WeeklyEditor() {
                             <div className="flex gap-0.5 rounded-lg bg-white/70 p-0.5 text-xs font-semibold">
                               {ICON_SCALES.map(o => (
                                 <button key={o.value} type="button" aria-pressed={cur.icons === o.value}
-                                  onClick={() => { setView(k as ViewKind); setLook({ icons: o.value }); }}
+                                  onClick={() => { setView(k as ViewKind); setAsScreen(true); setLook({ icons: o.value }); }}
                                   className={"rounded-md px-2 py-1.5 " + (cur.icons === o.value ? "bg-[#3F2F2D] text-[#F6F2EE]" : "text-[#3F2F2D]/70 hover:bg-white")}>
                                   {o.label}
                                 </button>
@@ -863,7 +871,7 @@ export default function WeeklyEditor() {
                   })}
                 </div>
                 <p className="mt-3 text-xs text-[#3F2F2D]/55">
-                  הכול תמיד נכנס במסך, ולכן כתב גדול מפנה מקום: בלוח ובתפריט השבועי מוצגים רק היום והימים הבאים, ובלוח מוסתרים המקום ושם המפעיל ביום עמוס. בתצוגת ״היום״ — פחות פעילויות בהמשך היום.
+                  הכול תמיד נכנס במסך, ולכן כתב גדול מפנה מקום: בלוח ובתפריט השבועי מוצגים רק היום והימים הבאים (מ־150% — שלושה ימים, מ־180% — יומיים, מ־220% — רק היום), ובלוח מוסתרים המקום ושם המפעיל ביום עמוס. בתצוגת ״היום״ — פחות פעילויות בהמשך היום.
                   {" "}<Link href="/admin/icons" className="font-semibold text-[#5A826F] hover:underline">עריכת האייקונים והתמונות</Link>
                 </p>
               </section>

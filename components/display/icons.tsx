@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState } from "react";
 import {
   Apple, BookOpen, Brain, ChefHat, Coffee, Cookie, Dices, Dumbbell, Ear, EggFried, Eye, Film, Flame, Hand, Lightbulb,
-  MessageCircle, Moon, Music, Newspaper, Palette, PartyPopper, PawPrint, Dog, ScrollText, Shapes, Soup, Sprout, Sunrise, User, Users, Wind,
+  MessageCircle, Moon, Music, Newspaper, Palette, PartyPopper, PawPrint, Dog, Piano, Guitar, Drum, Bell, Disc3, MicVocal, Footprints, Globe, Sparkles, ScrollText, Shapes, Soup, Sprout, Sunrise, User, Users, Wind,
   type LucideIcon,
 } from "lucide-react";
 import type { Meal } from "@/lib/week";
@@ -104,8 +104,21 @@ const ACTIVITY_RULES: [RegExp, IconComponent, string][] = [
   [/גרי[יה]|סנוזלן|חוש/, SensesIcon, "senses"],
   [/כלבנות|כלב/, Dog, "dog"],
   [/בע"ח|בע״ח|בעלי חיים|חיות/, PawPrint, "animals"],
-  [new RegExp(`מוזיק|מוסיק|שירה|שירים|זמר|צליל|מקהלה|נגינ|מנגן|מנגנ|תופים|ריתמיק|פסנתר|גיטר|כינור|כנר|חצוצר|סקסופון|אקורדיון|${word("שיר")}`), Music, "music"],
-  [/התעמלות|כושר|ספורט|יוגה|פילאטיס|תנועה|ריקוד|מחול|הליכה|טאי.?צ|צ['׳]י.?קונג/, Dumbbell, "exercise"],
+  // מוזיקה: קודם הכלי המסוים (סקסופון, חצוצרה...), אחר כך סוג הפעילות, ובסוף מוזיקה כללית
+  [/סקסופון/, Music, "saxophone"],
+  [/חצוצר/, Music, "trumpet"],
+  [/פסנתר/, Piano, "piano"],
+  [/כינור|כנר/, Music, "violin"],
+  [/גיטר/, Guitar, "music"],
+  [/ריתמיק|תופים|תוף|כלי הקשה|דרבוק/, Drum, "rhythm"],
+  [/צליל|קערות/, Bell, "sound"],
+  [/(מוזיקה|מוסיקה) שקטה|רגיעה|תקליט/, Disc3, "calm-music"],
+  [new RegExp(`שירה|שירים|זמר|מקהלה|${word("שיר")}`), MicVocal, "singing"],
+  [/מוזיק|מוסיק|נגינ|מנגן|מנגנ|אקורדיון/, Music, "music"],
+  // תנועה: ריקודים וטאי צ'י לפני התעמלות כללית
+  [/ריקוד|מחול/, Footprints, "dance"],
+  [/טאי.?צ|צ['׳]י.?קונג/, Wind, "taichi"],
+  [/התעמלות|כושר|ספורט|יוגה|פילאטיס|תנועה|הליכה/, Dumbbell, "exercise"],
   [/אקטואליה|עיתון|חדשות/, Newspaper, "news"],
   [/מסיב|יום הולדת|חגיג|הופעה/, PartyPopper, "party"],
   [/שבת|נרות|הבדלה|ערב חג|חגים/, Flame, "shabbat"],
@@ -115,11 +128,13 @@ const ACTIVITY_RULES: [RegExp, IconComponent, string][] = [
   [/סרט|קולנוע|הקרנה/, Film, "movie"],
   [/סיפור|קריא|ספר|הקראה/, BookOpen, "story"],
   [/קפה/, Coffee, "coffee"],
+  [/בעולם|עולמי|מסביב לעולם/, Globe, "world"],
   [/גינ|חצר|טיול|השקי|צמחים|טבע/, Sprout, "garden"],
   [/זיכרון|קוגניטיב|מוח|נוסטלגי/, Brain, "memory"],
   [/נושא|דיון|הרצאה/, Lightbulb, "topic"],
   [/שיחה|שיח|מפגש|חברתי/, MessageCircle, "conversation"],
   [/פרטני|פרטנית|אישי|אישית/, User, "individual"],
+  [/טיפוח|מניקור|ציפורנ|איפור/, Sparkles, "grooming"],
   [/קבוצ/, Users, "group"],
 ];
 

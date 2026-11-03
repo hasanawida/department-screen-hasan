@@ -10,24 +10,37 @@ import {
   type Meal, type WeekMenu,
 } from "@/lib/week";
 import { useFillScale, useUniformGrow } from "./use-fill";
-import { DishPhoto, MealIcon } from "./icons";
+import { DishPhoto, DishStack, MealIcon } from "./icons";
 import styles from "./board.module.css";
 
 type DayMeals = Partial<Record<Meal, string[]>>;
 
 const isSpecial = (label: string | null) => !!label && /טחונ/.test(label);
 
-/** שורה בתפריט: כותרת קטנה (אם יש) והמנה */
-function MenuLine({ line, className }: { line: string; className?: string }) {
+/** שורה בתפריט: כותרת קטנה (אם יש) והמנה. photo — צילום המנה ליד השורה (בתפריט השבועי) */
+function MenuLine({ line, className, photo = true }: { line: string; className?: string; photo?: boolean }) {
   const { label, text } = splitMenuLine(line);
   return (
     <li className={(className ?? "") + (isSpecial(label) ? " " + styles.menuSpecial : "")}>
-      <DishPhoto line={line} className={styles.dishPhoto} />
+      {photo && <DishPhoto line={line} className={styles.dishPhoto} />}
       {label && <span className={styles.menuLineLabel}>{label}</span>}
       <span>{text}</span>
     </li>
   );
 }
+
+/** המנות של הארוחה בלי המנה הטחונה */
+const plainLines = (lines: string[]) => lines.filter(l => !isSpecial(splitMenuLine(l).label));
+
+/** מה שמוגש בכל יום באותה ארוחה (דייסה, גבינות, מעדנים, ממרחים) */
+const STAPLE = /^(דייסה|גבינ|מעדנים|ממרחים)/;
+const isStaple = (line: string) => STAPLE.test(splitMenuLine(line).label ?? "");
+
+/** לצלחת בכותרת: קודם המנות המיוחדות של היום, ורק אחריהן מה שמוגש תמיד */
+const plateLines = (lines: string[]) => {
+  const plain = plainLines(lines);
+  return [...plain.filter(l => !isStaple(l)), ...plain.filter(isStaple)];
+};
 
 /** ארוחת ביניים: תמונה של המנה הראשונה (בלי המנה הטחונה) */
 function SnackPhotos({ lines }: { lines: string[] }) {
@@ -62,9 +75,12 @@ export function TodayMenu({ meals, notes, nowMinutes }: { meals: DayMeals; notes
           <div className={styles.tmSnacks}>
             {snacks.map(m => (
               <div key={m} className={styles.tmSnack + (m === nowMeal ? " " + styles.tmNow : "")}>
-                <span className={styles.tmSnackName}><MealIcon meal={m} className={styles.mealIcon} />{MEAL_LABELS[m]}</span>
+                <span className={styles.tmSnackName}>
+                  <DishStack lines={plateLines(meals[m]!)} max={2} className={styles.tmPlate} photoClassName={styles.tmPlatePhoto}
+                    fallback={<MealIcon meal={m} className={styles.mealIcon} />} />
+                  {MEAL_LABELS[m]}
+                </span>
                 <span className={styles.tmSnackText}>
-                  <SnackPhotos lines={meals[m]!} />
                   {meals[m]!.map(l => splitMenuLine(l)).filter(x => !isSpecial(x.label)).map(x => x.text).join(", ")}
                 </span>
               </div>
@@ -74,12 +90,17 @@ export function TodayMenu({ meals, notes, nowMinutes }: { meals: DayMeals; notes
         <div className={styles.tmMeals} style={{ gridTemplateColumns: `repeat(${Math.max(1, main.length)}, minmax(0, 1fr))` }}>
           {main.map(m => (
             <section key={m} className={styles.tmMeal + (m === nowMeal ? " " + styles.tmNow : "")}>
+              {/* בתפריט היום הצילומים בכותרת — כל הארוחה במבט אחד; השורות עצמן בלי תמונות */}
               <header className={styles.tmMealHead}>
-                <span className={styles.tmMealName}><MealIcon meal={m} className={styles.tmMealIcon} />{MEAL_LABELS[m]}</span>
-                {m === nowMeal && <span className={styles.tmTag}>{nowMinutes >= toMinutes(MEAL_TIME[m]) ? "עכשיו" : "הארוחה הבאה"}</span>}
+                <DishStack lines={plateLines(meals[m]!)} max={3} className={styles.tmPlate} photoClassName={styles.tmPlatePhoto}
+                  fallback={<MealIcon meal={m} className={styles.tmMealIcon} />} />
+                <span className={styles.tmMealTitles}>
+                  <span className={styles.tmMealName}>{MEAL_LABELS[m]}</span>
+                  {m === nowMeal && <span className={styles.tmTag}>{nowMinutes >= toMinutes(MEAL_TIME[m]) ? "עכשיו" : "הארוחה הבאה"}</span>}
+                </span>
               </header>
               <ul className={styles.tmList}>
-                {meals[m]!.map((l, k) => <MenuLine key={k} line={l} />)}
+                {meals[m]!.map((l, k) => <MenuLine key={k} line={l} photo={false} />)}
               </ul>
             </section>
           ))}
@@ -211,6 +232,6 @@ export function nextMealsSummary(meals: DayMeals | undefined, nowMinutes: number
   if (idx < 0) idx = present.length; // אחרי ארוחת הערב — אין עוד
   return present.slice(idx, idx + count).map(m => ({
     meal: m,
-    text: meals[m]!.map(l => splitMenuLine(l)).filter(x => !isSpecial(x.label) && !/^(דייסה|גבינ|מעדנים|ממרחים)/.test(x.label ?? "")).map(x => x.text).join(", "),
+    text: meals[m]!.map(l => splitMenuLine(l)).filter(x => !isSpecial(x.label) && !STAPLE.test(x.label ?? "")).map(x => x.text).join(", "),
   })).filter(x => x.text);
 }

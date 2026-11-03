@@ -74,6 +74,30 @@ export function DishPhoto({ line, className }: { line: string; className?: strin
   return <img src={src} alt="" aria-hidden="true" className={className} onError={() => setFailed(src)} />;
 }
 
+/**
+ * "הצלחת" של ארוחה: הצילומים של המנות שלה יחד, בעיגולים חופפים (כל מנה פעם אחת).
+ * בכותרת של תפריט היום — רואים את כל הארוחה במבט אחד. אם אף מנה לא זוהתה — fallback.
+ */
+export function DishStack({ lines, max = 3, className, photoClassName, fallback = null }: {
+  lines: string[]; max?: number; className?: string; photoClassName?: string; fallback?: React.ReactNode;
+}) {
+  const cfg = useContext(IconConfigContext);
+  const [failed, setFailed] = useState<string[]>([]);
+  const srcs: string[] = [];
+  for (const line of lines) {
+    const key = dishKey(line, cfg);
+    const src = key ? dishImage(key, cfg) : null;
+    if (src && !srcs.includes(src) && !failed.includes(src)) srcs.push(src);
+    if (srcs.length >= max) break;
+  }
+  if (!srcs.length) return <>{fallback}</>;
+  return (
+    <span className={className} aria-hidden="true">
+      {srcs.map(src => <img key={src} src={src} alt="" className={photoClassName} onError={() => setFailed(f => [...f, src])} />)}
+    </span>
+  );
+}
+
 /** מילה שלמה בעברית (גבול מילה רגיל לא עובד עם אותיות עבריות) */
 const word = (w: string) => `(^|[\\s,/(])${w}($|[\\s,/)])`;
 

@@ -10,7 +10,7 @@ import {
   type Meal, type WeekMenu,
 } from "@/lib/week";
 import { useFillScale, useUniformGrow } from "./use-fill";
-import { MealIcon, MealPhoto } from "./icons";
+import { MealPhoto } from "./icons";
 import styles from "./board.module.css";
 
 type DayMeals = Partial<Record<Meal, string[]>>;
@@ -134,7 +134,7 @@ function CommonRow({ meal, lines, except }: { meal: Meal; lines: string[]; excep
   const special = parts.filter(x => isSpecial(x.label)).map(x => x.text);
   return (
     <div className={styles.menuCommonRow}>
-      <span className={styles.menuCommonMeal}><MealIcon meal={meal} className={styles.mealIcon} />{MEAL_SHORT[meal]}</span>
+      <span className={styles.menuCommonMeal}><MealPhoto meal={meal} className={styles.mealPhoto} fallbackClassName={styles.mealIcon} />{MEAL_SHORT[meal]}</span>
       <span>
         {plain.map((x, k) => (
           <React.Fragment key={k}>
@@ -177,12 +177,12 @@ function MenuDay({ dayIndex, date, isToday, meals, grow, report }: {
         {MEALS.map(m => (meals[m]?.length ?? 0) > 0 && (
           SNACK_MEALS.includes(m) ? (
             <div key={m} className={styles.meal + " " + styles.mealSnack}>
-              <span className={styles.mealName}><MealIcon meal={m} className={styles.mealIcon} />{MEAL_SHORT[m]}</span>{" "}
+              <span className={styles.mealName}><MealPhoto meal={m} className={styles.mealPhoto} fallbackClassName={styles.mealIcon} />{MEAL_SHORT[m]}</span>{" "}
               <span className={styles.mealSnackText}>{meals[m]!.map(l => splitMenuLine(l)).filter(x => !isSpecial(x.label)).map(x => x.text).join(", ")}</span>
             </div>
           ) : (
             <div key={m} className={styles.meal}>
-              <div className={styles.mealName}><MealIcon meal={m} className={styles.mealIcon} />{MEAL_SHORT[m]}</div>
+              <div className={styles.mealName}><MealPhoto meal={m} className={styles.mealPhoto} fallbackClassName={styles.mealIcon} />{MEAL_SHORT[m]}</div>
               <ul className={styles.mealList}>
                 {meals[m]!.map((item, k) => <MenuLine key={k} line={item} className={styles.mealItem} />)}
               </ul>

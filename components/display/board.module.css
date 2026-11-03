@@ -1381,6 +1381,20 @@
   box-shadow: 0 0 0 calc(var(--cu) * 0.3) #fff, 0 0 0 calc(var(--cu) * 0.55) var(--hair);
 }
 
+/* צילום קטן של הארוחה ליד שמה — בתפריט השבועי, בפס "בכל יום" ובתצוגת "היום" */
+.mealPhoto {
+  display: inline-block;
+  width: 1.7em;
+  height: 1.7em;
+  border-radius: 50%;
+  object-fit: cover;
+  vertical-align: middle;
+  margin-inline-end: 0.4em;
+  flex-shrink: 0;
+  background: #fff;
+  box-shadow: 0 0 0 1px var(--hair);
+}
+
 .tmSnackPhoto {
   display: inline-block;
   width: 2.2em;

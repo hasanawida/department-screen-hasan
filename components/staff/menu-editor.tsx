@@ -6,7 +6,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import DepartmentDisplay, { type ViewKind } from "@/components/display/department-display";
-import { latestIconConfig, type IconConfig } from "@/lib/icon-config";
+import { latestIconConfig, mealImage, type IconConfig } from "@/lib/icon-config";
 import { ScreenFrame, btnGhost, textareaCls, usePreviewCu } from "@/components/admin/brand-ui";
 import {
   DAY_NAMES, MEALS, MEAL_LABELS, MEAL_TIME, MENU_NOTES, SNACK_MEALS, addDaysISO, displaySettings, israelDateISO, menuFromRows,
@@ -295,7 +295,11 @@ export default function MenuEditor() {
           return (
             <section key={meal} className={"rounded-2xl p-4 shadow-[0_1px_2px_rgba(63,47,45,0.06)] " + (snack ? "bg-[#FBF9F7]" : "bg-white")}>
               <div className="mb-2 flex items-baseline justify-between gap-2">
-                <label htmlFor={"meal-" + meal} className="text-lg font-bold">{MEAL_LABELS[meal]}</label>
+                <label htmlFor={"meal-" + meal} className="flex items-center gap-2 text-lg font-bold">
+                  <img src={mealImage(meal, iconConfig)} alt="" className="h-9 w-9 shrink-0 rounded-full object-cover ring-1 ring-[#3F2F2D]/10"
+                    onError={e => { e.currentTarget.style.display = "none"; }} />
+                  {MEAL_LABELS[meal]}
+                </label>
                 <span className="text-xs tabular-nums text-[#3F2F2D]/50">בערך {MEAL_TIME[meal]}</span>
               </div>
               <textarea id={"meal-" + meal} rows={snack ? 2 : 7} disabled={loading || missingTable}

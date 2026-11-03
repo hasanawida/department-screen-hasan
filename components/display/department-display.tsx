@@ -10,7 +10,7 @@ import {
 } from "@/lib/week";
 import { TodayMenu, WeeklyMenu, nextMealsSummary } from "./menu-views";
 import { PhysioList, PhysioSummary, type PhysioAppt } from "./physio-board";
-import { ActivityIcon, IconConfigContext, MealIcon } from "./icons";
+import { ActivityIcon, IconConfigContext, MealPhoto } from "./icons";
 import type { IconConfig } from "@/lib/icon-config";
 import styles from "./board.module.css";
 
@@ -315,7 +315,7 @@ function DailyView({ today, nowMinutes, menu, messages, board, physio }: {
             <span className={styles.panelTitle}><Utensils aria-hidden="true" />הארוחה הבאה</span>
             {nextMeals.map(({ meal, text }) => (
               <div key={meal} className={styles.mealRow}>
-                <span className={styles.mealLabel}><MealIcon meal={meal} className={styles.mealIcon} />{MEAL_SHORT[meal]}</span>
+                <span className={styles.mealLabel}><MealPhoto meal={meal} className={styles.mealPhoto} fallbackClassName={styles.mealIcon} />{MEAL_SHORT[meal]}</span>
                 <span className={styles.mealItems}>{text}</span>
               </div>
             ))}

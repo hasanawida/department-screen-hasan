@@ -10,7 +10,7 @@ import {
   type Meal, type WeekMenu,
 } from "@/lib/week";
 import { useFillScale, useUniformGrow } from "./use-fill";
-import { DishPhoto, IconConfigContext, MealIcon, MealPhoto, SnackMealPhoto } from "./icons";
+import { DishPhoto, IconConfigContext, MealPhoto, SnackMealPhoto } from "./icons";
 import { menuLinePhotos } from "@/lib/icon-config";
 import styles from "./board.module.css";
 
@@ -33,10 +33,14 @@ function MenuLine({ line, className, photo = true }: { line: string; className?:
 /** המנות של הארוחה בלי המנה הטחונה */
 const plainLines = (lines: string[]) => lines.filter(l => !isSpecial(splitMenuLine(l).label));
 
-/** ארוחת ביניים: תמונה של המנה הראשונה (בלי המנה הטחונה) */
-function SnackPhotos({ lines }: { lines: string[] }) {
-  const first = lines.find(l => !isSpecial(splitMenuLine(l).label));
-  return first ? <DishPhoto line={first} className={styles.dishPhoto} /> : null;
+/**
+ * התמונה בכותרת של ארוחה: בארוחות העיקריות — צילום של כל הארוחה,
+ * ובהשכמה/עשר/ארבע — המנה שמוגשת בה לפי התפריט (תפוח אפוי, עוגה...)
+ */
+function MealHeadPhoto({ meal, lines, className, fallbackClassName }: { meal: Meal; lines: string[]; className?: string; fallbackClassName?: string }) {
+  return SNACK_MEALS.includes(meal)
+    ? <SnackMealPhoto meal={meal} lines={plainLines(lines)} className={className} fallbackClassName={fallbackClassName} />
+    : <MealPhoto meal={meal} className={className} fallbackClassName={fallbackClassName} />;
 }
 
 /** הארוחה שמתקיימת עכשיו (עד 45 דקות מתחילתה) או הבאה בתור, לפי השעות המשוערות */
@@ -68,7 +72,7 @@ export function TodayMenu({ meals, notes, nowMinutes }: { meals: DayMeals; notes
           <div className={styles.tmSnacks}>
             {snacks.map(m => (
               <div key={m} className={styles.tmSnack + (m === nowMeal ? " " + styles.tmNow : "")}>
-                <span className={styles.tmSnackName}><SnackMealPhoto meal={m} lines={plainLines(meals[m]!)} className={styles.tmSnackPhoto} fallbackClassName={styles.mealIcon} />{MEAL_LABELS[m]}</span>
+                <span className={styles.tmSnackName}><MealHeadPhoto meal={m} lines={meals[m]!} className={styles.tmSnackPhoto} fallbackClassName={styles.mealIcon} />{MEAL_LABELS[m]}</span>
                 <span className={styles.tmSnackText}>
                   {meals[m]!.map(l => splitMenuLine(l)).filter(x => !isSpecial(x.label)).map(x => x.text).join(", ")}
                 </span>
@@ -81,7 +85,7 @@ export function TodayMenu({ meals, notes, nowMinutes }: { meals: DayMeals; notes
             <section key={m} className={styles.tmMeal + (m === nowMeal ? " " + styles.tmNow : "")}>
               {/* בתפריט היום: צילום של כל הארוחה בכותרת; ליד השורות — רק אם הופעל בהגדרות */}
               <header className={styles.tmMealHead}>
-                <span className={styles.tmMealName}><MealPhoto meal={m} className={styles.tmMealPhoto} fallbackClassName={styles.tmMealIcon} />{MEAL_LABELS[m]}</span>
+                <span className={styles.tmMealName}><MealHeadPhoto meal={m} lines={meals[m]!} className={styles.tmMealPhoto} fallbackClassName={styles.tmMealIcon} />{MEAL_LABELS[m]}</span>
                 {m === nowMeal && <span className={styles.tmTag}>{nowMinutes >= toMinutes(MEAL_TIME[m]) ? "עכשיו" : "הארוחה הבאה"}</span>}
               </header>
               <ul className={styles.tmList}>
@@ -143,13 +147,14 @@ export function WeeklyMenu({ menu, weekDates, todayIndex, notes, allDays }: {
 
 /** שורה בפס "בכל יום": המנות, ובסוף בקטן המנה הטחונה */
 function CommonRow({ meal, lines, except }: { meal: Meal; lines: string[]; except: number | null }) {
-  const linePhotos = menuLinePhotos(useContext(IconConfigContext), "week");
+  // בהשכמה/עשר/ארבע התמונה כבר בכותרת — ליד המנות רק בארוחות העיקריות (ואם הופעל)
+  const linePhotos = menuLinePhotos(useContext(IconConfigContext), "week") && !SNACK_MEALS.includes(meal);
   const parts = lines.map(l => splitMenuLine(l));
   const plain = parts.filter(x => !isSpecial(x.label));
   const special = parts.filter(x => isSpecial(x.label)).map(x => x.text);
   return (
     <div className={styles.menuCommonRow}>
-      <span className={styles.menuCommonMeal}><MealIcon meal={meal} className={styles.mealIcon} />{MEAL_SHORT[meal]}</span>
+      <span className={styles.menuCommonMeal}><MealHeadPhoto meal={meal} lines={lines} className={styles.mealPhoto} fallbackClassName={styles.mealIcon} />{MEAL_SHORT[meal]}</span>
       <span>
         {plain.map((x, k) => (
           <React.Fragment key={k}>
@@ -194,12 +199,12 @@ function MenuDay({ dayIndex, date, isToday, meals, grow, report }: {
         {MEALS.map(m => (meals[m]?.length ?? 0) > 0 && (
           SNACK_MEALS.includes(m) ? (
             <div key={m} className={styles.meal + " " + styles.mealSnack}>
-              <span className={styles.mealName}><MealIcon meal={m} className={styles.mealIcon} />{MEAL_SHORT[m]}</span>{" "}
-              <span className={styles.mealSnackText}>{linePhotos && <SnackPhotos lines={meals[m]!} />}{meals[m]!.map(l => splitMenuLine(l)).filter(x => !isSpecial(x.label)).map(x => x.text).join(", ")}</span>
+              <span className={styles.mealName}><MealHeadPhoto meal={m} lines={meals[m]!} className={styles.mealPhoto} fallbackClassName={styles.mealIcon} />{MEAL_SHORT[m]}</span>{" "}
+              <span className={styles.mealSnackText}>{meals[m]!.map(l => splitMenuLine(l)).filter(x => !isSpecial(x.label)).map(x => x.text).join(", ")}</span>
             </div>
           ) : (
             <div key={m} className={styles.meal}>
-              <div className={styles.mealName}><MealIcon meal={m} className={styles.mealIcon} />{MEAL_SHORT[m]}</div>
+              <div className={styles.mealName}><MealHeadPhoto meal={m} lines={meals[m]!} className={styles.mealPhoto} fallbackClassName={styles.mealIcon} />{MEAL_SHORT[m]}</div>
               <ul className={styles.mealList}>
                 {meals[m]!.map((item, k) => <MenuLine key={k} line={item} className={styles.mealItem} photo={linePhotos} />)}
               </ul>

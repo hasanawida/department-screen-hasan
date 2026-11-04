@@ -181,11 +181,28 @@ export default function GridBoard(props: Props) {
     else if (row === 0 && info?.noRegularActivities && !editable) {
       const erev = info.holidays.some(h => h.kind === "erev") && !info.holidays.some(h => h.kind === "yomtov");
       content = <div className={styles.gOne}><span className={styles.gTitle}>{erev ? "ערב חג" : "חג שמח"}</span><span className={styles.gSub}>אין פעילויות</span></div>;
-    } else if (pm && info?.sacred?.kind === "candles") {
+    } else if (pm && info?.sacred) {
+      // כניסת שבת / צאת שבת — בשורה של השעה שלהן (אחר הצהריים), כמו כל דבר אחר בטבלה
+      const s = info.sacred;
+      const chag = s.label.includes("חג");
+      const title = s.kind === "candles" ? (chag ? "חג שמח" : "שבת שלום") : (chag ? "מועד טוב" : "שבוע טוב");
       content = (
         <div className={styles.gOne}>
-          <ShabbatCandlesIcon className={styles.gCandles} />
-          <span className={styles.gText}><span className={styles.gTitle}>שבת שלום</span><span className={styles.gSub}>{info.sacred.label} <b><bdi dir="ltr">{info.sacred.time}</bdi></b></span></span>
+          {s.kind === "candles" ? <ShabbatCandlesIcon className={styles.gCandles} /> : <HavdalahStarsIcon className={styles.gCandles} />}
+          <span className={styles.gText}><span className={styles.gTitle}>{title}</span><span className={styles.gSub}>{s.label} <b><bdi dir="ltr">{s.time}</bdi></b></span></span>
+        </div>
+      );
+    }
+    // יש פעילות אחר הצהריים ביום עם כניסת/צאת שבת — השעה נוספת בקטן מתחת לפעילות
+    if (pm && info?.sacred && groups.length > 0) {
+      const s = info.sacred;
+      content = (
+        <div className={styles.gWithSacred}>
+          {content}
+          <span className={styles.gSacred}>
+            {s.kind === "candles" ? <ShabbatCandlesIcon className={styles.gSacredIcon} /> : <HavdalahStarsIcon className={styles.gSacredIcon} />}
+            {s.label} <bdi dir="ltr">{s.time}</bdi>
+          </span>
         </div>
       );
     }
@@ -239,8 +256,8 @@ export default function GridBoard(props: Props) {
               {info && info.holidays.length > 0 && (
                 <span className={styles.gHoliday}><HolidayIcon name={info.holidays[0].name} className={styles.gHolidayIcon} />{info.holidays.map(h => h.name).join(" · ")}</span>
               )}
-              {/* צאת שבת — תמיד בכותרת; כניסת שבת — במשבצת של אחר הצהריים, ואם אין שורה כזו — כאן */}
-              {info?.sacred && (info.sacred.kind === "havdalah" || !afternoon) && (
+              {/* כניסת שבת וצאת שבת מופיעות בשורת אחר הצהריים (השעה שלהן). רק כשאין שורה כזו — כאן בכותרת */}
+              {info?.sacred && !afternoon && (
                 <span className={styles.gSacred}>
                   {info.sacred.kind === "havdalah" ? <HavdalahStarsIcon className={styles.gSacredIcon} /> : <ShabbatCandlesIcon className={styles.gSacredIcon} />}
                   {info.sacred.label} <bdi dir="ltr">{info.sacred.time}</bdi>

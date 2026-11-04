@@ -1693,3 +1693,4 @@ button.gOne:hover, button.gRow:hover { background: rgba(90, 130, 111, 0.1); }
 }
 .gCellAdd:hover { opacity: 1; }
 .gEditing .gCell:not(.gEmpty) { padding-bottom: calc(var(--cu) * 4.2); }
+.gWithSacred { display: flex; flex-direction: column; align-items: center; gap: calc(var(--gu) * 0.7); width: 100%; }

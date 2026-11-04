@@ -44,15 +44,6 @@ const isNowAt = (a: BoardActivity, now: number) => {
   return now >= s && now < e;
 };
 
-/** המקום שהכי הרבה פעילויות מתקיימות בו (בדרך כלל המחלקה עצמה) — לא כותבים אותו בכל משבצת */
-function commonLocation(list: BoardActivity[]): string {
-  const n = new Map<string, number>();
-  for (const a of list) if (a.location) n.set(a.location, (n.get(a.location) ?? 0) + 1);
-  let best = "", max = 0;
-  n.forEach((c, loc) => { if (c > max) { best = loc; max = c; } });
-  return best;
-}
-
 /** כמה גדול הכתב: הכי גדול שעדיין נכנס בכל המשבצות (גם לרוחב וגם לגובה) */
 function useGridFit(ref: React.RefObject<HTMLDivElement | null>, key: string, max: number, target: number) {
   const run = () => {
@@ -102,7 +93,6 @@ export default function GridBoard(props: Props) {
   }
   const pmAll = all.filter(isPm);
   const pmLocation = pmAll.length && pmAll.every(a => a.location && a.location === pmAll[0].location) ? pmAll[0].location : "";
-  const amLocation = commonLocation(all.filter(a => !isPm(a)));
 
   // תוכן כל משבצת: [יום][שורה]; השורה האחרונה — אחר הצהריים
   const rowCount = morning.length + (afternoon ? 1 : 0);
@@ -134,7 +124,8 @@ export default function GridBoard(props: Props) {
 
   /** השורות הקטנות מתחת לשם: שעה (כשהיא לא שעת השורה), מפעיל ומקום — לפי ההגדרות. כל שורה — רשימת חלקים */
   const subLines = (g: Group, slot: GridSlot | null, pm: boolean): string[][] => {
-    const common = pm ? pmLocation : amLocation;
+    // המקום מופיע בכל פעילות (כשהוא מסומן בהגדרות). רק אחר הצהריים, כשכולן באותו מקום — הוא כתוב פעם אחת ליד השעות
+    const common = pm ? pmLocation : "";
     const loc = (a: BoardActivity) => (settings.show_location && a.location && a.location !== common ? a.location : "");
     const who = (a: BoardActivity) => (settings.show_instructor && a.instructor && !g.title.includes(a.instructor) ? "עם " + a.instructor : "");
     if (g.items.length > 1) {

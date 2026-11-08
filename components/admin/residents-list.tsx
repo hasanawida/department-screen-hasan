@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import { Plus, Trash2, Edit2, Check, X, Upload, Loader2, CheckSquare, Square } from "lucide-react"
 import * as XLSX from "xlsx"
-import { syncResidentRegistrations } from "@/lib/participants"
+import { nameKey, similarNames, syncResidentRegistrations } from "@/lib/participants"
 
 interface Resident {
   id: string; name: string; department_id: string | null; room_number: string | null
@@ -14,8 +14,10 @@ interface Resident {
 }
 interface Department { id: string; name: string; code?: string | null }
 export type Registration = { title: string; instructor: string | null; day: string | null; date: string | null }
+/** אפשרות פנאי: מפעיל/ה, והפעילויות שלו/ה בכל מחלקה */
+export type LeisureOption = { name: string; titlesByDept: Record<string, string[]> }
 
-export function ResidentsList({ residents, departments, registrations = {} }: { residents: Resident[], departments: Department[], registrations?: Record<string, Registration[]> }) {
+export function ResidentsList({ residents, departments, registrations = {}, leisureOptions = [] }: { residents: Resident[], departments: Department[], registrations?: Record<string, Registration[]>, leisureOptions?: LeisureOption[] }) {
   const router = useRouter()
   const [data, setData] = useState(residents)
   const [filterDept, setFilterDept] = useState("all")
@@ -296,8 +298,8 @@ export function ResidentsList({ residents, departments, registrations = {} }: { 
             <input placeholder="טלפון" value={addForm.phone} onChange={e => setAddForm({...addForm, phone: e.target.value})} className="border rounded-lg px-3 py-2 text-sm" dir="ltr" />
             <input placeholder="פעילות פרטנית" value={addForm.personal_activity} onChange={e => setAddForm({...addForm, personal_activity: e.target.value})} className="border rounded-lg px-3 py-2 text-sm col-span-2" />
             <input placeholder="פעילות קבוצתית (אפשר כמה, בפסיק: שירה, התעמלות)" value={addForm.group_activity} onChange={e => setAddForm({...addForm, group_activity: e.target.value})} className="border rounded-lg px-3 py-2 text-sm col-span-2" />
-            <input placeholder="פנאי (אפשר כמה, בפסיק)" value={addForm.leisure_activity} onChange={e => setAddForm({...addForm, leisure_activity: e.target.value})} className="border rounded-lg px-3 py-2 text-sm col-span-2" />
-            <p className="col-span-2 text-xs text-gray-500">בשדות הפעילות כותבים שם של פעילות (למשל: ערב שירה) או שם של מפעיל/ה (למשל: שושי). הדייר/ת יירשם/תירשם לפעילויות המתאימות במחלקה.</p>
+            <LeisurePicker value={addForm.leisure_activity} onChange={v => setAddForm(f => ({ ...f, leisure_activity: v }))} options={leisureOptions} departmentId={addForm.department_id} />
+            <p className="col-span-2 text-xs text-gray-500">בשדות הפעילות כותבים שם של פעילות (למשל: ערב שירה) או שם של מפעיל/ה. בפנאי מסמנים V ליד המפעילים. הדייר/ת יירשם/תירשם לפעילויות המתאימות במחלקה, והמפעיל/ה יראה אותו/ה ברשימה שלו/ה.</p>
             <select value={addForm.department_id} onChange={e => setAddForm({...addForm, department_id: e.target.value})} className="border rounded-lg px-3 py-2 text-sm bg-white col-span-2">
               <option value="">בחר מחלקה *</option>
               {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
@@ -336,8 +338,8 @@ export function ResidentsList({ residents, departments, registrations = {} }: { 
                         <input placeholder="טלפון" value={editForm.phone} onChange={e => setEditForm({...editForm, phone: e.target.value})} className="border rounded-lg px-3 py-1.5 text-sm" dir="ltr" />
                         <input placeholder="פעילות פרטנית" value={editForm.personal_activity} onChange={e => setEditForm({...editForm, personal_activity: e.target.value})} className="border rounded-lg px-3 py-1.5 text-sm col-span-2" />
                         <input placeholder="פעילות קבוצתית (אפשר כמה, בפסיק: שירה, התעמלות)" value={editForm.group_activity} onChange={e => setEditForm({...editForm, group_activity: e.target.value})} className="border rounded-lg px-3 py-1.5 text-sm col-span-2" />
-                        <input placeholder="פנאי (אפשר כמה, בפסיק)" value={editForm.leisure_activity} onChange={e => setEditForm({...editForm, leisure_activity: e.target.value})} className="border rounded-lg px-3 py-1.5 text-sm col-span-2" />
-                        <p className="col-span-2 text-xs text-gray-500">שם של פעילות או שם של מפעיל/ה. כמה — מופרדים בפסיק.</p>
+                        <LeisurePicker value={editForm.leisure_activity} onChange={v => setEditForm(f => ({ ...f, leisure_activity: v }))} options={leisureOptions} departmentId={editForm.department_id} />
+                        <p className="col-span-2 text-xs text-gray-500">בשדות פרטני וקבוצתי: שם של פעילות או של מפעיל/ה, כמה — בפסיק. בפנאי: V ליד המפעילים.</p>
                         <select value={editForm.department_id} onChange={e => setEditForm({...editForm, department_id: e.target.value})} className="border rounded-lg px-3 py-1.5 text-sm bg-white col-span-2">
                           {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                         </select>
@@ -385,6 +387,77 @@ export function ResidentsList({ residents, departments, registrations = {} }: { 
           <p className="text-sm mt-1">הוסף דיירים ידנית או העלה קובץ Excel</p>
         </div>
       )}
+    </div>
+  )
+}
+/* ───────────── פנאי: V מתוך רשימת המפעילים ───────────── */
+
+const splitTerms = (v: string) => v.split(/[,،;\n]+/).map(t => t.replace(/\s+/g, " ").trim()).filter(Boolean)
+const sameName = (a: string, b: string) => nameKey(a) === nameKey(b) || similarNames(a, b)
+
+function LeisurePicker({ value, onChange, options, departmentId }: {
+  value: string
+  onChange: (v: string) => void
+  options: LeisureOption[]
+  departmentId: string
+}) {
+  const [extra, setExtra] = useState("")
+  const terms = splitTerms(value)
+  const chosen = options.filter(o => terms.some(t => sameName(o.name, t))).map(o => o.name)
+  const others = terms.filter(t => !options.some(o => sameName(o.name, t)))
+  const save = (names: string[], rest: string[]) => onChange([...names, ...rest].join(", "))
+  const toggle = (name: string) => save(chosen.includes(name) ? chosen.filter(n => n !== name) : [...chosen, name], others)
+  const titlesOf = (o: LeisureOption) => {
+    const here = departmentId ? o.titlesByDept[departmentId] ?? [] : []
+    if (here.length) return { titles: here, here: true }
+    return { titles: Array.from(new Set(Object.values(o.titlesByDept).flat())), here: false }
+  }
+  // קודם המפעילים שיש להם פעילות במחלקה של הדייר/ת
+  const sorted = [...options].sort((a, b) =>
+    Number(!!(departmentId && b.titlesByDept[departmentId]?.length)) - Number(!!(departmentId && a.titlesByDept[departmentId]?.length))
+    || a.name.localeCompare(b.name, "he"))
+
+  return (
+    <div className="col-span-2 rounded-lg border border-orange-200 bg-white p-2">
+      <div className="mb-1.5 text-xs font-semibold text-orange-700">פנאי — V ליד המפעילים שהדייר/ת משתתף/ת איתם</div>
+      {options.length === 0 ? (
+        <p className="px-1 text-xs text-gray-500">עוד אין מפעילים. מוסיפים בעמוד המפעילים, והם מופיעים כאן לבד.</p>
+      ) : (
+        <div className="grid max-h-60 gap-1 overflow-y-auto sm:grid-cols-2">
+          {sorted.map(o => {
+            const on = chosen.includes(o.name)
+            const { titles, here } = titlesOf(o)
+            return (
+              <label key={o.name} className={"flex cursor-pointer items-start gap-2 rounded-md px-2 py-1.5 text-sm " + (on ? "bg-orange-50" : "hover:bg-gray-50")}>
+                <input type="checkbox" checked={on} onChange={() => toggle(o.name)} className="mt-0.5 h-4 w-4 shrink-0 accent-orange-600" />
+                <span className="min-w-0">
+                  <span className="block font-medium">{titles.length ? titles.slice(0, 2).join(" / ") : o.name}</span>
+                  <span className="block text-xs text-gray-500">
+                    {titles.length ? "עם " + o.name : "עוד בלי פעילות בלוח"}
+                    {titles.length > 0 && departmentId && !here ? " · אין במחלקה הזו" : ""}
+                  </span>
+                </span>
+              </label>
+            )
+          })}
+        </div>
+      )}
+      {others.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1">
+          {others.map(t => (
+            <span key={t} className="inline-flex items-center gap-1 rounded-full bg-orange-50 px-2 py-0.5 text-xs text-orange-700">
+              {t}
+              <button type="button" aria-label={"הסרת " + t} onClick={() => save(chosen, others.filter(x => x !== t))} className="hover:text-red-600"><X className="h-3 w-3" /></button>
+            </span>
+          ))}
+        </div>
+      )}
+      <div className="mt-2 flex gap-2">
+        <input value={extra} onChange={e => setExtra(e.target.value)} placeholder="פנאי אחר (לא מפעיל/ה)" className="min-w-0 flex-1 rounded-lg border px-2 py-1 text-sm"
+          onKeyDown={e => { if (e.key === "Enter" && extra.trim()) { e.preventDefault(); save(chosen, [...others, extra.trim()]); setExtra("") } }} />
+        <button type="button" disabled={!extra.trim()} onClick={() => { save(chosen, [...others, extra.trim()]); setExtra("") }}
+          className="rounded-lg bg-gray-100 px-3 py-1 text-sm hover:bg-gray-200 disabled:opacity-50">הוספה</button>
+      </div>
     </div>
   )
 }

@@ -6,6 +6,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Check, ChevronLeft, ChevronRight, MapPin, Search, Users } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { EshkolotLogo } from "@/components/orientation/eshkolot-logo";
+import { cleanName, nameKey, similarNames } from "@/lib/participants";
 import {
   DAY_NAMES, activitiesByDay, addDaysISO, israelDateISO, shortDate, weekDatesISO, weekStartISO,
   type ActivityRow, type BoardActivity,
@@ -154,6 +155,8 @@ export default function AttendancePortal({ mode, name, departmentId }: {
       </header>
 
       <main className="mx-auto max-w-2xl px-4 py-5">
+        {mode === "instructor" && <MyLeisureResidents name={name} />}
+
         <div className="mb-4 flex items-center justify-between gap-3">
           <div className="flex items-center gap-1 rounded-2xl bg-white p-1 shadow-[0_1px_2px_rgba(63,47,45,0.06)]">
             <button type="button" aria-label="שבוע קודם" onClick={() => { setOpen(null); setWeekOffset(w => w - 1); }} className="rounded-xl p-2 hover:bg-[#E3ECE7]"><ChevronRight className="h-5 w-5" /></button>
@@ -313,5 +316,63 @@ function AttendanceList({ occurrence, canMark, marks, registered, others, person
         <p className="px-1 text-sm text-[#3F2F2D]/60">אין דיירים רשומים במחלקה הזו. מוסיפים דיירים בעמוד ״דיירים״ בניהול.</p>
       )}
     </div>
+  );
+}
+
+/* ── המשתתפים בפנאי: דיירים שסומן אצלם V ליד המפעיל/ה בכרטיס הדייר ── */
+
+type LeisureResident = { id: string; name: string; room: string | null; dept: string };
+
+function MyLeisureResidents({ name }: { name: string }) {
+  const supabase = useMemo(() => createClient(), []);
+  const [list, setList] = useState<LeisureResident[] | null>(null);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const { data } = await supabase.from("residents")
+        .select("id, name, room_number, department_id, leisure_activity, departments(name)")
+        .eq("is_active", true).not("leisure_activity", "is", null);
+      const mine = (data ?? []).filter((r: any) => String(r.leisure_activity ?? "").split(/[,،;\n]+/).some((t: string) => {
+        const c = cleanName(t);
+        return !!c && (nameKey(c) === nameKey(name) || similarNames(c, name));
+      }));
+      if (!alive) return;
+      setList(mine.map((r: any) => ({ id: String(r.id), name: r.name, room: r.room_number ?? null, dept: r.departments?.name ?? "" }))
+        .sort((a: LeisureResident, b: LeisureResident) => a.dept.localeCompare(b.dept, "he") || a.name.localeCompare(b.name, "he")));
+    })();
+    return () => { alive = false; };
+  }, [supabase, name]);
+
+  if (!list || list.length === 0) return null;
+  const byDept = new Map<string, LeisureResident[]>();
+  for (const r of list) byDept.set(r.dept, [...(byDept.get(r.dept) ?? []), r]);
+
+  return (
+    <section className="mb-5 overflow-hidden rounded-2xl bg-white shadow-[0_1px_2px_rgba(63,47,45,0.06)]">
+      <button type="button" onClick={() => setOpen(o => !o)} aria-expanded={open} className="flex w-full items-center gap-3 p-4 text-right hover:bg-[#FBF9F7]">
+        <Users className="h-5 w-5 shrink-0 text-[#5A826F]" />
+        <span className="min-w-0 flex-1">
+          <span className="block text-[17px] font-bold">המשתתפים שלי בפנאי</span>
+          <span className="block text-sm text-[#3F2F2D]/60">מי שסומנו בכרטיס הדייר עם {name}</span>
+        </span>
+        <span className="shrink-0 rounded-full bg-[#E3ECE7] px-2.5 py-1 text-sm font-semibold text-[#375044]">{list.length}</span>
+      </button>
+      {open && (
+        <div className="space-y-3 border-t border-[#3F2F2D]/10 px-4 py-3">
+          {Array.from(byDept.entries()).map(([dept, rs]) => (
+            <div key={dept || "-"}>
+              <div className="text-sm font-semibold text-[#5A826F]">{dept || "בלי מחלקה"}</div>
+              <ul className="mt-1.5 flex flex-wrap gap-1.5">
+                {rs.map(r => (
+                  <li key={r.id} className="rounded-full bg-[#F6F2EE] px-3 py-1 text-[15px]">{r.name}{r.room ? <span className="text-[#3F2F2D]/55"> · חדר {r.room}</span> : null}</li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }

@@ -113,8 +113,9 @@ export default function WeeklyEditor() {
       const wanted = search.get("dept");
       setDeptId(list.find(d => d.code === wanted)?.id ?? list[0]?.id ?? null);
     });
-    supabase.from("instructors").select("name").eq("is_active", true).order("name").then(({ data }) => {
-      setInstructors((data ?? []).map((i: any) => i.name).filter(Boolean));
+    // כל המפעילים השמורים (גם מי שעוד לא עבד במחלקה הזו) — לבחירה בהוספת פעילות
+    supabase.from("instructors").select("*").order("name").then(({ data }) => {
+      setInstructors((data ?? []).filter((i: any) => i.is_active !== false).map((i: any) => String(i.name ?? "").trim()).filter(Boolean));
     });
   }, [supabase, search]);
 

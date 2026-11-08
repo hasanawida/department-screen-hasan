@@ -1,14 +1,35 @@
 import { createClient } from "@/lib/supabase/server"
-import { ResidentsList, type Registration } from "@/components/admin/residents-list"
+import { ResidentsList, type Registration, type LeisureOption } from "@/components/admin/residents-list"
+import { cleanName, nameKey } from "@/lib/participants"
 
 export default async function ResidentsPage() {
   const supabase = await createClient()
-  const [{ data: residents }, { data: departments }, { data: participants }, { data: activities }] = await Promise.all([
+  const [{ data: residents }, { data: departments }, { data: participants }, { data: activities }, { data: instructors }] = await Promise.all([
     supabase.from("residents").select("*, departments(name)").order("name"),
     supabase.from("departments").select("id, name, code").order("name"),
     supabase.from("activity_participants").select("activity_id, resident_id"),
     supabase.from("activities").select("id, title, instructor_name, day_of_week, activity_date, department_id").eq("is_active", true).is("parent_id", null),
+    supabase.from("instructors").select("*"),
   ])
+
+  // פנאי: כל מפעיל/ה (גם חדש/ה, בלי פעילות עדיין) הוא אפשרות לסימון V בכרטיס הדייר, עם הפעילויות שלו/ה
+  const leisure = new Map<string, LeisureOption>()
+  for (const i of instructors || []) {
+    const name = cleanName((i as any).name ?? "")
+    if (!name || (i as any).is_active === false) continue
+    leisure.set(nameKey(name), { name, titlesByDept: {} })
+  }
+  for (const a of activities || []) {
+    const name = cleanName((a as any).instructor_name ?? "")
+    if (!name) continue
+    const k = nameKey(name)
+    if (!leisure.has(k)) leisure.set(k, { name, titlesByDept: {} })
+    const o = leisure.get(k)!
+    const list = (o.titlesByDept[(a as any).department_id] ??= [])
+    const title = cleanName((a as any).title ?? "")
+    if (title && !list.includes(title)) list.push(title)
+  }
+  const leisureOptions = Array.from(leisure.values()).sort((x, y) => x.name.localeCompare(y.name, "he"))
 
   // לכל דייר: הפעילויות שהוא/היא רשום/ה אליהן בפועל (רק במחלקה שלו/ה)
   const byId = new Map((activities || []).map((a: any) => [String(a.id), a]))
@@ -34,7 +55,7 @@ export default async function ResidentsPage() {
           <p className="text-muted-foreground mt-1">{residents?.length || 0} דיירים במערכת</p>
         </div>
       </div>
-      <ResidentsList residents={residents || []} departments={departments || []} registrations={registrations} />
+      <ResidentsList residents={residents || []} departments={departments || []} registrations={registrations} leisureOptions={leisureOptions} />
     </div>
   )
 }

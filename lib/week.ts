@@ -53,6 +53,32 @@ export function toMinutes(hm: string): number {
   return (h || 0) * 60 + (m || 0);
 }
 
+/** כמה זמן לפני פעילות היא מודגשת כ"בקרוב" — רק כשבאותו רגע לא מתקיימת שום פעילות */
+export const SOON_MINUTES = 60;
+export type NowMark = "now" | "soon";
+
+/**
+ * מה מודגש בצהוב בלוח של היום: הפעילויות שמתקיימות עכשיו (בלי שעת סיום — שעה מההתחלה).
+ * ואם כרגע אין פעילות (בין פעילויות, או לפני הראשונה) — הפעילות הבאה, אם היא מתחילה בתוך שעה,
+ * כדי שתמיד יהיה ברור מה עכשיו/מה הבא.
+ */
+export function nowMarks<T extends { id: string; start: string; end?: string }>(day: T[], nowMinutes: number): Map<string, NowMark> {
+  const marks = new Map<string, NowMark>();
+  if (nowMinutes < 0) return marks;
+  const timed = day.filter(a => !!a.start);
+  for (const a of timed) {
+    const s = toMinutes(a.start);
+    const e = a.end ? toMinutes(a.end) : s + 60;
+    if (nowMinutes >= s && nowMinutes < e) marks.set(a.id, "now");
+  }
+  if (marks.size) return marks;
+  const later = timed.map(a => toMinutes(a.start)).filter(m => m > nowMinutes);
+  if (!later.length) return marks;
+  const next = Math.min(...later);
+  if (next - nowMinutes <= SOON_MINUTES) for (const a of timed) if (toMinutes(a.start) === next) marks.set(a.id, "soon");
+  return marks;
+}
+
 /* ───────────── פעילויות לשבוע ───────────── */
 
 export type ActivityRow = {

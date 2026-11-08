@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { CalendarDays, Flame, MapPin, Star, User } from "lucide-react";
 import { Pin, BRAND } from "@/components/orientation/eshkolot-logo";
-import { DAY_NAMES, bigTextLevel, isManualActivity, shortDate, toMinutes, visibleActivities, withWeeklyTopic, type BoardActivity, type WeeklyBoardSettings } from "@/lib/week";
+import { DAY_NAMES, bigTextLevel, isManualActivity, nowMarks, shortDate, visibleActivities, withWeeklyTopic, type BoardActivity, type WeeklyBoardSettings } from "@/lib/week";
 import type { DayInfo, HolidayKind } from "@/lib/jewish-calendar";
 import { fitForText, useFillScale, useUniformGrow } from "./use-fill";
 import { ActivityIcon, HavdalahStarsIcon, HolidayIcon as FestivalIcon, ShabbatCandlesIcon } from "./icons";
@@ -97,7 +97,9 @@ function DayColumn({
   const list = editable ? days[dayIndex] : visibleActivities(days[dayIndex], info);
   const holidayHides = (a: BoardActivity) => !!info?.noRegularActivities && !isManualActivity(a);
   const listRef = useRef<HTMLDivElement>(null);
-  const contentKey = JSON.stringify([list.map(a => a.id + a.title + a.start + a.end + a.location + a.instructor), settings, info, topic?.title]);
+  // בצהוב: מה שמתקיים עכשיו, ואם אין כרגע כלום — הפעילות הבאה (בתוך שעה), עם "בקרוב"
+  const marks = isToday ? nowMarks(list, nowMinutes) : new Map<string, "now" | "soon">();
+  const contentKey = JSON.stringify([list.map(a => a.id + a.title + a.start + a.end + a.location + a.instructor), settings, info, topic?.title, Array.from(marks)]);
 
   // יום עמוס מאוד: מסתירים מיקום ומפעיל כדי שיהיה מקום לשעה ולשם הפעילות
   const [compact, setCompact] = useState(false);
@@ -162,7 +164,8 @@ function DayColumn({
           <div className={styles.holidayNote}>{isErev ? "ערב חג" : "חג"}: במסך מוצגות רק פעילויות שהוכנסו לתאריך הזה או מהיומן</div>
         )}
         {list.map(a => {
-          const isNow = isToday && !!a.start && nowMinutes >= toMinutes(a.start) && nowMinutes < (a.end ? toMinutes(a.end) : toMinutes(a.start) + 60);
+          const mark = marks.get(a.id);
+          const isNow = !!mark;
           const cls = styles.act + (isNow ? " " + styles.actNow : "") + (selectedId === a.id ? " " + styles.actSelected : "")
             + (editable && holidayHides(a) ? " " + styles.actHolidayHidden : "");
           const body = (
@@ -170,7 +173,7 @@ function DayColumn({
               {floatIcon && <span className={styles.actFloat}><ActivityIcon key={a.title} title={a.title} className={styles.actIcon} photoClassName={styles.actPhoto} /></span>}
               <span className={styles.actTime}>
                 <bdi>{a.start}{settings.show_end_time && a.end ? "–" + a.end : ""}</bdi>
-                {isNow && <span className={styles.nowTag}>עכשיו</span>}
+                {mark && <span className={styles.nowTag}>{mark === "now" ? "עכשיו" : "בקרוב"}</span>}
               </span>
               <span className={styles.actTitle}>
                 {iconScale > 0 && !floatIcon && <ActivityIcon key={a.title} title={a.title} className={styles.actIcon} photoClassName={styles.actPhoto} />}

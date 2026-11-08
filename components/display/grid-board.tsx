@@ -8,7 +8,7 @@ import React, { useEffect, useLayoutEffect, useRef } from "react";
 import { Moon } from "lucide-react";
 import { Pin, BRAND } from "@/components/orientation/eshkolot-logo";
 import {
-  DAY_NAMES, GRID_LUNCH_MINUTES, gridRows, minutesToHM, parseSlots, shortDate, slotIndexFor, slotLabel, toMinutes, visibleActivities, withWeeklyTopic,
+  DAY_NAMES, GRID_LUNCH_MINUTES, gridRows, minutesToHM, nowMarks, parseSlots, shortDate, slotIndexFor, slotLabel, toMinutes, visibleActivities, withWeeklyTopic,
   type BoardActivity, type GridSlot, type WeeklyBoardSettings,
 } from "@/lib/week";
 import type { DayInfo } from "@/lib/jewish-calendar";
@@ -38,11 +38,6 @@ type Props = {
 type Group = { title: string; items: BoardActivity[] };
 
 const isPm = (a: BoardActivity) => !!a.start && toMinutes(a.start) >= GRID_LUNCH_MINUTES;
-const isNowAt = (a: BoardActivity, now: number) => {
-  const s = toMinutes(a.start);
-  const e = a.end ? toMinutes(a.end) : s + 60;
-  return now >= s && now < e;
-};
 
 /** כמה גדול הכתב: הכי גדול שעדיין נכנס בכל המשבצות (גם לרוחב וגם לגובה) */
 function useGridFit(ref: React.RefObject<HTMLDivElement | null>, key: string, max: number, target: number) {
@@ -106,6 +101,10 @@ export default function GridBoard(props: Props) {
     }
     return rows.map(list => list.sort((x, y) => toMinutes(x.start) - toMinutes(y.start)));
   });
+
+  // בצהוב: המשבצת של מה שמתקיים עכשיו, ואם אין כרגע כלום — של הפעילות הבאה (בתוך שעה), עם "בקרוב"
+  const todayCol = shown.indexOf(todayIndex);
+  const marks = todayCol >= 0 ? nowMarks(cells[todayCol].flat(), nowMinutes) : new Map<string, "now" | "soon">();
 
   const level = textScale;
   const fitKey = JSON.stringify([shown, morning, afternoon, all.map(a => a.id + a.title + a.start + a.end + a.location + a.instructor), settings, topic?.title, iconScale, editable]);
@@ -172,7 +171,8 @@ export default function GridBoard(props: Props) {
     const pm = !!afternoon && row === rowCount - 1;
     const slot = pm ? afternoon : morning[row] ?? null;
     const isToday = d === todayIndex;
-    const now = isToday && nowMinutes >= 0 && list.some(a => isNowAt(a, nowMinutes));
+    const mark = isToday ? (list.some(a => marks.get(a.id) === "now") ? "now" : list.some(a => marks.get(a.id) === "soon") ? "soon" : null) : null;
+    const now = !!mark;
     const info = dayInfos?.[d];
     const groups = groupsOf(list);
     let content: React.ReactNode = null;
@@ -218,7 +218,7 @@ export default function GridBoard(props: Props) {
     return (
       <div key={col + "-" + row} data-gfit=""
         className={styles.gCell + (isToday ? " " + styles.gToday : "") + (now ? " " + styles.gNow : "") + (empty ? " " + styles.gEmpty : "")}>
-        {now && <span className={styles.gNowTag}>עכשיו</span>}
+        {mark && <span className={styles.gNowTag}>{mark === "now" ? "עכשיו" : "בקרוב"}</span>}
         {content}
         {add}
       </div>

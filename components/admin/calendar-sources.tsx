@@ -116,8 +116,8 @@ export function CalendarSources() {
 
   return (
     <PageShell
-      title="ייבוא מהיומן"
-      subtitle="מה שקובעים ביומן Outlook עם המפעילים נכנס ללוח השבועי לבד, ומתעדכן כל רבע שעה."
+      title="ייבוא מ-Outlook"
+      subtitle={<>מה שקובעים ביומן Outlook נכנס ללוח השבועי לבד, ומתעדכן כל רבע שעה. <a href="/admin/calendar" className="font-semibold text-[#5A826F] underline">היומן של המערכת</a> מחליף את Outlook — שם מוסיפים אירועים לכל המחלקות.</>}
       actions={sources.length > 0 && (
         <button type="button" className={btnPrimary} disabled={!!syncing} onClick={() => sync()}>
           {syncing === "all" ? "מסנכרן…" : "לסנכרן את כל היומנים"}

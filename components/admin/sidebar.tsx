@@ -31,7 +31,7 @@ const GROUPS: { title?: string; items: Item[] }[] = [
     items: [
       { href: "/admin/import", label: "ייבוא מ-Outlook", icon: CalendarSync },
       { href: "/admin/announcements", label: "הודעות חשובות", icon: Megaphone },
-      { href: "/admin/ticker", label: "שורת רצה", icon: MessageSquare },
+      { href: "/admin/ticker", label: "הודעות קצרות", icon: MessageSquare },
       { href: "/admin/topics", label: "תוכנית נושאים", icon: Sparkles },
       { href: "/admin/icons", label: "אייקונים ותמונות", icon: Images },
     ],

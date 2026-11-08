@@ -2,13 +2,24 @@ import { createClient } from "@/lib/supabase/server"
 import { ResidentsList, type Registration, type LeisureOption } from "@/components/admin/residents-list"
 import { cleanName, nameKey } from "@/lib/participants"
 
+/** כל השורות של שאילתה, בדפים של 1000 (המגבלה של שאילתה אחת) */
+async function allPages<T>(page: (from: number, to: number) => PromiseLike<{ data: T[] | null }>): Promise<T[]> {
+  const out: T[] = []
+  for (let i = 0; i < 50; i++) {
+    const { data } = await page(i * 1000, i * 1000 + 999)
+    out.push(...(data ?? []))
+    if (!data || data.length < 1000) break
+  }
+  return out
+}
+
 export default async function ResidentsPage() {
   const supabase = await createClient()
-  const [{ data: residents }, { data: departments }, { data: participants }, { data: activities }, { data: instructors }] = await Promise.all([
+  const [{ data: residents }, { data: departments }, participants, activities, { data: instructors }] = await Promise.all([
     supabase.from("residents").select("*, departments(name)").order("name"),
     supabase.from("departments").select("id, name, code").order("name"),
-    supabase.from("activity_participants").select("activity_id, resident_id"),
-    supabase.from("activities").select("id, title, instructor_name, day_of_week, activity_date, department_id").eq("is_active", true).is("parent_id", null),
+    allPages<any>((from, to) => supabase.from("activity_participants").select("activity_id, resident_id").order("activity_id").order("resident_id").range(from, to)),
+    allPages<any>((from, to) => supabase.from("activities").select("id, title, instructor_name, day_of_week, activity_date, department_id").eq("is_active", true).is("parent_id", null).order("id").range(from, to)),
     supabase.from("instructors").select("*"),
   ])
 

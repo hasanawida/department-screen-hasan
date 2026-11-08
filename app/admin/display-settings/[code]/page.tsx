@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 // הלקוח של המערכת (עם ההתחברות של המנהל). לקוח "אנונימי" נחסם בהעלאת קבצים — לכן תמונות לא נקלטו
 import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -94,6 +94,9 @@ export default function DisplaySettingsPage({ params }: { params: { code: string
 
   // מודעה
   const [notice, setNotice] = useState<NoticeContent>({});
+  // המודעה כמו שהיא עכשיו על המסך (גם מה שנכתב בזמן שתמונה עלתה)
+  const noticeRef = useRef<NoticeContent>({});
+  noticeRef.current = notice;
   const [noticeDirty, setNoticeDirty] = useState(false);
   const [noticeBusy, setNoticeBusy] = useState(false);
   const [noticeMsg, setNoticeMsg] = useState<Msg>(null);
@@ -125,7 +128,8 @@ export default function DisplaySettingsPage({ params }: { params: { code: string
 
       const ds = (ss.data?.display_settings ?? {}) as Record<string, any>;
       setRawDisplay(ds);
-      setSettings({ ...DEFAULT, ...ds, show_notice: ds.show_notice !== false });
+      // "רק הודעות" מפעם = בלי חדשות (ההודעות עברו ללוח "היום")
+      setSettings({ ...DEFAULT, ...ds, show_notice: ds.show_notice !== false, show_ticker: (ds.show_ticker ?? true) !== false && ds.ticker_source !== "messages" });
       setNotice((ds.notice ?? {}) as NoticeContent);
       setAnnouncements(anns.data ?? []);
       setTickers(tks.data ?? []);
@@ -281,7 +285,8 @@ export default function DisplaySettingsPage({ params }: { params: { code: string
       if ("error" in res) errors.push(`${file.name}: ${res.error}`);
       else urls.push(res.url);
     }
-    const next = { ...notice, images: [...noticeImgs, ...urls].slice(0, NOTICE_MAX_IMAGES) };
+    const latest = noticeRef.current;
+    const next = { ...latest, images: [...(latest.images ?? []).filter(Boolean), ...urls].slice(0, NOTICE_MAX_IMAGES) };
     setNotice(next);
     if (urls.length) await saveNotice(next, urls.length === 1 ? "התמונה נוספה למודעה." : `${urls.length} תמונות נוספו למודעה.`);
     else setNoticeBusy(false);
@@ -327,6 +332,7 @@ export default function DisplaySettingsPage({ params }: { params: { code: string
     }
     setNoticeBusy(false);
     setNoticeDirty(false);
+    if (ok) setSettings(prev => ({ ...prev, show_notice: true }));
     setNoticeMsg({ ok: ok === (depts ?? []).length, text: `המודעה נשמרה ב-${ok} מחלקות${ok < (depts ?? []).length ? ` מתוך ${(depts ?? []).length}` : ""}.` });
   }
 

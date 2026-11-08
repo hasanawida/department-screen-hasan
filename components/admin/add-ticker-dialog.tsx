@@ -76,7 +76,7 @@ export function AddTickerDialog({ departments }: AddTickerDialogProps) {
       <DialogContent className="max-w-lg">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>הוסף הודעה לשורת הרצה</DialogTitle>
+            <DialogTitle>הודעה קצרה (מוצגת בלוח "היום")</DialogTitle>
             <DialogDescription>
               הודעות שורת רצה מוצגות בתחתית מסך התצוגה
             </DialogDescription>

@@ -96,16 +96,25 @@ export default function DepartmentDisplay(props: DepartmentDisplayProps) {
     return v;
   }, [settings.show_weekly, settings.show_daily, settings.show_physio, settings.show_menu, settings.show_menu_today, settings.show_media, showNotice, hasMenu, todayHasMenu, media, physio.length]);
 
+  // הודעות חשובות בלוח "היום": שתיים בכל פעם
+  const dailyMessages = settings.show_announcements ? messages : [];
+  const messagePages = Math.ceil(dailyMessages.length / MESSAGES_PER_PAGE);
+
   const [viewIndex, setViewIndex] = useState(0);
   const currentKind = views[viewIndex % views.length]?.kind;
+  // כמה פעמים כבר הוצג לוח "היום" — כל פעם ממשיכים מההודעות הבאות, כך שכולן מוצגות
+  const [dailyVisits, setDailyVisits] = useState(0);
+  useEffect(() => { if (currentKind === "daily") setDailyVisits(v => v + 1); }, [viewIndex, currentKind]);
   useEffect(() => {
     if (fixedView || views.length <= 1) return;
     const base = Math.max(5, Math.min(120, Number(settings.view_interval_seconds) || 20)) * 1000;
-    // במודעה — זמן לראות את כל התמונות (עד דקה)
-    const ms = currentKind === "notice" ? Math.max(base, Math.min(60, noticeImageCount * NOTICE_IMAGE_SECONDS) * 1000) : base;
+    // במודעה — זמן לראות את כל התמונות, וב"היום" — את כל ההודעות (עד דקה)
+    const ms = currentKind === "notice" ? Math.max(base, Math.min(60, noticeImageCount * NOTICE_IMAGE_SECONDS) * 1000)
+      : currentKind === "daily" && messagePages > 1 ? Math.max(base, Math.min(60, messagePages * MESSAGE_PAGE_SECONDS) * 1000)
+      : base;
     const id = setTimeout(() => setViewIndex(i => (i + 1) % views.length), ms);
     return () => clearTimeout(id);
-  }, [viewIndex, currentKind, views.length, settings.view_interval_seconds, fixedView, noticeImageCount]);
+  }, [viewIndex, currentKind, views.length, settings.view_interval_seconds, fixedView, noticeImageCount, messagePages]);
 
   const view: View = fixedView ? { kind: fixedView, media: media[0] } : views[viewIndex % views.length];
   const kindsInRotation = Array.from(new Set(views.map(v => v.kind)));
@@ -171,7 +180,7 @@ export default function DepartmentDisplay(props: DepartmentDisplayProps) {
 
           {view.kind === "daily" && (
             <DailyView today={today} nowMinutes={nowMinutes} menu={todayIndex >= 0 ? menu[todayIndex] : undefined}
-              messages={settings.show_announcements ? messages : []} board={board}
+              messages={dailyMessages} messageStart={dailyVisits * Math.ceil(60 / MESSAGE_PAGE_SECONDS)} board={board}
               physio={settings.show_physio !== false ? physio : []} topic={topic} look={viewStyle(settings, board, "daily")} />
           )}
 
@@ -205,7 +214,7 @@ export default function DepartmentDisplay(props: DepartmentDisplayProps) {
         </main>
 
         {/* שורת רצה */}
-        {settings.show_ticker && tickerItems.length > 0 ? (
+        {settings.show_ticker && settings.ticker_source !== "messages" && tickerItems.length > 0 ? (
           <footer className={styles.ticker} aria-label="חדשות">
             <div className={styles.tickerViewport}>
               <div className={styles.tickerTrack} style={{ "--ticker-duration": tickerDuration } as React.CSSProperties}>
@@ -230,6 +239,9 @@ export default function DepartmentDisplay(props: DepartmentDisplayProps) {
 }
 
 const EMPTY_ICONS: IconConfig = {};
+/** הודעות חשובות בלוח "היום": כמה בכל פעם, וכל כמה שניות מתחלפות */
+const MESSAGES_PER_PAGE = 2;
+const MESSAGE_PAGE_SECONDS = 8;
 
 /* ───────────── מודעה: כתב מימין, תמונות מתחלפות משמאל ───────────── */
 
@@ -279,11 +291,13 @@ export function NoticeView({ notice }: { notice: NoticeContent }) {
 
 /* ───────────── היום ───────────── */
 
-function DailyView({ today, nowMinutes, menu, messages, board, physio, topic, look = { text: 1, icons: 1 } }: {
+function DailyView({ today, nowMinutes, menu, messages, messageStart = 0, board, physio, topic, look = { text: 1, icons: 1 } }: {
   today: BoardActivity[];
   nowMinutes: number;
   menu?: WeekMenu[number];
   messages: string[];
+  /** מאיזה עמוד הודעות להתחיל (כל הצגה של "היום" ממשיכה מאיפה שהקודמת עצרה) */
+  messageStart?: number;
   board: WeeklyBoardSettings;
   physio: PhysioAppt[];
   topic?: WeeklyTopic;
@@ -297,15 +311,15 @@ function DailyView({ today, nowMinutes, menu, messages, board, physio, topic, lo
   const nextOne = !current ? upcoming[0] : undefined;
   const nextMeals = nextMealsSummary(menu, nowMinutes);
   // הודעות חשובות: שתיים בכל פעם, ואם יש יותר — מתחלפות
-  const [msgPage, setMsgPage] = useState(0);
-  const msgPages = Math.ceil(messages.length / 2);
+  const msgPages = Math.ceil(messages.length / MESSAGES_PER_PAGE);
+  const [msgPage, setMsgPage] = useState(() => (msgPages ? messageStart % msgPages : 0));
   useEffect(() => {
-    setMsgPage(0);
-    if (msgPages <= 1) return;
-    const id = setInterval(() => setMsgPage(p => (p + 1) % msgPages), 8000);
+    if (msgPages <= 1) { setMsgPage(0); return; }
+    const id = setInterval(() => setMsgPage(p => (p + 1) % msgPages), MESSAGE_PAGE_SECONDS * 1000);
     return () => clearInterval(id);
   }, [msgPages]);
-  const shownMessages = messages.slice((msgPage % Math.max(1, msgPages)) * 2, (msgPage % Math.max(1, msgPages)) * 2 + 2);
+  const page = msgPages ? msgPage % msgPages : 0;
+  const shownMessages = messages.slice(page * MESSAGES_PER_PAGE, page * MESSAGES_PER_PAGE + MESSAGES_PER_PAGE);
   // פיזיותרפיה: מי עוד מוזמן היום (לפי שעה)
   const physioNext = [...physio].sort((a, b) => a.time.localeCompare(b.time))
     .filter(a => toMinutes(a.end || a.time) + (a.end ? 0 : 30) > nowMinutes).slice(0, 3);

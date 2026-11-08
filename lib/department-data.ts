@@ -50,7 +50,8 @@ export async function loadDepartmentDisplay(supabase: SupabaseClient, code: stri
   const mediaList = (media.data ?? []).map((m: any) => ({ url: m.media_url, type: m.media_type || "image" }));
   if (mediaList.length === 0 && ss.data?.media_url) mediaList.push({ url: ss.data.media_url, type: ss.data.media_type || "image" });
 
-  const news = settings.show_ticker ? (await getN12Headlines()).map(n => n.title) : [];
+  // מחלקה שבחרה בעבר "רק הודעות" — כלומר בלי חדשות. ההודעות עברו ללוח "היום", ולכן אין בה שורת רצה
+  const news = settings.show_ticker && settings.ticker_source !== "messages" ? (await getN12Headlines()).map(n => n.title) : [];
 
   return {
     department: { id: department.id, name: department.name, color: department.color },

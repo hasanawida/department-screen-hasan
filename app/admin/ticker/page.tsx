@@ -20,8 +20,8 @@ export default async function TickerPage() {
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-bold">שורת רצה</h1>
-          <p className="text-muted-foreground mt-1">ניהול הודעות שורת הרצה</p>
+          <h1 className="text-3xl font-bold">הודעות קצרות</h1>
+          <p className="text-muted-foreground mt-1">ההודעות מוצגות במסכים בלוח &quot;היום&quot;, עם ההודעות החשובות. שורת הרצה בתחתית המסך היא לחדשות בלבד.</p>
         </div>
         <AddTickerDialog departments={departmentsResult.data || []} />
       </div>

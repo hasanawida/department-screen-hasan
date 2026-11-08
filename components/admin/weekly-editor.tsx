@@ -503,7 +503,8 @@ export default function WeeklyEditor() {
     return copy;
   }, [days, draft, weekDates]);
 
-  const tickerValue = display.show_ticker ? "news" : "off";
+  // "רק הודעות" מפעם = בלי חדשות
+  const tickerValue = display.show_ticker && display.ticker_source !== "messages" ? "news" : "off";
   const calendarCount = visibleRows.filter(r => r.external_uid && r.activity_date && r.activity_date >= weekDates[0] && r.activity_date <= weekDates[6]).length;
 
   if (!dept) {

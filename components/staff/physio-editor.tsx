@@ -122,7 +122,8 @@ export default function PhysioEditor({ screenUrl }: { screenUrl?: string }) {
   /** מעבר בין מחלקות: טיפול חדש נרשם למחלקה שנבחרה */
   function chooseDept(id: string) {
     setDeptFilter(id);
-    if (!form.id) setForm(f => ({ ...f, department_id: id && id !== NO_DEPT ? id : "" }));
+    // כמו בחירת מחלקה בטופס: דייר/ה ממחלקה אחרת יורד/ת מהבחירה
+    if (!form.id) pickDept(id && id !== NO_DEPT ? id : "");
   }
   const inFilter = (deptId: string | null) => !deptFilter || (deptFilter === NO_DEPT ? !deptId : deptId === deptFilter);
 

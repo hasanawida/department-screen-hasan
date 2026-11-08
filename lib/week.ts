@@ -140,7 +140,8 @@ export function normalizeActivity(row: ActivityRow, dayIndex: DayIndex): BoardAc
     dayIndex,
     date: row.activity_date ?? null,
     recurring: !row.activity_date,
-    fromCalendar: !!row.external_uid,
+    // מאאוטלוק. אירוע מהיומן של המערכת (evt:…) הוא כמו פעילות שהוכנסה ידנית
+    fromCalendar: !!row.external_uid && !String(row.external_uid).startsWith("evt:"),
     parentId: row.parent_id ? String(row.parent_id) : null,
   };
 }

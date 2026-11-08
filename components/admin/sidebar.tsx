@@ -5,7 +5,7 @@ import { useEffect, useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import {
-  Building2, CalendarDays, CalendarSync, ClipboardList, Compass, GraduationCap, HeartPulse, LayoutDashboard,
+  Building2, CalendarDays, CalendarRange, CalendarSync, ClipboardList, Compass, GraduationCap, HeartPulse, LayoutDashboard,
   Images, LogOut, Megaphone, Menu, MessageSquare, Monitor, ShieldCheck, Sparkles, UserRound, Users, UtensilsCrossed, X,
 } from "lucide-react"
 import { EshkolotLogo } from "@/components/orientation/eshkolot-logo"
@@ -19,6 +19,7 @@ const GROUPS: { title?: string; items: Item[] }[] = [
     title: "מסכים",
     items: [
       { href: "/admin/weekly", label: "לוח שבועי", icon: CalendarDays },
+      { href: "/admin/calendar", label: "יומן", icon: CalendarRange },
       { href: "/admin/display", label: "מסכי מחלקות", icon: Monitor },
       { href: "/admin/orientation", label: "מסכי התמצאות", icon: Compass },
       { href: "/admin/menu", label: "תפריט שבועי", icon: UtensilsCrossed },
@@ -28,7 +29,7 @@ const GROUPS: { title?: string; items: Item[] }[] = [
   {
     title: "תוכן",
     items: [
-      { href: "/admin/import", label: "ייבוא מהיומן", icon: CalendarSync },
+      { href: "/admin/import", label: "ייבוא מ-Outlook", icon: CalendarSync },
       { href: "/admin/announcements", label: "הודעות חשובות", icon: Megaphone },
       { href: "/admin/ticker", label: "שורת רצה", icon: MessageSquare },
       { href: "/admin/topics", label: "תוכנית נושאים", icon: Sparkles },

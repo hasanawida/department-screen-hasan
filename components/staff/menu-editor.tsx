@@ -32,7 +32,10 @@ const PLACEHOLDER: Record<Meal, string> = {
 };
 
 const EMPTY_DAYS = [[], [], [], [], [], [], []];
-const FORWARD_CHOICES = [1, 2, 3, 4, 6, 8];
+/** כמה שבועות קדימה מוצגים לבחירה, וכמה נוספים בכל "עוד שבועות" */
+const FORWARD_SHOW = 12;
+const FORWARD_MORE = 8;
+const FORWARD_MAX = 52;
 type ForwardWeek = { week: string; has: boolean };
 
 export default function MenuEditor() {
@@ -68,9 +71,10 @@ export default function MenuEditor() {
   }
   // שכפול לשבועות הבאים
   const [fwdOpen, setFwdOpen] = useState(false);
-  const [fwdCount, setFwdCount] = useState(4);
+  const [fwdCount, setFwdCount] = useState(FORWARD_SHOW);
   const [fwdWeeks, setFwdWeeks] = useState<ForwardWeek[] | null>(null);
-  const [fwdReplace, setFwdReplace] = useState(false);
+  // השבועות שנבחרו לשכפול (רק הם מקבלים את התפריט)
+  const [fwdSel, setFwdSel] = useState<string[]>([]);
   const [fwdBusy, setFwdBusy] = useState(false);
   const [fwdMsg, setFwdMsg] = useState("");
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
@@ -92,14 +96,17 @@ export default function MenuEditor() {
   }, [supabase, weekStart]);
 
   useEffect(() => { load(); }, [load]);
-  useEffect(() => { setDay(todayIndex >= 0 ? todayIndex : 0); setCopyAsk(false); setFwdOpen(false); setFwdMsg(""); }, [weekStart]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setDay(todayIndex >= 0 ? todayIndex : 0); setCopyAsk(false); setFwdOpen(false); setFwdMsg(""); setFwdSel([]); setFwdCount(FORWARD_SHOW); setFwdWeeks(null); }, [weekStart]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /** אילו מהשבועות הבאים כבר יש בהם תפריט */
   const loadForward = useCallback(async (count: number) => {
     const weeks = Array.from({ length: count }, (_, i) => addDaysISO(weekStart, 7 * (i + 1)));
-    setFwdWeeks(null);
-    const { data } = await supabase.from("weekly_menus").select("week_start, items").in("week_start", weeks);
-    const filled = new Set((data ?? []).filter(r => String(r.items ?? "").trim()).map(r => r.week_start));
+    // בקבוצות של 10 שבועות — כדי לא לעבור את מגבלת השורות של שאילתה אחת
+    const groups: string[][] = [];
+    for (let i = 0; i < weeks.length; i += 10) groups.push(weeks.slice(i, i + 10));
+    const results = await Promise.all(groups.map(g => supabase.from("weekly_menus").select("week_start, items").in("week_start", g).neq("items", "")));
+    const data = results.flatMap(r => r.data ?? []);
+    const filled = new Set(data.filter(r => String(r.items ?? "").trim()).map(r => r.week_start));
     setFwdWeeks(weeks.map(week => ({ week, has: filled.has(week) })));
   }, [supabase, weekStart]);
 
@@ -148,12 +155,14 @@ export default function MenuEditor() {
     load();
   }
 
-  /** התפריט של השבוע הזה לשבועות הבאים — כל הארוחות וההערות, כך שהשבוע החדש יהיה זהה */
+  const toggleFwd = (week: string) => { setFwdMsg(""); setFwdSel(sel => (sel.includes(week) ? sel.filter(w => w !== week) : [...sel, week])); };
+
+  /** התפריט של השבוע הזה לשבועות שנבחרו — כל הארוחות וההערות, כך שכל שבוע שנבחר יהיה זהה */
   async function copyForward() {
     if (!fwdWeeks) return;
-    const targets = fwdWeeks.filter(w => fwdReplace || !w.has).map(w => w.week);
-    const skipped = fwdWeeks.length - targets.length;
-    if (!targets.length) { setFwdMsg("כל השבועות שבחרתם כבר עם תפריט. סמנו ״להחליף״ כדי לשכפל אליהם."); return; }
+    const targets = fwdWeeks.filter(w => fwdSel.includes(w.week)).map(w => w.week);
+    const replaced = fwdWeeks.filter(w => w.has && fwdSel.includes(w.week)).length;
+    if (!targets.length) { setFwdMsg("בחרו לפחות שבוע אחד."); return; }
     const now = new Date().toISOString();
     const grid: { day_index: number; meal: Slot; items: string }[] = [];
     for (let d = 0; d < 7; d++) for (const m of MEALS) grid.push({ day_index: d, meal: m, items: texts[key(d, m)] ?? "" });
@@ -164,11 +173,12 @@ export default function MenuEditor() {
     const { error } = await supabase.from("weekly_menus").upsert(rows, { onConflict: "week_start,day_index,meal" });
     setFwdBusy(false);
     if (error) { setSave(stateFromError(error.message)); setFwdMsg("השכפול לא הצליח. בדקו את החיבור ונסו שוב."); return; }
-    const last = addDaysISO(targets[targets.length - 1], 6);
     setFwdMsg(
-      `שוכפל ל-${targets.length === 1 ? "שבוע אחד" : `${targets.length} שבועות`}, עד ${shortDate(last)}.` +
-      (skipped ? ` ${skipped === 1 ? "שבוע אחד שכבר היה בו תפריט נשאר" : `${skipped} שבועות שכבר היה בהם תפריט נשארו`} כמו שהיה.` : "")
+      `שוכפל ל-${targets.length === 1 ? "שבוע אחד" : `${targets.length} שבועות`}: ` +
+      targets.map(w => shortDate(w) + "–" + shortDate(addDaysISO(w, 6))).join(", ") + "." +
+      (replaced ? ` ${replaced === 1 ? "בשבוע אחד התפריט הקודם הוחלף" : `ב-${replaced} שבועות התפריט הקודם הוחלף`}.` : "")
     );
+    setFwdSel([]);
     loadForward(fwdCount);
   }
 
@@ -212,7 +222,7 @@ export default function MenuEditor() {
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <SaveChip state={save} />
-          <button type="button" className={btnGhost} onClick={() => { setFwdOpen(o => !o); setFwdMsg(""); }} disabled={missingTable || weekEmpty} aria-expanded={fwdOpen}>
+          <button type="button" className={btnGhost} onClick={() => { setFwdOpen(o => !o); setFwdMsg(""); setFwdSel([]); }} disabled={missingTable || weekEmpty} aria-expanded={fwdOpen}>
             שכפול לשבועות הבאים
           </button>
           {copyAsk ? (
@@ -231,47 +241,67 @@ export default function MenuEditor() {
         <section className="rounded-2xl border border-[#5A826F]/30 bg-white p-4 shadow-[0_1px_2px_rgba(63,47,45,0.06)] sm:p-5">
           <h2 className="text-lg font-bold">שכפול התפריט לשבועות הבאים</h2>
           <p className="mt-1 text-sm text-[#3F2F2D]/65">
-            התפריט של <span dir="ltr">{shortDate(weekDates[0])}–{shortDate(weekDates[6])}</span> יועתק כמו שהוא, עם ההערות. אחר כך אפשר לשנות כל שבוע בנפרד.
+            בוחרים את השבועות שיקבלו את התפריט של <span dir="ltr">{shortDate(weekDates[0])}–{shortDate(weekDates[6])}</span> (כמו שהוא, עם ההערות). שבועות שלא נבחרו לא משתנים. אחר כך אפשר לשנות כל שבוע בנפרד.
           </p>
 
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <span className="text-sm font-semibold">לכמה שבועות קדימה:</span>
-            {FORWARD_CHOICES.map(n => (
-              <button key={n} type="button" onClick={() => setFwdCount(n)} aria-pressed={fwdCount === n}
-                className={"h-9 min-w-9 rounded-full px-3 text-sm font-bold " + (fwdCount === n ? "bg-[#3F2F2D] text-[#F6F2EE]" : "bg-[#F6F2EE] hover:bg-[#E3ECE7]")}>
-                {n}
-              </button>
-            ))}
-          </div>
+          {!fwdWeeks ? (
+            <p className="mt-3 text-sm text-[#3F2F2D]/55">בודק אילו שבועות כבר מלאים…</p>
+          ) : (
+            <>
+              <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+                <button type="button" className="rounded-full bg-[#F6F2EE] px-3 py-1.5 font-semibold hover:bg-[#E3ECE7]"
+                  onClick={() => { setFwdMsg(""); setFwdSel(fwdWeeks.filter(w => !w.has).map(w => w.week)); }}>
+                  כל השבועות הריקים
+                </button>
+                <button type="button" className="rounded-full bg-[#F6F2EE] px-3 py-1.5 font-semibold hover:bg-[#E3ECE7] disabled:opacity-50"
+                  onClick={() => { setFwdMsg(""); setFwdSel([]); }} disabled={!fwdSel.length}>
+                  ניקוי הבחירה
+                </button>
+              </div>
 
-          <ul className="mt-3 flex flex-wrap gap-2" aria-label="השבועות שיקבלו את התפריט">
-            {!fwdWeeks ? (
-              <li className="text-sm text-[#3F2F2D]/55">בודק אילו שבועות כבר מלאים…</li>
-            ) : fwdWeeks.map(w => {
-              const skip = w.has && !fwdReplace;
-              return (
-                <li key={w.week} className={"rounded-xl px-3 py-1.5 text-sm " + (skip ? "bg-[#F6F2EE] text-[#3F2F2D]/50" : w.has ? "bg-[#FDF0CC]" : "bg-[#E3ECE7]")}>
-                  <span dir="ltr" className={"font-semibold" + (skip ? " line-through" : "")}>{shortDate(w.week)}–{shortDate(addDaysISO(w.week, 6))}</span>
-                  {w.has && <span className="ms-1.5 text-xs">{fwdReplace ? "(יוחלף)" : "(כבר יש תפריט, יישאר)"}</span>}
-                </li>
-              );
-            })}
-          </ul>
+              <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4" aria-label="השבועות לבחירה">
+                {fwdWeeks.map((w, i) => {
+                  const on = fwdSel.includes(w.week);
+                  return (
+                    <li key={w.week}>
+                      <label className={"flex cursor-pointer items-start gap-2 rounded-xl border px-3 py-2 text-sm transition-colors " +
+                        (on ? (w.has ? "border-[#FAB822] bg-[#FDF0CC]" : "border-[#5A826F] bg-[#E3ECE7]") : "border-[#3F2F2D]/10 bg-white hover:bg-[#F6F2EE]")}>
+                        <input type="checkbox" className="mt-0.5 h-4 w-4 shrink-0 accent-[#5A826F]" checked={on} onChange={() => toggleFwd(w.week)} />
+                        <span className="min-w-0">
+                          <span dir="ltr" className="block font-bold">{shortDate(w.week)}–{shortDate(addDaysISO(w.week, 6))}</span>
+                          <span className={"block text-xs " + (w.has && on ? "font-semibold text-[#8a5a00]" : "text-[#3F2F2D]/55")}>
+                            {i === 0 ? "שבוע הבא" : `בעוד ${i + 1} שבועות`}
+                            {w.has ? (on ? " · התפריט שיש בו יוחלף" : " · כבר יש תפריט") : ""}
+                          </span>
+                        </span>
+                      </label>
+                    </li>
+                  );
+                })}
+              </ul>
 
-          {fwdWeeks?.some(w => w.has) && (
-            <label className="mt-3 flex items-center gap-2 text-sm">
-              <input type="checkbox" className="h-4 w-4 accent-[#5A826F]" checked={fwdReplace} onChange={e => setFwdReplace(e.target.checked)} />
-              להחליף גם שבועות שכבר יש בהם תפריט
-            </label>
+              {fwdCount < FORWARD_MAX && (
+                <button type="button" className="mt-2 text-sm font-semibold text-[#5A826F] hover:underline"
+                  onClick={() => setFwdCount(c => Math.min(FORWARD_MAX, c + FORWARD_MORE))}>
+                  עוד שבועות
+                </button>
+              )}
+            </>
           )}
 
+          {(() => {
+            const n = fwdWeeks?.filter(w => w.has && fwdSel.includes(w.week)).length ?? 0;
+            return n > 0 && (
+              <p className="mt-3 rounded-xl bg-[#FDF0CC] px-3 py-2 text-sm font-semibold">
+                {n === 1 ? "בשבוע אחד שבחרתם כבר יש תפריט — הוא יוחלף." : `ב-${n} שבועות שבחרתם כבר יש תפריט — הוא יוחלף.`}
+              </p>
+            );
+          })()}
+
           <div className="mt-4 flex flex-wrap items-center gap-2">
-            <button type="button" onClick={copyForward} disabled={fwdBusy || !fwdWeeks}
+            <button type="button" onClick={copyForward} disabled={fwdBusy || !fwdWeeks || !fwdSel.length}
               className="rounded-xl bg-[#5A826F] px-4 py-2.5 font-semibold text-white hover:bg-[#5A826F]/90 disabled:opacity-60">
-              {fwdBusy ? "משכפל…" : (() => {
-                const n = fwdWeeks ? fwdWeeks.filter(w => fwdReplace || !w.has).length : fwdCount;
-                return n === 1 ? "שכפול לשבוע אחד" : `שכפול ל-${n} שבועות`;
-              })()}
+              {fwdBusy ? "משכפל…" : !fwdSel.length ? "בחרו שבועות" : fwdSel.length === 1 ? "שכפול לשבוע אחד" : `שכפול ל-${fwdSel.length} שבועות`}
             </button>
             <button type="button" className={btnGhost} onClick={() => setFwdOpen(false)}>סגירה</button>
           </div>

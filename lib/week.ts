@@ -272,7 +272,25 @@ export type DisplaySettings = {
   weekly_board?: Partial<WeeklyBoardSettings>;
   /** גודל הכתב והאייקונים בכל תצוגה (לכל מחלקה בנפרד) */
   view_style?: Partial<Record<StyledView, ViewStyle>>;
+  /** מסך "מודעה": כתב מימין ותמונות מתחלפות משמאל */
+  show_notice?: boolean;
+  notice?: NoticeContent;
 };
+
+/* ───────────── מסך מודעה ───────────── */
+
+/** מודעה כתובה עם עד 8 תמונות שמתחלפות */
+export type NoticeContent = { title?: string; text?: string; images?: string[] };
+export const NOTICE_MAX_IMAGES = 8;
+/** כל כמה שניות מתחלפת תמונה במודעה */
+export const NOTICE_IMAGE_SECONDS = 6;
+
+export function noticeImages(n?: NoticeContent | null): string[] {
+  return (n?.images ?? []).filter(u => typeof u === "string" && !!u.trim()).slice(0, NOTICE_MAX_IMAGES);
+}
+export function hasNotice(n?: NoticeContent | null): boolean {
+  return !!(n && (String(n.title ?? "").trim() || String(n.text ?? "").trim() || noticeImages(n).length));
+}
 
 /* ───────────── גודל כתב ואייקונים בכל תצוגה ───────────── */
 

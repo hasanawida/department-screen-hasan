@@ -39,17 +39,18 @@ export async function loadDepartmentDisplay(supabase: SupabaseClient, code: stri
   const settings = displaySettings(ss.data?.display_settings);
   const board = weeklyBoardSettings(settings.weekly_board);
 
-  const messages = [
-    ...(tick.data ?? []).map((t: any) => String(t.message ?? "").trim()),
+  // הודעות חשובות — מוצגות בלוח "היום" (שורת הרצה היא לחדשות בלבד)
+  const messages = Array.from(new Set([
     ...(ann.data ?? [])
       .filter((a: any) => (!a.start_date || a.start_date <= today) && (!a.end_date || a.end_date >= today))
       .map((a: any) => String(a.content || a.title || "").trim()),
-  ].filter(Boolean);
+    ...(tick.data ?? []).map((t: any) => String(t.message ?? "").trim()),
+  ].filter(Boolean)));
 
   const mediaList = (media.data ?? []).map((m: any) => ({ url: m.media_url, type: m.media_type || "image" }));
   if (mediaList.length === 0 && ss.data?.media_url) mediaList.push({ url: ss.data.media_url, type: ss.data.media_type || "image" });
 
-  const news = settings.show_ticker && settings.ticker_source !== "messages" ? (await getN12Headlines()).map(n => n.title) : [];
+  const news = settings.show_ticker ? (await getN12Headlines()).map(n => n.title) : [];
 
   return {
     department: { id: department.id, name: department.name, color: department.color },

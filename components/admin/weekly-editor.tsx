@@ -53,10 +53,9 @@ type Draft = {
   parentId: string | null;
 };
 
+// שורת הרצה — לחדשות בלבד. ההודעות החשובות מוצגות בלוח "היום"
 const TICKER_OPTIONS: { value: string; label: string }[] = [
-  { value: "both", label: "חדשות N12 והודעות" },
-  { value: "news", label: "רק חדשות N12" },
-  { value: "messages", label: "רק הודעות" },
+  { value: "news", label: "חדשות N12" },
   { value: "off", label: "בלי שורת רצה" },
 ];
 
@@ -207,7 +206,9 @@ export default function WeeklyEditor() {
     setDisplay(next);
     if (!deptId) return;
     const { data: cur } = await supabase.from("screen_settings").select("id, display_settings").eq("department_id", deptId).maybeSingle();
-    const merged = { ...(cur?.display_settings ?? {}), ...next };
+    // המודעה והאייקונים נערכים בעמודים אחרים — לא דורסים אותם בערך ישן מהעורך
+    const { notice: _notice, icons: _icons, ...mine } = next as DisplaySettings & { icons?: unknown };
+    const merged = { ...(cur?.display_settings ?? {}), ...mine };
     const res = cur?.id
       ? await supabase.from("screen_settings").update({ display_settings: merged }).eq("id", cur.id)
       : await supabase.from("screen_settings").insert({ department_id: deptId, display_settings: merged });
@@ -501,7 +502,7 @@ export default function WeeklyEditor() {
     return copy;
   }, [days, draft, weekDates]);
 
-  const tickerValue = display.show_ticker ? display.ticker_source : "off";
+  const tickerValue = display.show_ticker ? "news" : "off";
   const calendarCount = visibleRows.filter(r => r.external_uid && r.activity_date && r.activity_date >= weekDates[0] && r.activity_date <= weekDates[6]).length;
 
   if (!dept) {
@@ -917,11 +918,12 @@ export default function WeeklyEditor() {
                 <h2 className="mb-3 text-lg font-bold">סבב המסך</h2>
                 <div className="divide-y divide-[#3F2F2D]/10">
                   <Toggle label="1. לוח שבועי" on={display.show_weekly} onChange={v => saveDisplay({ ...display, show_weekly: v })} />
-                  <Toggle label="2. היום (עכשיו ובהמשך)" on={display.show_daily} onChange={v => saveDisplay({ ...display, show_daily: v })} />
-                  <Toggle label="3. פיזיותרפיה (מי מוזמן היום)" on={display.show_physio !== false} onChange={v => saveDisplay({ ...display, show_physio: v })} />
-                  <Toggle label="4. תפריט היום" on={display.show_menu_today !== false} onChange={v => saveDisplay({ ...display, show_menu_today: v })} />
-                  <Toggle label="5. תפריט שבועי" on={display.show_menu} onChange={v => saveDisplay({ ...display, show_menu: v })} />
-                  <Toggle label="6. תמונות וקבצים" on={display.show_media} onChange={v => saveDisplay({ ...display, show_media: v })} />
+                  <Toggle label="2. היום (עכשיו, בהמשך והודעות חשובות)" on={display.show_daily} onChange={v => saveDisplay({ ...display, show_daily: v })} />
+                  <Toggle label="3. מודעה (כתב ותמונות מתחלפות)" on={display.show_notice !== false} onChange={v => saveDisplay({ ...display, show_notice: v })} />
+                  <Toggle label="4. פיזיותרפיה (מי מוזמן היום)" on={display.show_physio !== false} onChange={v => saveDisplay({ ...display, show_physio: v })} />
+                  <Toggle label="5. תפריט היום" on={display.show_menu_today !== false} onChange={v => saveDisplay({ ...display, show_menu_today: v })} />
+                  <Toggle label="6. תפריט שבועי" on={display.show_menu} onChange={v => saveDisplay({ ...display, show_menu: v })} />
+                  <Toggle label="7. תמונות וקבצים" on={display.show_media} onChange={v => saveDisplay({ ...display, show_media: v })} />
                 </div>
                 <div className="mt-3 grid grid-cols-2 gap-3">
                   <Field label="כל תצוגה (שניות)">
@@ -934,14 +936,14 @@ export default function WeeklyEditor() {
                     <select value={tickerValue} className={inputCls}
                       onChange={e => {
                         const v = e.target.value;
-                        saveDisplay(v === "off" ? { ...display, show_ticker: false } : { ...display, show_ticker: true, ticker_source: v as DisplaySettings["ticker_source"] });
+                        saveDisplay(v === "off" ? { ...display, show_ticker: false } : { ...display, show_ticker: true, ticker_source: "news" });
                       }}>
                       {TICKER_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                     </select>
                   </Field>
                 </div>
                 <p className="mt-3 text-xs text-[#3F2F2D]/55">
-                  הודעות חשובות לשורת הרצה ותמונות — ב<Link className="underline" href={"/admin/display-settings/" + dept.code}>הגדרות מחלקה</Link>.
+                  המודעה, ההודעות החשובות (בלוח "היום") והתמונות — ב<Link className="underline" href={"/admin/display-settings/" + dept.code}>הגדרות מחלקה</Link>.
                   כותרות קשות מ-N12 מסוננות אוטומטית.
                 </p>
               </section>

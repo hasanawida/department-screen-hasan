@@ -1,14 +1,16 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Clock3, MapPin, User, Utensils, Megaphone, HeartPulse } from "lucide-react";
 import { EshkolotLogo, Pin, BRAND } from "@/components/orientation/eshkolot-logo";
 import WeeklyBoard, { type WeeklyTopic } from "./weekly-board";
 import GridBoard from "./grid-board";
 import {
-  DAY_NAMES, MEAL_SHORT, boardDayInfos, dayIndexOf, israelDateISO, israelTimeHM, shortDate, toMinutes, viewStyle, visibleActivities, withWeeklyTopic,
-  type BoardActivity, type DisplaySettings, type WeekMenu, type WeeklyBoardSettings,
+  DAY_NAMES, MEAL_SHORT, NOTICE_IMAGE_SECONDS, boardDayInfos, dayIndexOf, hasNotice, israelDateISO, israelTimeHM, noticeImages, shortDate, toMinutes,
+  viewStyle, visibleActivities, withWeeklyTopic,
+  type BoardActivity, type DisplaySettings, type NoticeContent, type WeekMenu, type WeeklyBoardSettings,
 } from "@/lib/week";
+import { useFillScale } from "./use-fill";
 import { TodayMenu, WeeklyMenu, nextMealsSummary } from "./menu-views";
 import { PhysioList, PhysioSummary, type PhysioAppt } from "./physio-board";
 import { ActivityIcon, DishPhoto, IconConfigContext, MealIcon } from "./icons";
@@ -42,10 +44,10 @@ export type DepartmentDisplayProps = {
   editor?: { selectedId?: string | null; onSelect: (a: BoardActivity) => void; onAdd: (dayIndex: number, start?: string, end?: string) => void };
 };
 
-export type ViewKind = "weekly" | "daily" | "physio" | "menuToday" | "menu" | "media";
+export type ViewKind = "weekly" | "daily" | "notice" | "physio" | "menuToday" | "menu" | "media";
 type View = { kind: ViewKind; media?: { url: string; type: string } };
 
-const VIEW_LABEL: Record<ViewKind, string> = { weekly: "לוח שבועי", daily: "היום", physio: "פיזיותרפיה", menuToday: "תפריט היום", menu: "תפריט שבועי", media: "תמונות" };
+const VIEW_LABEL: Record<ViewKind, string> = { weekly: "לוח שבועי", daily: "היום", notice: "מודעה", physio: "פיזיותרפיה", menuToday: "תפריט היום", menu: "תפריט שבועי", media: "תמונות" };
 
 function useNow() {
   const [now, setNow] = useState<Date | null>(null);
@@ -76,44 +78,40 @@ export default function DepartmentDisplay(props: DepartmentDisplayProps) {
   const hasMenu = Object.values(menu).some(d => Object.values(d ?? {}).some(l => (l?.length ?? 0) > 0));
   const todayHasMenu = todayIndex >= 0 && Object.values(menu[todayIndex] ?? {}).some(l => (l?.length ?? 0) > 0);
 
-  /* ── סבב התצוגות: לוח שבועי ← היום ← תפריט ← תמונות ── */
+  const notice = settings.notice;
+  const showNotice = settings.show_notice !== false && hasNotice(notice);
+  const noticeImageCount = noticeImages(notice).length;
+
+  /* ── סבב התצוגות: לוח שבועי ← היום ← מודעה ← תפריט ← תמונות ── */
   const views = useMemo<View[]>(() => {
     const v: View[] = [];
     if (settings.show_weekly) v.push({ kind: "weekly" });
     if (settings.show_daily) v.push({ kind: "daily" });
+    if (showNotice) v.push({ kind: "notice" });
     if (settings.show_physio !== false && physio.length > 0) v.push({ kind: "physio" });
     if (settings.show_menu_today !== false && todayHasMenu) v.push({ kind: "menuToday" });
     if (settings.show_menu && hasMenu) v.push({ kind: "menu" });
     if (settings.show_media) for (const m of media) v.push({ kind: "media", media: m });
     if (v.length === 0) v.push({ kind: "weekly" });
     return v;
-  }, [settings.show_weekly, settings.show_daily, settings.show_physio, settings.show_menu, settings.show_menu_today, settings.show_media, hasMenu, todayHasMenu, media, physio.length]);
+  }, [settings.show_weekly, settings.show_daily, settings.show_physio, settings.show_menu, settings.show_menu_today, settings.show_media, showNotice, hasMenu, todayHasMenu, media, physio.length]);
 
   const [viewIndex, setViewIndex] = useState(0);
+  const currentKind = views[viewIndex % views.length]?.kind;
   useEffect(() => {
     if (fixedView || views.length <= 1) return;
-    const ms = Math.max(5, Math.min(120, Number(settings.view_interval_seconds) || 20)) * 1000;
-    const id = setInterval(() => setViewIndex(i => (i + 1) % views.length), ms);
-    return () => clearInterval(id);
-  }, [views.length, settings.view_interval_seconds, fixedView]);
+    const base = Math.max(5, Math.min(120, Number(settings.view_interval_seconds) || 20)) * 1000;
+    // במודעה — זמן לראות את כל התמונות (עד דקה)
+    const ms = currentKind === "notice" ? Math.max(base, Math.min(60, noticeImageCount * NOTICE_IMAGE_SECONDS) * 1000) : base;
+    const id = setTimeout(() => setViewIndex(i => (i + 1) % views.length), ms);
+    return () => clearTimeout(id);
+  }, [viewIndex, currentKind, views.length, settings.view_interval_seconds, fixedView, noticeImageCount]);
 
   const view: View = fixedView ? { kind: fixedView, media: media[0] } : views[viewIndex % views.length];
   const kindsInRotation = Array.from(new Set(views.map(v => v.kind)));
 
-  /* ── שורת רצה ── */
-  const tickerItems = useMemo(() => {
-    const src = settings.ticker_source;
-    const msgs = src === "news" ? [] : messages.map(t => ({ tag: "msg" as const, text: t }));
-    const nws = src === "messages" ? [] : news.map(t => ({ tag: "news" as const, text: t }));
-    if (msgs.length === 0) return nws;
-    // הודעות חשובות קודם, ושוב אחרי כל ארבע כותרות
-    const out: { tag: "msg" | "news"; text: string }[] = [...msgs];
-    nws.forEach((n, i) => {
-      out.push(n);
-      if ((i + 1) % 4 === 0 && i < nws.length - 1) out.push(...msgs);
-    });
-    return out;
-  }, [messages, news, settings.ticker_source]);
+  /* ── שורת רצה: רק חדשות. ההודעות החשובות מוצגות בלוח "היום" ── */
+  const tickerItems = useMemo(() => news.map(t => ({ tag: "news" as const, text: t })), [news]);
   const tickerChars = tickerItems.reduce((n, it) => n + it.text.length + 8, 0);
   const tickerDuration = Math.max(25, Math.round(tickerChars * 0.22)) + "s";
 
@@ -177,6 +175,8 @@ export default function DepartmentDisplay(props: DepartmentDisplayProps) {
               physio={settings.show_physio !== false ? physio : []} topic={topic} look={viewStyle(settings, board, "daily")} />
           )}
 
+          {view.kind === "notice" && <NoticeView notice={notice ?? {}} />}
+
           {view.kind === "physio" && (
             <div className={styles.physio}>
               {physio.length > 0 && <PhysioSummary appts={physio} isToday nowMin={nowMinutes} showDepartments={false} />}
@@ -206,16 +206,14 @@ export default function DepartmentDisplay(props: DepartmentDisplayProps) {
 
         {/* שורת רצה */}
         {settings.show_ticker && tickerItems.length > 0 ? (
-          <footer className={styles.ticker} aria-label="חדשות והודעות">
+          <footer className={styles.ticker} aria-label="חדשות">
             <div className={styles.tickerViewport}>
               <div className={styles.tickerTrack} style={{ "--ticker-duration": tickerDuration } as React.CSSProperties}>
                 {[0, 1].map(copy => (
                   <React.Fragment key={copy}>
                     {tickerItems.map((it, i) => (
                       <span key={copy + "-" + i} className={styles.tickerItem} aria-hidden={copy === 1 ? true : undefined}>
-                        <span className={styles.tag + " " + (it.tag === "news" ? styles.tagNews : styles.tagMsg)}>
-                          {it.tag === "news" ? "N12" : "הודעה"}
-                        </span>
+                        <span className={styles.tag + " " + styles.tagNews}>N12</span>
                         {it.text}
                       </span>
                     ))}
@@ -232,6 +230,52 @@ export default function DepartmentDisplay(props: DepartmentDisplayProps) {
 }
 
 const EMPTY_ICONS: IconConfig = {};
+
+/* ───────────── מודעה: כתב מימין, תמונות מתחלפות משמאל ───────────── */
+
+export function NoticeView({ notice }: { notice: NoticeContent }) {
+  const images = noticeImages(notice);
+  const title = String(notice.title ?? "").trim();
+  const text = String(notice.text ?? "").trim();
+  const hasText = !!(title || text);
+  const [shown, setShown] = useState(0);
+  useEffect(() => {
+    setShown(0);
+    if (images.length <= 1) return;
+    const id = setInterval(() => setShown(i => (i + 1) % images.length), NOTICE_IMAGE_SECONDS * 1000);
+    return () => clearInterval(id);
+  }, [images.length]);
+
+  // הכתב בגודל הכי גדול שנכנס
+  const copyRef = useRef<HTMLDivElement>(null);
+  const appliedRef = useRef(1);
+  const ns = useFillScale(copyRef, appliedRef, title + "|" + text + "|" + images.length, 1.5, 0.45, 1);
+  appliedRef.current = ns;
+
+  return (
+    <div className={styles.bulletin + (images.length ? "" : " " + styles.bulletinNoImages) + (hasText ? "" : " " + styles.bulletinNoText)}>
+      {hasText && (
+        <section ref={copyRef} className={styles.bulletinCopy} style={{ "--ns": ns } as React.CSSProperties}>
+          <span className={styles.bulletinKicker}><Megaphone aria-hidden="true" />מודעה</span>
+          {title && <h2 className={styles.bulletinTitle}>{title}</h2>}
+          {text && text.split(/\n+/).map((p, i) => <p key={i} className={styles.bulletinText}>{p}</p>)}
+        </section>
+      )}
+      {images.length > 0 && (
+        <section className={styles.bulletinGallery} aria-label="תמונות">
+          {images.map((src, i) => (
+            <img key={src + i} src={src} alt="" className={styles.bulletinImg + (i === shown % images.length ? " " + styles.bulletinImgOn : "")} />
+          ))}
+          {images.length > 1 && (
+            <span className={styles.bulletinDots} aria-hidden="true">
+              {images.map((_, i) => <span key={i} className={styles.bulletinDot + (i === shown % images.length ? " " + styles.bulletinDotOn : "")} />)}
+            </span>
+          )}
+        </section>
+      )}
+    </div>
+  );
+}
 
 /* ───────────── היום ───────────── */
 
@@ -252,6 +296,16 @@ function DailyView({ today, nowMinutes, menu, messages, board, physio, topic, lo
   const upcoming = today.filter(a => toMinutes(a.start) > nowMinutes).slice(0, look.text > 1.3 ? 2 : current ? 4 : 3);
   const nextOne = !current ? upcoming[0] : undefined;
   const nextMeals = nextMealsSummary(menu, nowMinutes);
+  // הודעות חשובות: שתיים בכל פעם, ואם יש יותר — מתחלפות
+  const [msgPage, setMsgPage] = useState(0);
+  const msgPages = Math.ceil(messages.length / 2);
+  useEffect(() => {
+    setMsgPage(0);
+    if (msgPages <= 1) return;
+    const id = setInterval(() => setMsgPage(p => (p + 1) % msgPages), 8000);
+    return () => clearInterval(id);
+  }, [msgPages]);
+  const shownMessages = messages.slice((msgPage % Math.max(1, msgPages)) * 2, (msgPage % Math.max(1, msgPages)) * 2 + 2);
   // פיזיותרפיה: מי עוד מוזמן היום (לפי שעה)
   const physioNext = [...physio].sort((a, b) => a.time.localeCompare(b.time))
     .filter(a => toMinutes(a.end || a.time) + (a.end ? 0 : 30) > nowMinutes).slice(0, 3);
@@ -286,8 +340,8 @@ function DailyView({ today, nowMinutes, menu, messages, board, physio, topic, lo
 
         {messages.length > 0 && (
           <section className={styles.panel + " " + styles.notice}>
-            <span className={styles.panelTitle}><Megaphone aria-hidden="true" />הודעה חשובה</span>
-            {messages.slice(0, 2).map((m, i) => <div key={i} className={styles.noticeText}>{m}</div>)}
+            <span className={styles.panelTitle}><Megaphone aria-hidden="true" />{messages.length > 1 ? "הודעות חשובות" : "הודעה חשובה"}</span>
+            {shownMessages.map((m, i) => <div key={msgPage + "-" + i} className={styles.noticeText}>{m}</div>)}
           </section>
         )}
 

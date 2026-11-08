@@ -93,6 +93,10 @@ export default function PhysioEditor({ screenUrl }: { screenUrl?: string }) {
   const [showPaste, setShowPaste] = useState(false);
   const [deptFilter, setDeptFilter] = useState("");
   const [copied, setCopied] = useState("");
+  // זימון לטיפולים, או סימון נוכחות (מי הגיע) — הנוכחות לא מוצגת במסך
+  const [tab, setTab] = useState<"summons" | "attendance">("summons");
+  // שם שלא ברשימת הדיירים (נכתב ידנית)
+  const [otherName, setOtherName] = useState(false);
   const [cu, frameRef] = usePreviewCu();
 
   useEffect(() => {
@@ -123,11 +127,30 @@ export default function PhysioEditor({ screenUrl }: { screenUrl?: string }) {
   const inFilter = (deptId: string | null) => !deptFilter || (deptFilter === NO_DEPT ? !deptId : deptId === deptFilter);
 
   const deptName = (id: string | null) => (id ? depts.find(d => d.id === id)?.name ?? null : null);
-  const findResident = (name: string) => residents.find(r => normalize(r.name) === normalize(name)) ?? null;
+  /** הדייר לפי השם — קודם במחלקה שנבחרה */
+  const findResident = (name: string, dept?: string | null) =>
+    (dept ? residents.find(r => normalize(r.name) === normalize(name) && r.department_id === dept) : undefined)
+    ?? residents.find(r => normalize(r.name) === normalize(name)) ?? null;
 
-  function setName(name: string) {
-    const r = findResident(name);
-    setForm(f => ({ ...f, name, department_id: r?.department_id ?? f.department_id }));
+  /** בחירת דייר מהרשימה (לפי המחלקה שנבחרה) */
+  function pickResident(value: string) {
+    if (value === "__other") { setOtherName(true); setForm(f => ({ ...f, name: "" })); return; }
+    setOtherName(false);
+    const r = residents.find(x => x.id === value);
+    setForm(f => ({ ...f, name: r?.name ?? "", department_id: r?.department_id ?? f.department_id }));
+  }
+  /** החלפת מחלקה בטופס: דייר שלא במחלקה החדשה יורד מהבחירה */
+  function pickDept(id: string) {
+    setForm(f => {
+      const r = findResident(f.name);
+      const keep = otherName || !f.name || !r || !id || r.department_id === id;
+      return { ...f, department_id: id, name: keep ? f.name : "" };
+    });
+  }
+  /** פתיחת טיפול קיים לעריכה */
+  function openRow(r: Row) {
+    setForm({ id: r.id, start: hm(r.start_time), end: r.end_time ? hm(r.end_time) : "", name: r.resident_name, department_id: r.department_id ?? "", note: r.note ?? "" });
+    setOtherName(!findResident(r.resident_name));
   }
 
   /** שינוי שעת ההתחלה מזיז גם את שעת הסיום, ושומר על משך הטיפול */
@@ -141,10 +164,11 @@ export default function PhysioEditor({ screenUrl }: { screenUrl?: string }) {
 
   async function save() {
     setError(""); setNotice("");
-    if (!form.start || !form.name.trim()) { setError("צריך שעת התחלה ושם"); return; }
+    if (!form.name.trim()) { setError("בוחרים דייר/ה מהרשימה (או כותבים שם)"); return; }
+    if (!form.start) { setError("צריך שעת התחלה"); return; }
     if (form.end && toMinutes(form.end) <= toMinutes(form.start)) { setError("שעת הסיום צריכה להיות אחרי שעת ההתחלה"); return; }
     setBusy(true);
-    const r = findResident(form.name);
+    const r = otherName ? null : findResident(form.name, form.department_id);
     const row = {
       appt_date: date,
       start_time: form.start,
@@ -159,6 +183,7 @@ export default function PhysioEditor({ screenUrl }: { screenUrl?: string }) {
     if (res.error) { setError("לא נשמר: " + res.error.message); return; }
     if (res.endTimeMissing) setNotice("נשמר בלי שעת הסיום — צריך להריץ את scripts/011_physio_end_time.sql ב-Supabase.");
     // הוספה רצופה: הטיפול הבא מתחיל כשהקודם נגמר, באותו משך ובאותה מחלקה
+    setOtherName(false);
     if (form.id) { setForm({ ...EMPTY_FORM, department_id: deptFilter && deptFilter !== NO_DEPT ? deptFilter : "" }); }
     else {
       const startM = toMinutes(form.start);
@@ -271,10 +296,22 @@ export default function PhysioEditor({ screenUrl }: { screenUrl?: string }) {
         </div>
         <div className="flex flex-wrap gap-2">
           {date !== today && <button type="button" className={btnGhost} onClick={() => setDate(today)}>חזרה להיום</button>}
-          <button type="button" className={btnGhost} onClick={copyLastWeek} disabled={missingTable}>העתקה מהשבוע שעבר</button>
-          <button type="button" className={btnGhost} onClick={() => setShowPaste(v => !v)} disabled={missingTable}>{showPaste ? "סגירת ההדבקה" : "הדבקת רשימה"}</button>
+          {tab === "summons" && <>
+            <button type="button" className={btnGhost} onClick={copyLastWeek} disabled={missingTable}>העתקה מהשבוע שעבר</button>
+            <button type="button" className={btnGhost} onClick={() => setShowPaste(v => !v)} disabled={missingTable}>{showPaste ? "סגירת ההדבקה" : "הדבקת רשימה"}</button>
+          </>}
           {screenHref && <a className={btnGhost} href={screenHref} target="_blank" rel="noreferrer">{chosen ? "פתיחת המסך של " + chosen.name : "פתיחת המסך"}</a>}
         </div>
+      </div>
+
+      {/* זימון לטיפולים / נוכחות */}
+      <div className="inline-flex rounded-2xl bg-white p-1 shadow-[0_1px_2px_rgba(63,47,45,0.06)]" role="tablist" aria-label="מה עושים">
+        {([["summons", "זימון לטיפולים"], ["attendance", "נוכחות — מי הגיע"]] as const).map(([k, label]) => (
+          <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => { setTab(k); if (k === "attendance") { setForm(EMPTY_FORM); setOtherName(false); } }}
+            className={"rounded-xl px-4 py-2 text-[15px] font-semibold transition-colors " + (tab === k ? "bg-[#5A826F] text-white" : "hover:bg-[#E3ECE7]")}>
+            {label}
+          </button>
+        ))}
       </div>
 
       {/* לפי מחלקה */}
@@ -299,7 +336,7 @@ export default function PhysioEditor({ screenUrl }: { screenUrl?: string }) {
       {error && <div role="alert" className="rounded-2xl bg-[#FDE8E1] p-3 text-[15px] text-[#7a2e22]">{error}</div>}
       {notice && <div role="status" className="rounded-2xl bg-[#FDF0CC] p-3 text-[15px]">{notice}</div>}
 
-      {showPaste && (
+      {showPaste && tab === "summons" && (
         <Card title="הדבקת רשימה">
           <p className="mb-2 text-sm text-[#3F2F2D]/65">שורה לכל דייר: שעה (או משעה עד שעה) ושם מלא. אפשר להוסיף את שם המחלקה.</p>
           <textarea className={textareaCls + " min-h-[140px]"} value={paste} onChange={e => setPaste(e.target.value)}
@@ -316,31 +353,33 @@ export default function PhysioEditor({ screenUrl }: { screenUrl?: string }) {
         </Card>
       )}
 
-      <div className="grid gap-5 lg:grid-cols-[1fr_380px]">
+      <div className={"grid gap-5 " + (tab === "summons" ? "lg:grid-cols-[1fr_380px]" : "")}>
         {/* רשימת היום */}
-        <Card title={shown.length
+        <Card title={(tab === "attendance" ? "נוכחות: " : "") + (shown.length
           ? `${shown.length} מוזמנים ל${dayLabel}${chosen ? " מ" + chosen.name : deptFilter === NO_DEPT ? " בלי מחלקה" : ""}`
-          : `אין עדיין טיפולים ל${dayLabel}${chosen ? " מ" + chosen.name : ""}`}
-          aside={shown.length > 0 && date <= today ? (
+          : `אין עדיין טיפולים ל${dayLabel}${chosen ? " מ" + chosen.name : ""}`)}
+          aside={tab === "attendance" && shown.length > 0 && date <= today ? (
             <span className="text-sm text-[#3F2F2D]/65">
               הגיעו {shown.filter(r => r.attended === true).length}
               {shown.some(r => r.attended === false) && <>, לא הגיעו {shown.filter(r => r.attended === false).length}</>}
               {shown.some(r => r.attended == null) && <>, לא סומנו {shown.filter(r => r.attended == null).length}</>}
             </span>
           ) : undefined}>
+          {tab === "attendance" && date > today && shown.length > 0 && (
+            <p className="mb-2 rounded-xl bg-[#FDF0CC] px-3 py-2 text-sm">מסמנים מי הגיע ביום הטיפול עצמו (או אחריו).</p>
+          )}
           {shown.length === 0 ? (
-            <p className="text-[15px] text-[#3F2F2D]/65">מוסיפים דייר בטופס, או מדביקים רשימה שלמה.</p>
+            <p className="text-[15px] text-[#3F2F2D]/65">{tab === "summons" ? "מוסיפים דייר בטופס, או מדביקים רשימה שלמה." : "אין מוזמנים ביום הזה."}</p>
           ) : (
             <ul className="divide-y divide-[#3F2F2D]/10">
               {shown.map(r => (
                 <li key={r.id} className={"flex items-center gap-4 py-3 " + (form.id === r.id ? "rounded-xl bg-[#E3ECE7] px-2" : "")}>
                   <span className="w-[124px] shrink-0 whitespace-nowrap text-right text-lg font-bold tabular-nums text-[#5A826F]" dir="ltr">{range(hm(r.start_time), r.end_time ? hm(r.end_time) : null)}</span>
-                  <button type="button" className="min-w-0 flex-1 text-right"
-                    onClick={() => setForm({ id: r.id, start: hm(r.start_time), end: r.end_time ? hm(r.end_time) : "", name: r.resident_name, department_id: r.department_id ?? "", note: r.note ?? "" })}>
+                  <button type="button" className="min-w-0 flex-1 text-right" onClick={() => (tab === "summons" ? openRow(r) : undefined)} disabled={tab !== "summons"}>
                     <div className="truncate text-[17px] font-bold">{r.resident_name}</div>
                     <div className="truncate text-sm text-[#3F2F2D]/60">{[deptFilter ? null : deptName(r.department_id), r.note].filter(Boolean).join(", ") || " "}</div>
                   </button>
-                  {date <= today && (
+                  {tab === "attendance" && date <= today && (
                     <span className="flex shrink-0 gap-1" role="group" aria-label={"הגעה של " + r.resident_name}>
                       <button type="button" onClick={() => setArrival(r, true)} aria-pressed={r.attended === true}
                         className={"rounded-lg px-2.5 py-1.5 text-sm font-semibold " + (r.attended === true ? "bg-[#5A826F] text-white" : "bg-[#F6F2EE] text-[#3F2F2D]/70 hover:bg-[#E3ECE7]")}>
@@ -352,16 +391,45 @@ export default function PhysioEditor({ screenUrl }: { screenUrl?: string }) {
                       </button>
                     </span>
                   )}
-                  <button type="button" aria-label={"מחיקת " + r.resident_name} className="h-9 w-9 shrink-0 rounded-xl text-xl text-[#B56262] hover:bg-[#FDE8E1]" onClick={() => remove(r.id)}>×</button>
+                  {tab === "summons" && (
+                    <button type="button" aria-label={"מחיקת " + r.resident_name} className="h-9 w-9 shrink-0 rounded-xl text-xl text-[#B56262] hover:bg-[#FDE8E1]" onClick={() => remove(r.id)}>×</button>
+                  )}
                 </li>
               ))}
             </ul>
           )}
         </Card>
 
-        {/* טופס */}
+        {/* טופס: מחלקה ← דייר/ה מהרשימה ← שעה */}
+        {tab === "summons" && (
         <Card title={form.id ? "עריכת טיפול" : "הוספת דייר לטיפול"} className="order-first h-fit lg:order-none">
           <div className="space-y-4">
+            <Field label="מחלקה">
+              <select className={inputCls} value={form.department_id} onChange={e => pickDept(e.target.value)}>
+                <option value="">בלי מחלקה (כל הדיירים)</option>
+                {depts.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+              </select>
+            </Field>
+            <Field label="שם הדייר/ה" hint="מתוך רשימת הדיירים (מייבוא אקסל או מהוספה ידנית בעמוד הדיירים)">
+              {(() => {
+                const list = residents.filter(r => !form.department_id || r.department_id === form.department_id);
+                const current = !otherName && form.name ? findResident(form.name, form.department_id) : null;
+                return (
+                  <>
+                    <select className={inputCls} value={otherName ? "__other" : current?.id ?? ""} onChange={e => pickResident(e.target.value)}>
+                      <option value="">{list.length ? "בחירת דייר/ה…" : "אין דיירים ברשימה של המחלקה"}</option>
+                      {list.map(r => (
+                        <option key={r.id} value={r.id}>{r.name}{!form.department_id && deptName(r.department_id) ? " · " + deptName(r.department_id) : ""}</option>
+                      ))}
+                      <option value="__other">שם שלא ברשימה…</option>
+                    </select>
+                    {otherName && (
+                      <input className={inputCls + " mt-2"} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="שם מלא" autoFocus />
+                    )}
+                  </>
+                );
+              })()}
+            </Field>
             <div className="grid grid-cols-2 gap-3">
               <Field label="משעה">
                 <input type="time" step={300} className={inputCls + " text-center"} dir="ltr" value={form.start} onChange={e => setStart(e.target.value)} />
@@ -370,18 +438,6 @@ export default function PhysioEditor({ screenUrl }: { screenUrl?: string }) {
                 <input type="time" step={300} className={inputCls + " text-center"} dir="ltr" value={form.end} onChange={e => setForm({ ...form, end: e.target.value })} />
               </Field>
             </div>
-            <Field label="שם מלא">
-              <input className={inputCls} list="physio-residents" value={form.name} onChange={e => setName(e.target.value)} placeholder="שרה כהן" autoComplete="off" />
-              <datalist id="physio-residents">
-                {residents.filter(r => !chosen || r.department_id === chosen.id).map(r => <option key={r.id} value={r.name}>{deptName(r.department_id) ?? ""}</option>)}
-              </datalist>
-            </Field>
-            <Field label="מחלקה">
-              <select className={inputCls} value={form.department_id} onChange={e => setForm({ ...form, department_id: e.target.value })}>
-                <option value="">בלי מחלקה</option>
-                {depts.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-              </select>
-            </Field>
             <Field label="הערה" hint="לא חובה. למשל: טיפול בחדר, להביא הליכון">
               <input className={inputCls} value={form.note} onChange={e => setForm({ ...form, note: e.target.value })} />
             </Field>
@@ -389,18 +445,19 @@ export default function PhysioEditor({ screenUrl }: { screenUrl?: string }) {
               <button type="button" className={btnPrimary + " flex-1"} disabled={busy || missingTable} onClick={save}>
                 {busy ? "שומר…" : form.id ? "שמירת השינויים" : "הוספה ללוח"}
               </button>
-              {form.id && <button type="button" className={btnGhost} onClick={() => setForm(EMPTY_FORM)}>ביטול</button>}
+              {form.id && <button type="button" className={btnGhost} onClick={() => { setForm(EMPTY_FORM); setOtherName(false); }}>ביטול</button>}
             </div>
           </div>
         </Card>
+        )}
       </div>
 
-      <div>
+      {tab === "summons" && <div>
         <h2 className="mb-2 text-lg font-bold">{chosen ? `כך זה ייראה במסך של ${chosen.name}` : "כך זה ייראה במסך בחדר הפיזיותרפיה"}</h2>
         <ScreenFrame frameRef={frameRef}>
           <PhysioBoard appts={appts} dateISO={date} embeddedCu={cu} title={chosen ? "פיזיותרפיה, " + chosen.name : "פיזיותרפיה"} showDepartments={!chosen} />
         </ScreenFrame>
-      </div>
+      </div>}
 
       {screenUrl && (
         <Card title="מסכים וקישורים">

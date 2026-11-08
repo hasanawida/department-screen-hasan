@@ -18,7 +18,7 @@ export type PhysioAppt = {
   department?: string | null;
   departmentColor?: string | null;
   note?: string | null;
-  /** סימון מצוות הפיזיותרפיה: הגיע/ה (true), לא הגיע/ה (false), עוד לא סומן (null) */
+  /** סימון מצוות הפיזיותרפיה (הגיע/ה או לא). לא מוצג במסך — רק בדף הנוכחות */
   attended?: boolean | null;
 };
 
@@ -60,7 +60,6 @@ export function PhysioSummary({ appts, isToday, nowMin, showDepartments }: {
 }) {
   const n = appts.length;
   const left = isToday && nowMin >= 0 ? appts.filter(a => toMinutes(a.time) > nowMin).length : n;
-  const came = appts.filter(a => a.attended === true).length;
   const byDept = new Map<string, { count: number; color: string | null }>();
   for (const a of appts) {
     const k = a.department || "בלי מחלקה";
@@ -74,7 +73,7 @@ export function PhysioSummary({ appts, isToday, nowMin, showDepartments }: {
       <span className={styles.physioCount}>
         <b>{n}</b> {n === 1 ? "מוזמן/ת" : "מוזמנים"} {isToday ? "היום" : "ביום הזה"}
         {isToday && left > 0 && left < n && <span className={styles.physioLeft}>עוד {left} {left === 1 ? "מחכה" : "מחכים"}</span>}
-        {isToday && left === 0 && nowMin >= 0 && <span className={styles.physioLeft}>הטיפולים של היום הסתיימו{came ? `, הגיעו ${came}` : ""}</span>}
+        {isToday && left === 0 && nowMin >= 0 && <span className={styles.physioLeft}>הטיפולים של היום הסתיימו</span>}
       </span>
       {showDepartments && sorted.length > 0 && (
         <span className={styles.physioDepts}>
@@ -132,8 +131,6 @@ export function PhysioList({ appts, isToday, nowMin, showDepartments, emptyText 
                 {a.name}
                 {s === "now" && <span className={styles.apptTag}>עכשיו</span>}
                 {s === "next" && <span className={styles.apptTag} style={{ background: "#A9C8B8" }}>הבא בתור</span>}
-                {a.attended === true && <span className={styles.apptCame}>הגיע/ה</span>}
-                {a.attended === false && <span className={styles.apptMissed}>לא הגיע/ה</span>}
               </span>
               {((showDepartments && a.department) || a.note) && (
                 <div className={styles.apptSub}>

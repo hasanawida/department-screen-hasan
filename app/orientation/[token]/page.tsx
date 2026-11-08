@@ -4,6 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import { notFound } from "next/navigation";
 import OrientationScreenWrapper from "@/components/orientation/orientation-screen-wrapper";
 import { activitiesByDay, dayIndexOf, weekStartISO, type ActivityRow } from "@/lib/week";
+import { orientationColor } from "@/lib/orientation-color";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -89,10 +90,8 @@ export default async function OrientationPage({ params }: any) {
 
   const settings = { ...DEFAULT_SETTINGS, ...(dept.orientation_settings ?? {}) };
 
-  let translations = { name_ar: dept.name_ar, name_ru: dept.name_ru, name_en: dept.name_en };
-  if (!dept.name_ar || !dept.name_ru || !dept.name_en) {
-    translations = await translateDepartmentName(dept.id, dept.name);
-  }
+  // שם המחלקה כבר לא מוצג במסך — לא צריך לתרגם אותו
+  const translations = { name_ar: dept.name_ar, name_ru: dept.name_ru, name_en: dept.name_en };
 
   // התאריך של היום לפי שעון ישראל (השרת של Vercel עובד ב-UTC, ובין חצות ל-3 לפנות בוקר היה מציג את פעילויות אתמול)
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jerusalem" }).format(new Date());
@@ -120,11 +119,11 @@ export default async function OrientationPage({ params }: any) {
       departmentNameAr={translations.name_ar ?? dept.name}
       departmentNameRu={translations.name_ru ?? dept.name}
       departmentNameEn={translations.name_en ?? dept.name}
-      departmentColor={dept.orientation_color ?? dept.color ?? "#10B981"}
+      departmentColor={orientationColor(dept.orientation_color)}
       activities={activities}
       settings={settings}
     />
   );
 }
 
-export const dynamic = "force-dynamic";
+export const dynamic = "force-dynamic";

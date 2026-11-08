@@ -8,6 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { CheckCircle, Settings, Monitor, Smartphone } from "lucide-react";
+import { ORIENTATION_DEFAULT_COLOR, orientationColor } from "@/lib/orientation-color";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -58,10 +59,11 @@ const SECTION_LABELS: { key: keyof OrientationSettings; label: string }[] = [
   { key: "show_anchors",      label: "עוגנים קבועים" },
 ];
 
+// צבעים כהים מספיק לכותרות על רקע קרם ולכתב לבן בפס המסר
 const QUICK_COLORS = [
-  "#3B82F6", "#10B981", "#F59E0B", "#EF4444",
-  "#8B5CF6", "#EC4899", "#06B6D4", "#84CC16",
-  "#F97316", "#6366F1", "#14B8A6", "#F43F5E",
+  "#5A826F", "#3F2F2D", "#2F6690", "#1F7A7A",
+  "#4F7A3A", "#8E5A9B", "#6366F1", "#B56262",
+  "#C2410C", "#B5651D", "#A16207", "#BE185D",
 ];
 
 export default function OrientationSettingsPage() {
@@ -69,7 +71,7 @@ export default function OrientationSettingsPage() {
   const token = params.token as string;
 
   const [deptName, setDeptName] = useState("");
-  const [color, setColor] = useState("#10B981");
+  const [color, setColor] = useState(ORIENTATION_DEFAULT_COLOR);
   const [settings, setSettings] = useState<OrientationSettings>(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
   const [saved, setSaved] = useState(false);
@@ -84,7 +86,7 @@ export default function OrientationSettingsPage() {
 
     if (error || !data) { setNotFound(true); setLoading(false); return; }
     setDeptName(data.name);
-    setColor(data.orientation_color ?? "#10B981");
+    setColor(orientationColor(data.orientation_color));
     setSettings({ ...DEFAULT_SETTINGS, ...(data.orientation_settings ?? {}) });
     setLoading(false);
   }
@@ -196,7 +198,7 @@ export default function OrientationSettingsPage() {
         <Card className="rounded-2xl border-0 shadow-md">
           <CardContent className="p-6 space-y-4">
             <h2 className="text-2xl font-bold text-slate-900">צבע מסך התמצאות</h2>
-            <p className="text-slate-500">צבע ייעודי למסך ההתמצאות בלבד</p>
+            <p className="text-slate-500">הצבע של הכותרות הקטנות (יום, שעה, תאריך…) ושל פס המסר המרגיע — במקום הירוק. למסך ההתמצאות בלבד.</p>
             <div className="flex items-center gap-4">
               <div
                 className="h-16 w-16 rounded-2xl border-4 border-white shadow-lg flex-shrink-0"
@@ -234,7 +236,7 @@ export default function OrientationSettingsPage() {
               className="rounded-2xl p-4 text-white text-center text-2xl font-bold"
               style={{ backgroundColor: color }}
             >
-              {deptName}
+              כך ייראה פס המסר המרגיע
             </div>
           </CardContent>
         </Card>

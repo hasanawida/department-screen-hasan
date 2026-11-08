@@ -5,7 +5,7 @@ import {
   Sun, CloudSun, Sunset, MoonStar, HeartHandshake,
   Moon, CloudMoon, Cloud, CloudFog, CloudDrizzle, CloudRain, CloudSnow, CloudLightning,
 } from "lucide-react";
-import { EshkolotLogo, BRAND } from "./eshkolot-logo";
+import { orientationColor, orientationTint } from "@/lib/orientation-color";
 import styles from "./orientation-screen.module.css";
 
 /* ───────────── טיפוסים ───────────── */
@@ -275,7 +275,6 @@ function FitText({ base, className, children, watch }: { base: number; className
 /* ───────────── המסך ───────────── */
 
 export default function OrientationScreen({
-  departmentName, departmentNameAr, departmentNameRu, departmentNameEn,
   departmentColor,
   settings: settingsProp,
   isPortrait: isPortraitProp,
@@ -320,12 +319,6 @@ export default function OrientationScreen({
   const lang: Lang = langs[langIndex % langs.length] ?? "he";
   const t = T[lang];
 
-  const deptNameByLang: Record<Lang, string> = {
-    he: departmentName,
-    ar: departmentNameAr || departmentName,
-    ru: departmentNameRu || departmentName,
-    en: departmentNameEn || departmentName,
-  };
 
   /* ── התאמה למסך: אם משהו גולש לגובה — מקטינים הכול יחד, בלי גלילה ── */
   const mainRef = useRef<HTMLElement>(null);
@@ -347,14 +340,12 @@ export default function OrientationScreen({
     }
   });
 
-  const stageStyle = { "--fit": fit } as React.CSSProperties;
+  // הצבע שנבחר בהגדרות (במקום הירוק): כותרות קטנות, נקודת השפה, פס המסר המרגיע ורקע הלילה
+  const accent = orientationColor(departmentColor);
+  const stageStyle = { "--fit": fit, "--sage": accent, "--sage-tint": orientationTint(accent) } as React.CSSProperties;
 
   if (!now) {
-    return (
-      <div className={styles.stage} data-layout={layout} style={stageStyle} dir="rtl">
-        <EshkolotLogo className={styles.logo} />
-      </div>
-    );
+    return <div className={styles.stage} data-layout={layout} style={stageStyle} dir="rtl" />;
   }
 
   const tod = getTimeOfDay(now.getHours());
@@ -381,17 +372,8 @@ export default function OrientationScreen({
     <div className={styles.stage} data-layout={layout} style={stageStyle} dir="rtl">
       <div className={styles.canvas}>
 
-        {/* לוגו ושם המחלקה */}
+        {/* בלי לוגו ובלי שם מחלקה — רק הנקודות של השפות (כשיש כמה) */}
         <header className={styles.header}>
-          <EshkolotLogo className={styles.logo} />
-          <span className={styles.headerRule} aria-hidden="true" />
-          <div className={styles.dept} dir={t.dir} lang={lang}>
-            <span className={styles.label}>{t.department}</span>
-            <span className={styles.deptValue}>
-              <span className={styles.deptDot} style={{ backgroundColor: departmentColor || BRAND.sage }} aria-hidden="true" />
-              {deptNameByLang[lang]}
-            </span>
-          </div>
           {langs.length > 1 && (
             <div className={styles.langDots} aria-hidden="true">
               {langs.map((l, i) => (

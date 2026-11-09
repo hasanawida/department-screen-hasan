@@ -48,12 +48,27 @@ export function matchesActivity(title: string, r: Omit<ResidentCard, "id" | "dep
   );
 }
 
+/** הדיירים שהכרטיס שלהם מתאים לפעילות (רק מהמחלקה של הפעילות) — לרשימת המשתתפים גם בלי רישום שמור */
+export function residentsMatching<T extends ResidentCard>(residents: T[], activity: { title: string; instructor?: string | null; departmentId: string | null }): T[] {
+  return residents.filter(r => r.department_id === activity.departmentId && matchesActivity(activity.title, r, activity.instructor));
+}
+
+export type SyncResult = {
+  /** כל הפעילויות במחלקה שמתאימות לכרטיס (גם מה שכבר היה רשום) */
+  matched: { id: string; title: string; instructor: string | null }[];
+  /** כמה נרשמו עכשיו */
+  added: number;
+  error: string | null;
+};
+
+const israelToday = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jerusalem" }).format(new Date());
+
 /**
  * מעדכן את הרישום של דייר לפי הכרטיס שלו:
- * מוחק רישום לפעילויות ממחלקות אחרות, ומוסיף פעילויות מתאימות במחלקה שלו.
- * לא מוחק רישום שנעשה ידנית במחלקה. מחזיר כמה פעילויות נוספו.
+ * מוחק רישום לפעילויות ממחלקות אחרות, ומוסיף פעילויות מתאימות במחלקה שלו
+ * (קבועות, ושל היום והלאה). לא מוחק רישום שנעשה ידנית במחלקה.
  */
-export async function syncResidentRegistrations(supabase: SupabaseClient, r: ResidentCard): Promise<number> {
+export async function syncResidentRegistrations(supabase: SupabaseClient, r: ResidentCard): Promise<SyncResult> {
   const { data: mine } = await supabase.from("activity_participants").select("activity_id").eq("resident_id", r.id);
   const mineIds = (mine ?? []).map((p: any) => String(p.activity_id));
   if (mineIds.length) {
@@ -62,14 +77,32 @@ export async function syncResidentRegistrations(supabase: SupabaseClient, r: Res
     if (wrong.length) await supabase.from("activity_participants").delete().eq("resident_id", r.id).in("activity_id", wrong);
   }
 
-  if (!r.department_id || residentTerms(r).length === 0) return 0;
-  const { data: acts } = await supabase.from("activities").select("id, title, instructor_name, parent_id")
-    .eq("department_id", r.department_id).eq("is_active", true).is("parent_id", null);
+  if (!r.department_id || residentTerms(r).length === 0) return { matched: [], added: 0, error: null };
+  // רק פעילויות רלוונטיות: קבועות, ועם תאריך — מהיום והלאה (בלי ההיסטוריה, שגדלה עם הזמן)
+  const { data: acts, error: actsErr } = await supabase.from("activities").select("id, title, instructor_name")
+    .eq("department_id", r.department_id).eq("is_active", true).is("parent_id", null)
+    .or(`activity_date.is.null,activity_date.gte.${israelToday()}`);
+  if (actsErr) return { matched: [], added: 0, error: actsErr.message };
+  const matched = (acts ?? []).filter((a: any) => matchesActivity(a.title ?? "", r, a.instructor_name));
   const have = new Set(mineIds);
-  const add = (acts ?? []).filter((a: any) => !have.has(String(a.id)) && matchesActivity(a.title ?? "", r, a.instructor_name));
-  if (!add.length) return 0;
-  const { error } = await supabase.from("activity_participants").upsert(
-    add.map((a: any) => ({ activity_id: a.id, resident_id: r.id })), { onConflict: "activity_id,resident_id" },
-  );
-  return error ? 0 : add.length;
+  const rows = matched.filter((a: any) => !have.has(String(a.id))).map((a: any) => ({ activity_id: a.id, resident_id: r.id }));
+  let added = 0;
+  let error: string | null = null;
+  if (rows.length) {
+    const res = await supabase.from("activity_participants").insert(rows);
+    if (!res.error) added = rows.length;
+    else {
+      // אולי חלק כבר נרשם בינתיים — אחד-אחד, ומדלגים על מה שכבר קיים
+      for (const row of rows) {
+        const one = await supabase.from("activity_participants").insert(row);
+        if (!one.error) added++;
+        else if (one.error.code !== "23505") error = one.error.message;
+      }
+    }
+  }
+  return {
+    matched: matched.map((a: any) => ({ id: String(a.id), title: cleanName(a.title ?? ""), instructor: a.instructor_name ? cleanName(a.instructor_name) : null })),
+    added,
+    error,
+  };
 }

@@ -8,7 +8,11 @@ import { assignHref } from "@/components/admin/add-instructor-button"
 
 interface Participant { id: string; name: string; room_number?: string | null }
 interface Activity { id: string; title: string; day_of_week: string; start_time: string; activity_date?: string | null; departments?: { name: string } | null; participants: Participant[] }
-interface Instructor { name: string; acts: Activity[]; phone: string; email: string; id: string | null; view_token?: string | null }
+interface Instructor {
+  name: string; acts: Activity[]; phone: string; email: string; id: string | null; view_token?: string | null
+  /** דיירים שסומן אצלם V בפנאי עם המפעיל/ה (בכרטיס הדייר) */
+  leisure?: Participant[]
+}
 
 const actsLabel = (n: number) => (n === 1 ? "פעילות אחת" : `${n} פעילויות`)
 const newToken = () => Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)
@@ -204,6 +208,13 @@ export function InstructorsList({ instructors, departments }: { instructors: Ins
                     <button onClick={() => handleDelete(inst)} className="flex-1 bg-red-500 hover:bg-red-600 text-white text-sm py-1.5 rounded-lg">מחק</button>
                     <button onClick={() => setConfirmDelete(null)} className="flex-1 bg-gray-200 text-gray-700 text-sm py-1.5 rounded-lg">ביטול</button>
                   </div>
+                </div>
+              )}
+
+              {(inst.leisure?.length ?? 0) > 0 && (
+                <div className="rounded-xl bg-orange-50 px-3 py-2 text-xs text-orange-800">
+                  <span className="font-semibold">בפנאי ({inst.leisure!.length}): </span>
+                  {inst.leisure!.map(p => p.name).join(", ")}
                 </div>
               )}
 

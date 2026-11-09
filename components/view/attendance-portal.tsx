@@ -6,7 +6,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Check, ChevronLeft, ChevronRight, MapPin, Search, Users } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { EshkolotLogo } from "@/components/orientation/eshkolot-logo";
-import { cleanName, nameKey, similarNames } from "@/lib/participants";
+import { cleanName, matchesActivity, nameKey, similarNames } from "@/lib/participants";
 import {
   DAY_NAMES, activitiesByDay, addDaysISO, israelDateISO, shortDate, weekDatesISO, weekStartISO,
   type ActivityRow, type BoardActivity,
@@ -14,7 +14,10 @@ import {
 
 const PERSONAL_KEYWORDS = ["פרטני", "פרטנית", "אישי", "אישית"];
 
-type Resident = { id: string; name: string; room_number: string | null; department_id: string | null; personal_activity?: string | null };
+type Resident = {
+  id: string; name: string; room_number: string | null; department_id: string | null;
+  personal_activity?: string | null; group_activity?: string | null; leisure_activity?: string | null;
+};
 type Row = ActivityRow & { department_id: string };
 type Occurrence = BoardActivity & { departmentId: string; dateISO: string };
 type Mark = { activity_id: string; occurrence_date: string; resident_id: string | null; resident_name: string };
@@ -46,17 +49,18 @@ export default function AttendancePortal({ mode, name, departmentId }: {
   const loadBase = useCallback(async () => {
     let q = supabase.from("activities").select("*") // פעילויות מוסתרות מסוננות ב-activitiesByDay
       .or(`activity_date.is.null,and(activity_date.gte.${weekDates[0]},activity_date.lte.${weekDates[6]})`);
-    q = mode === "instructor" ? q.eq("instructor_name", name) : q.eq("department_id", departmentId!).is("instructor_name", null);
+    // מפעיל/ה: לפי השם — גם אם נכתב בפעילות עם רווח או גרש אחר
+    q = mode === "instructor" ? q.not("instructor_name", "is", null) : q.eq("department_id", departmentId!).is("instructor_name", null);
     const { data: acts, error: actsErr } = await q;
     setLoadError(!!actsErr);
-    const list = (acts ?? []) as Row[];
+    const list = ((acts ?? []) as Row[]).filter(a => mode !== "instructor" || nameKey(cleanName(String((a as any).instructor_name ?? ""))) === nameKey(name));
     setRows(list);
 
     const deptIds = Array.from(new Set(list.map(a => a.department_id).filter(Boolean)));
     if (mode === "department" && departmentId && !deptIds.includes(departmentId)) deptIds.push(departmentId);
     const [dp, rs, pr] = await Promise.all([
       supabase.from("departments").select("id, name").in("id", deptIds.length ? deptIds : ["00000000-0000-0000-0000-000000000000"]),
-      supabase.from("residents").select("id, name, room_number, department_id, personal_activity").eq("is_active", true).in("department_id", deptIds.length ? deptIds : ["00000000-0000-0000-0000-000000000000"]).order("name"),
+      supabase.from("residents").select("id, name, room_number, department_id, personal_activity, group_activity, leisure_activity").eq("is_active", true).in("department_id", deptIds.length ? deptIds : ["00000000-0000-0000-0000-000000000000"]).order("name"),
       list.length ? supabase.from("activity_participants").select("activity_id, resident_id").in("activity_id", list.map(a => a.id)) : Promise.resolve({ data: [] as any[] }),
     ]);
     setDepts(Object.fromEntries((dp.data ?? []).map((d: any) => [d.id, d.name])));
@@ -85,13 +89,15 @@ export default function AttendancePortal({ mode, name, departmentId }: {
 
   useEffect(() => { (async () => { setLoading(true); await loadBase(); setLoading(false); })(); }, [loadBase]);
 
-  // שינויים של אחרים (מנהל, מפעיל אחר בטלפון אחר) — מתעדכנים לבד
+  // שינויים של אחרים (מנהל, מפעיל אחר בטלפון אחר) — מתעדכנים לבד, גם רישום של דיירים וכרטיסי דיירים
   useEffect(() => {
     const ch = supabase.channel("attendance-portal")
       .on("postgres_changes" as any, { event: "*", schema: "public", table: "activity_attendance" }, () => loadMarks(weekIdsRef.current))
+      .on("postgres_changes" as any, { event: "*", schema: "public", table: "activity_participants" }, () => { loadBase(); })
+      .on("postgres_changes" as any, { event: "*", schema: "public", table: "residents" }, () => { loadBase(); })
       .subscribe();
     return () => { supabase.removeChannel(ch); };
-  }, [supabase, loadMarks]);
+  }, [supabase, loadMarks, loadBase]);
 
   /* ── המופעים של השבוע ── */
   const byDay = useMemo(() => {
@@ -195,8 +201,13 @@ export default function AttendancePortal({ mode, name, departmentId }: {
                   const canMark = o.dateISO <= today && attendanceReady;
                   const isOpen = open === k;
                   const deptResidents = residents.filter(r => r.department_id === o.departmentId);
-                  // שינוי לשבוע אחד — הרשומים של הפעילות הקבועה
-                  const regIds = [...(registered[o.id] ?? []), ...(o.parentId ? registered[o.parentId] ?? [] : [])];
+                  // הרשומים: מה שנשמר (בשינוי לשבוע אחד — של הפעילות הקבועה), וגם מי שבכרטיס שלו/ה מסומנים
+                  // הפעילות או המפעיל/ה (קבוצתי / פנאי / פרטני) — כך דייר שנוסף מופיע לבד, גם בפעילות חדשה
+                  const regIds = [
+                    ...(registered[o.id] ?? []),
+                    ...(o.parentId ? registered[o.parentId] ?? [] : []),
+                    ...deptResidents.filter(r => matchesActivity(o.title, r, o.instructor)).map(r => String(r.id)),
+                  ];
                   return (
                     <li key={k} className="overflow-hidden rounded-2xl bg-white shadow-[0_1px_2px_rgba(63,47,45,0.06)]">
                       <button type="button" onClick={() => setOpen(isOpen ? null : k)} aria-expanded={isOpen}
@@ -326,7 +337,7 @@ type LeisureResident = { id: string; name: string; room: string | null; dept: st
 function MyLeisureResidents({ name }: { name: string }) {
   const supabase = useMemo(() => createClient(), []);
   const [list, setList] = useState<LeisureResident[] | null>(null);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState<boolean | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -346,12 +357,14 @@ function MyLeisureResidents({ name }: { name: string }) {
   }, [supabase, name]);
 
   if (!list || list.length === 0) return null;
+  // רשימה קצרה — פתוחה מההתחלה
+  const isOpen = open ?? list.length <= 12;
   const byDept = new Map<string, LeisureResident[]>();
   for (const r of list) byDept.set(r.dept, [...(byDept.get(r.dept) ?? []), r]);
 
   return (
     <section className="mb-5 overflow-hidden rounded-2xl bg-white shadow-[0_1px_2px_rgba(63,47,45,0.06)]">
-      <button type="button" onClick={() => setOpen(o => !o)} aria-expanded={open} className="flex w-full items-center gap-3 p-4 text-right hover:bg-[#FBF9F7]">
+      <button type="button" onClick={() => setOpen(!isOpen)} aria-expanded={isOpen} className="flex w-full items-center gap-3 p-4 text-right hover:bg-[#FBF9F7]">
         <Users className="h-5 w-5 shrink-0 text-[#5A826F]" />
         <span className="min-w-0 flex-1">
           <span className="block text-[17px] font-bold">המשתתפים שלי בפנאי</span>
@@ -359,7 +372,7 @@ function MyLeisureResidents({ name }: { name: string }) {
         </span>
         <span className="shrink-0 rounded-full bg-[#E3ECE7] px-2.5 py-1 text-sm font-semibold text-[#375044]">{list.length}</span>
       </button>
-      {open && (
+      {isOpen && (
         <div className="space-y-3 border-t border-[#3F2F2D]/10 px-4 py-3">
           {Array.from(byDept.entries()).map(([dept, rs]) => (
             <div key={dept || "-"}>

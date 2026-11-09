@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
-import { ResidentsList, type Registration, type LeisureOption } from "@/components/admin/residents-list"
+import { ResidentsList, type Registration, type LeisureOption, type GroupOption } from "@/components/admin/residents-list"
 import { cleanName, nameKey } from "@/lib/participants"
 
 /** כל השורות של שאילתה, בדפים של 1000 (המגבלה של שאילתה אחת) */
@@ -19,7 +19,7 @@ export default async function ResidentsPage() {
     supabase.from("residents").select("*, departments(name)").order("name"),
     supabase.from("departments").select("id, name, code").order("name"),
     allPages<any>((from, to) => supabase.from("activity_participants").select("activity_id, resident_id").order("activity_id").order("resident_id").range(from, to)),
-    allPages<any>((from, to) => supabase.from("activities").select("id, title, instructor_name, day_of_week, activity_date, department_id").eq("is_active", true).is("parent_id", null).order("id").range(from, to)),
+    allPages<any>((from, to) => supabase.from("activities").select("id, title, instructor_name, day_of_week, start_time, activity_date, department_id").eq("is_active", true).is("parent_id", null).order("id").range(from, to)),
     supabase.from("instructors").select("*"),
   ])
 
@@ -41,6 +41,29 @@ export default async function ResidentsPage() {
     if (title && !list.includes(title)) list.push(title)
   }
   const leisureOptions = Array.from(leisure.values()).sort((x, y) => x.name.localeCompare(y.name, "he"))
+
+  // קבוצתי: הפעילויות הקבועות בלוח של כל מחלקה (של מדריכות התעסוקה — בלי מפעיל/ה, ובלי פרטני)
+  const DAY_ORDER = ["א", "ב", "ג", "ד", "ה", "ו", "ש"]
+  const groupMap = new Map<string, Map<string, { title: string; when: { day: string; time: string }[] }>>()
+  for (const a of activities || []) {
+    const title = cleanName((a as any).title ?? "")
+    if (!title || (a as any).activity_date || cleanName((a as any).instructor_name ?? "") || /פרטני/.test(title)) continue
+    const dept = String((a as any).department_id ?? "")
+    if (!dept) continue
+    const byTitle = groupMap.get(dept) ?? new Map()
+    groupMap.set(dept, byTitle)
+    const opt = byTitle.get(title) ?? { title, when: [] }
+    byTitle.set(title, opt)
+    const day = String((a as any).day_of_week ?? "").replace(/['׳]/g, "")
+    opt.when.push({ day, time: String((a as any).start_time ?? "").slice(0, 5) })
+  }
+  const groupOptions: Record<string, GroupOption[]> = {}
+  for (const [dept, byTitle] of groupMap) {
+    groupOptions[dept] = Array.from(byTitle.values()).map(o => {
+      const when = o.when.sort((x, y) => DAY_ORDER.indexOf(x.day) - DAY_ORDER.indexOf(y.day) || x.time.localeCompare(y.time))
+      return { title: o.title, when: when.map(w => (w.day ? w.day + "׳" : "") + (w.time ? " " + w.time : "")).join(" · "), first: DAY_ORDER.indexOf(when[0]?.day ?? "") * 10000 + Number((when[0]?.time ?? "99:99").replace(":", "")) }
+    }).sort((x, y) => x.first - y.first || x.title.localeCompare(y.title, "he")).map(({ title, when }) => ({ title, when }))
+  }
 
   // לכל דייר: הפעילויות שהוא/היא רשום/ה אליהן בפועל (רק במחלקה שלו/ה)
   const byId = new Map((activities || []).map((a: any) => [String(a.id), a]))
@@ -66,7 +89,7 @@ export default async function ResidentsPage() {
           <p className="text-muted-foreground mt-1">{residents?.length || 0} דיירים במערכת</p>
         </div>
       </div>
-      <ResidentsList residents={residents || []} departments={departments || []} registrations={registrations} leisureOptions={leisureOptions} />
+      <ResidentsList residents={residents || []} departments={departments || []} registrations={registrations} leisureOptions={leisureOptions} groupOptions={groupOptions} />
     </div>
   )
 }

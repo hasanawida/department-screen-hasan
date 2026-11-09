@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import { Plus, Trash2, Edit2, Check, X, Upload, Loader2, CheckSquare, Square } from "lucide-react"
 import * as XLSX from "xlsx"
-import { nameKey, similarNames, syncResidentRegistrations } from "@/lib/participants"
+import { nameKey, similarNames, syncResidentRegistrations, type SyncResult } from "@/lib/participants"
 
 interface Resident {
   id: string; name: string; department_id: string | null; room_number: string | null
@@ -16,8 +16,10 @@ interface Department { id: string; name: string; code?: string | null }
 export type Registration = { title: string; instructor: string | null; day: string | null; date: string | null }
 /** אפשרות פנאי: מפעיל/ה, והפעילויות שלו/ה בכל מחלקה */
 export type LeisureOption = { name: string; titlesByDept: Record<string, string[]> }
+/** אפשרות קבוצתי: פעילות קבועה מהלוח של המחלקה, ומתי היא מתקיימת */
+export type GroupOption = { title: string; when: string }
 
-export function ResidentsList({ residents, departments, registrations = {}, leisureOptions = [] }: { residents: Resident[], departments: Department[], registrations?: Record<string, Registration[]>, leisureOptions?: LeisureOption[] }) {
+export function ResidentsList({ residents, departments, registrations = {}, leisureOptions = [], groupOptions = {} }: { residents: Resident[], departments: Department[], registrations?: Record<string, Registration[]>, leisureOptions?: LeisureOption[], groupOptions?: Record<string, GroupOption[]> }) {
   const router = useRouter()
   const [data, setData] = useState(residents)
   const [filterDept, setFilterDept] = useState("all")
@@ -37,7 +39,7 @@ export function ResidentsList({ residents, departments, registrations = {}, leis
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [isReassigning, setIsReassigning] = useState(false)
   const [reassignStats, setReassignStats] = useState<{matched: number} | null>(null)
-  const [saveMsg, setSaveMsg] = useState<{ name: string; matched: number; deptCode: string | null } | null>(null)
+  const [saveMsg, setSaveMsg] = useState<{ name: string; result: SyncResult; noActivity: string[]; deptCode: string | null } | null>(null)
   const deptCode = (id: string | null | undefined) => departments.find(d => d.id === id)?.code ?? null
 
   const filtered = filterDept === "all" ? data : data.filter(r => r.department_id === filterDept)
@@ -113,12 +115,16 @@ export function ResidentsList({ residents, departments, registrations = {}, leis
   const assignParticipants = async (residentId: string, departmentId: string | null, personal: string, group: string, leisure: string) =>
     syncResidentRegistrations(createClient(), { id: residentId, department_id: departmentId, personal_activity: personal, group_activity: group, leisure_activity: leisure })
 
+  /** מפעילים שסומנו בפנאי ואין להם (עדיין) פעילות במחלקה של הדייר */
+  const leisureWithoutActivity = (leisure: string, departmentId: string) =>
+    leisureOptions.filter(o => splitTerms(leisure).some(t => sameName(o.name, t)) && !(o.titlesByDept[departmentId]?.length)).map(o => o.name)
+
   // מוסיף פעילויות מתאימות לכל הדיירים ומנקה רישום ממחלקות אחרות. רישום שנעשה ידנית בלוח נשאר.
   const handleReassignAll = async () => {
     setIsReassigning(true)
     let totalMatched = 0
     for (const r of data) {
-      totalMatched += await assignParticipants(r.id, r.department_id, r.personal_activity || "", r.group_activity || "", r.leisure_activity || "")
+      totalMatched += (await assignParticipants(r.id, r.department_id, r.personal_activity || "", r.group_activity || "", r.leisure_activity || "")).added
     }
     setReassignStats({ matched: totalMatched })
     setIsReassigning(false)
@@ -132,7 +138,7 @@ export function ResidentsList({ residents, departments, registrations = {}, leis
     let totalSaved = 0, totalMatched = 0
     for (const r of importPreview) {
       const { data: newRes } = await supabase.from("residents").insert({ name: r.name, room_number: r.room_number || null, phone: r.phone || null, personal_activity: r.personal_activity || null, group_activity: r.group_activity || null, leisure_activity: r.leisure_activity || null, department_id: importDept, is_active: true }).select("*, departments(name)").single()
-      if (newRes) { setData(prev => [...prev, newRes]); totalSaved++; totalMatched += await assignParticipants(newRes.id, importDept, r.personal_activity, r.group_activity, r.leisure_activity) }
+      if (newRes) { setData(prev => [...prev, newRes]); totalSaved++; totalMatched += (await assignParticipants(newRes.id, importDept, r.personal_activity, r.group_activity, r.leisure_activity)).added }
     }
     setImportStats({ saved: totalSaved, matched: totalMatched })
     setImportPreview([]); setShowImport(false); setIsImporting(false)
@@ -146,8 +152,8 @@ export function ResidentsList({ residents, departments, registrations = {}, leis
     const { data: newRes } = await supabase.from("residents").insert({ name: addForm.name, room_number: addForm.room_number || null, phone: addForm.phone || null, personal_activity: addForm.personal_activity || null, group_activity: addForm.group_activity || null, leisure_activity: addForm.leisure_activity || null, department_id: addForm.department_id, is_active: true }).select("*, departments(name)").single()
     if (newRes) {
       setData([...data, newRes])
-      const matched = await assignParticipants(newRes.id, addForm.department_id, addForm.personal_activity, addForm.group_activity, addForm.leisure_activity)
-      setSaveMsg({ name: newRes.name, matched, deptCode: deptCode(addForm.department_id) })
+      const result = await assignParticipants(newRes.id, addForm.department_id, addForm.personal_activity, addForm.group_activity, addForm.leisure_activity)
+      setSaveMsg({ name: newRes.name, result, noActivity: leisureWithoutActivity(addForm.leisure_activity, addForm.department_id), deptCode: deptCode(addForm.department_id) })
     }
     setAddForm({ name: "", room_number: "", phone: "", department_id: "", personal_activity: "", group_activity: "", leisure_activity: "" })
     setShowAdd(false); setIsSaving(false); router.refresh()
@@ -168,8 +174,8 @@ export function ResidentsList({ residents, departments, registrations = {}, leis
     const supabase = createClient()
     await supabase.from("residents").update({ name: editForm.name, room_number: editForm.room_number || null, phone: editForm.phone || null, department_id: editForm.department_id || null, personal_activity: editForm.personal_activity || null, group_activity: editForm.group_activity || null, leisure_activity: editForm.leisure_activity || null }).eq("id", id)
     setData(data.map(r => r.id === id ? { ...r, ...editForm, departments: departments.find(d => d.id === editForm.department_id) ? { name: departments.find(d => d.id === editForm.department_id)!.name } : r.departments } : r))
-    const matched = await assignParticipants(id, editForm.department_id || null, editForm.personal_activity, editForm.group_activity, editForm.leisure_activity)
-    setSaveMsg({ name: editForm.name, matched, deptCode: deptCode(editForm.department_id) })
+    const result = await assignParticipants(id, editForm.department_id || null, editForm.personal_activity, editForm.group_activity, editForm.leisure_activity)
+    setSaveMsg({ name: editForm.name, result, noActivity: leisureWithoutActivity(editForm.leisure_activity, editForm.department_id), deptCode: deptCode(editForm.department_id) })
     setEditing(null); router.refresh()
   }
 
@@ -225,9 +231,14 @@ export function ResidentsList({ residents, departments, registrations = {}, leis
         <div role="status" className="bg-[#E3ECE7] rounded-2xl p-4 text-sm flex flex-wrap items-center gap-3">
           <span className="flex-1 min-w-0">
             <b>{saveMsg.name}</b> נשמר/ה.{" "}
-            {saveMsg.matched > 0
-              ? `נרשם/ה אוטומטית ${saveMsg.matched === 1 ? "לפעילות אחת" : "ל-" + saveMsg.matched + " פעילויות"} לפי הכרטיס.`
-              : "לא נמצאה פעילות במחלקה ששמה או המפעיל/ה שלה מתאימים למה שכתוב בכרטיס."}
+            {saveMsg.result.error
+              ? <span className="font-semibold text-[#9e4f4f]">הרישום לפעילויות לא נשמר: {saveMsg.result.error}</span>
+              : saveMsg.result.matched.length > 0
+                ? <>רשום/ה {saveMsg.result.matched.length === 1 ? "לפעילות אחת" : "ל-" + saveMsg.result.matched.length + " פעילויות"} במחלקה, ומופיע/ה אצל המפעילים שלהן: {saveMsg.result.matched.slice(0, 5).map(a => a.title + (a.instructor ? " (" + a.instructor + ")" : "")).join(", ")}{saveMsg.result.matched.length > 5 ? ` ועוד ${saveMsg.result.matched.length - 5}` : ""}.</>
+                : "לא נמצאה פעילות במחלקה שמתאימה למה שסומן בכרטיס."}
+            {saveMsg.noActivity.length > 0 && (
+              <> {saveMsg.noActivity.join(", ")} — עוד בלי פעילות במחלקה הזו, אבל הדייר/ת מופיע/ה אצלם ברשימה &quot;המשתתפים שלי בפנאי&quot;.</>
+            )}
           </span>
           {saveMsg.deptCode && (
             <a href={"/admin/weekly?dept=" + encodeURIComponent(saveMsg.deptCode)} className="rounded-xl bg-[#3F2F2D] px-3 py-1.5 font-semibold text-[#F6F2EE]">
@@ -297,7 +308,7 @@ export function ResidentsList({ residents, departments, registrations = {}, leis
             <input placeholder="מספר חדר" value={addForm.room_number} onChange={e => setAddForm({...addForm, room_number: e.target.value})} className="border rounded-lg px-3 py-2 text-sm" />
             <input placeholder="טלפון" value={addForm.phone} onChange={e => setAddForm({...addForm, phone: e.target.value})} className="border rounded-lg px-3 py-2 text-sm" dir="ltr" />
             <input placeholder="פעילות פרטנית" value={addForm.personal_activity} onChange={e => setAddForm({...addForm, personal_activity: e.target.value})} className="border rounded-lg px-3 py-2 text-sm col-span-2" />
-            <input placeholder="פעילות קבוצתית (אפשר כמה, בפסיק: שירה, התעמלות)" value={addForm.group_activity} onChange={e => setAddForm({...addForm, group_activity: e.target.value})} className="border rounded-lg px-3 py-2 text-sm col-span-2" />
+            <GroupPicker value={addForm.group_activity} onChange={v => setAddForm(f => ({ ...f, group_activity: v }))} options={groupOptions[addForm.department_id] ?? []} departmentId={addForm.department_id} />
             <LeisurePicker value={addForm.leisure_activity} onChange={v => setAddForm(f => ({ ...f, leisure_activity: v }))} options={leisureOptions} departmentId={addForm.department_id} />
             <p className="col-span-2 text-xs text-gray-500">בשדות הפעילות כותבים שם של פעילות (למשל: ערב שירה) או שם של מפעיל/ה. בפנאי מסמנים V ליד המפעילים. הדייר/ת יירשם/תירשם לפעילויות המתאימות במחלקה, והמפעיל/ה יראה אותו/ה ברשימה שלו/ה.</p>
             <select value={addForm.department_id} onChange={e => setAddForm({...addForm, department_id: e.target.value})} className="border rounded-lg px-3 py-2 text-sm bg-white col-span-2">
@@ -337,7 +348,7 @@ export function ResidentsList({ residents, departments, registrations = {}, leis
                         <input placeholder="חדר" value={editForm.room_number} onChange={e => setEditForm({...editForm, room_number: e.target.value})} className="border rounded-lg px-3 py-1.5 text-sm" />
                         <input placeholder="טלפון" value={editForm.phone} onChange={e => setEditForm({...editForm, phone: e.target.value})} className="border rounded-lg px-3 py-1.5 text-sm" dir="ltr" />
                         <input placeholder="פעילות פרטנית" value={editForm.personal_activity} onChange={e => setEditForm({...editForm, personal_activity: e.target.value})} className="border rounded-lg px-3 py-1.5 text-sm col-span-2" />
-                        <input placeholder="פעילות קבוצתית (אפשר כמה, בפסיק: שירה, התעמלות)" value={editForm.group_activity} onChange={e => setEditForm({...editForm, group_activity: e.target.value})} className="border rounded-lg px-3 py-1.5 text-sm col-span-2" />
+                        <GroupPicker value={editForm.group_activity} onChange={v => setEditForm(f => ({ ...f, group_activity: v }))} options={groupOptions[editForm.department_id] ?? []} departmentId={editForm.department_id} />
                         <LeisurePicker value={editForm.leisure_activity} onChange={v => setEditForm(f => ({ ...f, leisure_activity: v }))} options={leisureOptions} departmentId={editForm.department_id} />
                         <p className="col-span-2 text-xs text-gray-500">בשדות פרטני וקבוצתי: שם של פעילות או של מפעיל/ה, כמה — בפסיק. בפנאי: V ליד המפעילים.</p>
                         <select value={editForm.department_id} onChange={e => setEditForm({...editForm, department_id: e.target.value})} className="border rounded-lg px-3 py-1.5 text-sm bg-white col-span-2">
@@ -454,6 +465,76 @@ function LeisurePicker({ value, onChange, options, departmentId }: {
       )}
       <div className="mt-2 flex gap-2">
         <input value={extra} onChange={e => setExtra(e.target.value)} placeholder="פנאי אחר (לא מפעיל/ה)" className="min-w-0 flex-1 rounded-lg border px-2 py-1 text-sm"
+          onKeyDown={e => { if (e.key === "Enter" && extra.trim()) { e.preventDefault(); save(chosen, [...others, extra.trim()]); setExtra("") } }} />
+        <button type="button" disabled={!extra.trim()} onClick={() => { save(chosen, [...others, extra.trim()]); setExtra("") }}
+          className="rounded-lg bg-gray-100 px-3 py-1 text-sm hover:bg-gray-200 disabled:opacity-50">הוספה</button>
+      </div>
+    </div>
+  )
+}
+
+/* ───────────── קבוצתי: V מתוך הפעילויות בלוח של המחלקה ───────────── */
+
+/** הפעילויות שסומנו (לפי השם המלא, גם אם יש בו פסיק), ומה שנכתב ידנית */
+function parseGroup(value: string, titles: string[]) {
+  let rest = value
+  const found = new Set<string>()
+  for (const t of [...titles].sort((a, b) => b.length - a.length)) {
+    if (t && rest.includes(t)) { found.add(t); rest = rest.split(t).join(",") }
+  }
+  const others = rest.split(/[,،;\n]+/)
+    .map(x => x.replace(/^[\s/:\-–]+|[\s/:\-–]+$/g, "").replace(/\s+/g, " ").trim())
+    .filter(x => x.length >= 2)
+  return { chosen: titles.filter(t => found.has(t)), others }
+}
+
+function GroupPicker({ value, onChange, options, departmentId }: {
+  value: string
+  onChange: (v: string) => void
+  options: GroupOption[]
+  departmentId: string
+}) {
+  const [extra, setExtra] = useState("")
+  const titles = options.map(o => o.title)
+  const { chosen, others } = parseGroup(value, titles)
+  const save = (ch: string[], rest: string[]) => onChange([...titles.filter(t => ch.includes(t)), ...rest].join(", "))
+  const toggle = (t: string) => save(chosen.includes(t) ? chosen.filter(x => x !== t) : [...chosen, t], others)
+
+  return (
+    <div className="col-span-2 rounded-lg border border-blue-200 bg-white p-2">
+      <div className="mb-1.5 text-xs font-semibold text-blue-700">קבוצתי — V ליד הפעילויות מהלוח של המחלקה</div>
+      {!departmentId ? (
+        <p className="px-1 text-xs text-gray-500">בוחרים מחלקה, ומופיעות כאן הפעילויות מהלוח שלה.</p>
+      ) : options.length === 0 ? (
+        <p className="px-1 text-xs text-gray-500">אין עדיין פעילויות קבוצתיות קבועות בלוח של המחלקה.</p>
+      ) : (
+        <div className="grid max-h-60 gap-1 overflow-y-auto sm:grid-cols-2">
+          {options.map(o => {
+            const on = chosen.includes(o.title)
+            return (
+              <label key={o.title} className={"flex cursor-pointer items-start gap-2 rounded-md px-2 py-1.5 text-sm " + (on ? "bg-blue-50" : "hover:bg-gray-50")}>
+                <input type="checkbox" checked={on} onChange={() => toggle(o.title)} className="mt-0.5 h-4 w-4 shrink-0 accent-blue-600" />
+                <span className="min-w-0">
+                  <span className="block font-medium">{o.title}</span>
+                  {o.when && <span className="block text-xs text-gray-500" dir="rtl">{o.when}</span>}
+                </span>
+              </label>
+            )
+          })}
+        </div>
+      )}
+      {others.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1">
+          {others.map(t => (
+            <span key={t} className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-xs text-blue-700">
+              {t}
+              <button type="button" aria-label={"הסרת " + t} onClick={() => save(chosen, others.filter(x => x !== t))} className="hover:text-red-600"><X className="h-3 w-3" /></button>
+            </span>
+          ))}
+        </div>
+      )}
+      <div className="mt-2 flex gap-2">
+        <input value={extra} onChange={e => setExtra(e.target.value)} placeholder="פעילות אחרת (לא מהרשימה)" className="min-w-0 flex-1 rounded-lg border px-2 py-1 text-sm"
           onKeyDown={e => { if (e.key === "Enter" && extra.trim()) { e.preventDefault(); save(chosen, [...others, extra.trim()]); setExtra("") } }} />
         <button type="button" disabled={!extra.trim()} onClick={() => { save(chosen, [...others, extra.trim()]); setExtra("") }}
           className="rounded-lg bg-gray-100 px-3 py-1 text-sm hover:bg-gray-200 disabled:opacity-50">הוספה</button>

@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { CheckCircle, Settings, Bell, Image as ImageIcon, Plus, Trash2, X, Palette, Megaphone, ArrowRight, ArrowLeft, Loader2, ImagePlus } from "lucide-react";
+import { CheckCircle, Settings, Image as ImageIcon, X, Palette, Megaphone, ArrowRight, ArrowLeft, Loader2, ImagePlus } from "lucide-react";
 import Link from "next/link";
 import { refreshDepartmentScreens, uploadImage } from "@/lib/screens";
 import DepartmentDisplay from "@/components/display/department-display";
@@ -51,18 +51,15 @@ type BoolKey = Exclude<keyof DisplaySettings, "ticker_source" | "view_interval_s
 
 const SECTION_LABELS: { key: BoolKey; label: string; desc: string }[] = [
   { key: "show_weekly",        label: "לוח שבועי",       desc: "מוצג ראשון בסבב" },
-  { key: "show_daily",         label: "לוח היום",        desc: "מה קורה עכשיו ובהמשך היום, וההודעות החשובות" },
+  { key: "show_daily",         label: "לוח היום",        desc: "מה קורה עכשיו ובהמשך היום" },
   { key: "show_notice",        label: "מודעה",           desc: "כתב מימין ותמונות מתחלפות משמאל (בלשונית מודעה)" },
   { key: "show_physio",        label: "פיזיותרפיה",      desc: "מי מהמחלקה מוזמן היום, ומתי" },
   { key: "show_menu_today",    label: "תפריט היום",      desc: "הארוחות של היום, בגדול" },
   { key: "show_menu",          label: "תפריט שבועי",     desc: "מה שהדיאטנית כתבה לשבוע" },
   { key: "show_media",         label: "תמונות ו-PDF",    desc: "הקבצים שהועלו בלשונית מדיה" },
   { key: "show_ticker",        label: "שורת חדשות",      desc: "כותרות N12 בתחתית המסך (כותרות קשות מסוננות)" },
-  { key: "show_announcements", label: "הודעות חשובות",   desc: "בלוח היום (בלשונית הודעות)" },
 ];
 
-type Announcement = { id: string; title: string; content: string; is_active: boolean };
-type Ticker = { id: string; message: string; display_order: number; is_active: boolean };
 type Media = { id: string; media_url: string; media_type: string; display_order: number };
 type Msg = { ok: boolean; text: string } | null;
 
@@ -84,9 +81,6 @@ export default function DisplaySettingsPage({ params }: { params: { code: string
   const [saved, setSaved] = useState(false);
   const [notFound, setNotFound] = useState(false);
 
-  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
-  const [newAnn, setNewAnn] = useState({ title: "", content: "" });
-  const [tickers, setTickers] = useState<Ticker[]>([]);
 
   const [media, setMedia] = useState<Media[]>([]);
   const [isUploading, setIsUploading] = useState(false);
@@ -119,20 +113,16 @@ export default function DisplaySettingsPage({ params }: { params: { code: string
       setDeptName(dept.name);
       setDeptColor(dept.color ?? null);
 
-      const [ss, anns, tks, md] = await Promise.all([
+      const [ss, md] = await Promise.all([
         supabase.from("screen_settings").select("id, display_settings").eq("department_id", dept.id).maybeSingle(),
-        supabase.from("announcements").select("id, title, content, is_active").eq("department_id", dept.id).order("created_at", { ascending: false }),
-        supabase.from("ticker_messages").select("id, message, display_order, is_active").eq("department_id", dept.id).order("display_order", { ascending: true }),
         supabase.from("department_media").select("id, media_url, media_type, display_order").eq("department_id", dept.id).eq("is_active", true).order("display_order", { ascending: true }),
       ]);
 
       const ds = (ss.data?.display_settings ?? {}) as Record<string, any>;
       setRawDisplay(ds);
-      // "רק הודעות" מפעם = בלי חדשות (ההודעות עברו ללוח "היום")
+      // "רק הודעות" מפעם = בלי חדשות
       setSettings({ ...DEFAULT, ...ds, show_notice: ds.show_notice !== false, show_ticker: (ds.show_ticker ?? true) !== false && ds.ticker_source !== "messages" });
       setNotice((ds.notice ?? {}) as NoticeContent);
-      setAnnouncements(anns.data ?? []);
-      setTickers(tks.data ?? []);
       setMedia(md.data ?? []);
       setLoading(false);
     }
@@ -158,45 +148,6 @@ export default function DisplaySettingsPage({ params }: { params: { code: string
     refreshDepartmentScreens(supabase, deptId, 0);
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
-  }
-
-  /* ── הודעות חשובות (בלוח היום) ── */
-  async function addAnnouncement() {
-    if (!newAnn.title.trim() && !newAnn.content.trim()) return;
-    const { data, error } = await supabase.from("announcements").insert({
-      department_id: deptId,
-      title: newAnn.title.trim() || "הודעה",
-      content: newAnn.content.trim() || newAnn.title.trim(),
-      is_active: true,
-    }).select().single();
-    if (error) { alert("לא נשמר: " + error.message); return; }
-    if (data) setAnnouncements((a) => [data as Announcement, ...a]);
-    setNewAnn({ title: "", content: "" });
-    refreshDepartmentScreens(supabase, deptId);
-  }
-
-  async function toggleAnnouncement(id: string, cur: boolean) {
-    await supabase.from("announcements").update({ is_active: !cur }).eq("id", id);
-    setAnnouncements((a) => a.map((x) => (x.id === id ? { ...x, is_active: !cur } : x)));
-    refreshDepartmentScreens(supabase, deptId);
-  }
-
-  async function deleteAnnouncement(id: string) {
-    await supabase.from("announcements").delete().eq("id", id);
-    setAnnouncements((a) => a.filter((x) => x.id !== id));
-    refreshDepartmentScreens(supabase, deptId);
-  }
-
-  async function toggleTicker(id: string, cur: boolean) {
-    await supabase.from("ticker_messages").update({ is_active: !cur }).eq("id", id);
-    setTickers((t) => t.map((x) => (x.id === id ? { ...x, is_active: !cur } : x)));
-    refreshDepartmentScreens(supabase, deptId);
-  }
-
-  async function deleteTicker(id: string) {
-    await supabase.from("ticker_messages").delete().eq("id", id);
-    setTickers((t) => t.filter((x) => x.id !== id));
-    refreshDepartmentScreens(supabase, deptId);
   }
 
   /* ── מדיה: תמונות ו-PDF בסבב ── */
@@ -358,10 +309,9 @@ export default function DisplaySettingsPage({ params }: { params: { code: string
         </div>
 
         <Tabs defaultValue="settings" className="w-full">
-          <TabsList className="grid w-full grid-cols-5 h-auto">
+          <TabsList className="grid w-full grid-cols-4 h-auto">
             <TabsTrigger value="settings" className="gap-2 py-2"><Settings className="h-4 w-4" />הגדרות</TabsTrigger>
             <TabsTrigger value="design" className="gap-2 py-2"><Palette className="h-4 w-4" />הלוח</TabsTrigger>
-            <TabsTrigger value="announcements" className="gap-2 py-2"><Bell className="h-4 w-4" />הודעות</TabsTrigger>
             <TabsTrigger value="notice" className="gap-2 py-2"><Megaphone className="h-4 w-4" />מודעה</TabsTrigger>
             <TabsTrigger value="media" className="gap-2 py-2"><ImageIcon className="h-4 w-4" />מדיה</TabsTrigger>
           </TabsList>
@@ -417,51 +367,6 @@ export default function DisplaySettingsPage({ params }: { params: { code: string
                   <Palette className="h-5 w-5" />
                   פתיחת עורך הלוח השבועי
                 </Link>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* ===== הודעות חשובות ===== */}
-          <TabsContent value="announcements" className="mt-4 space-y-4">
-            <Card className="rounded-2xl border-0 shadow-md">
-              <CardContent className="p-6 space-y-3">
-                <h2 className="text-xl font-bold">הודעה חשובה חדשה</h2>
-                <p className="text-sm text-slate-500">ההודעות מוצגות בלוח &quot;היום&quot;, שתיים בכל פעם (ואם יש יותר — מתחלפות). שורת הרצה בתחתית היא לחדשות בלבד.</p>
-                <Input placeholder="כותרת (לא חובה)" value={newAnn.title} onChange={(e) => setNewAnn({ ...newAnn, title: e.target.value })} />
-                <Textarea placeholder="תוכן ההודעה" value={newAnn.content} onChange={(e) => setNewAnn({ ...newAnn, content: e.target.value })} rows={3} />
-                <Button onClick={addAnnouncement} className="gap-2"><Plus className="h-4 w-4" /> הוספת הודעה</Button>
-                {!settings.show_daily || !settings.show_announcements ? (
-                  <p className="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                    כרגע ההודעות לא מוצגות: צריך להפעיל &quot;לוח היום&quot; ו&quot;הודעות חשובות&quot; בלשונית הגדרות.
-                  </p>
-                ) : null}
-              </CardContent>
-            </Card>
-
-            <Card className="rounded-2xl border-0 shadow-md">
-              <CardContent className="p-6 space-y-2">
-                <h2 className="text-xl font-bold mb-2">הודעות ({announcements.length + tickers.length})</h2>
-                {announcements.length + tickers.length === 0 && <p className="text-slate-500 text-center py-4">אין הודעות</p>}
-                {announcements.map((a) => (
-                  <div key={a.id} className="flex items-center gap-3 rounded-xl border p-3">
-                    <Switch checked={a.is_active} onCheckedChange={() => toggleAnnouncement(a.id, a.is_active)} />
-                    <div className="flex-1 min-w-0">
-                      {a.title && a.title !== "הודעה" && <p className="font-semibold truncate">{a.title}</p>}
-                      <p className="text-sm text-slate-600 truncate">{a.content}</p>
-                    </div>
-                    <Button variant="ghost" size="sm" onClick={() => deleteAnnouncement(a.id)} aria-label="מחיקה"><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                  </div>
-                ))}
-                {tickers.map((t) => (
-                  <div key={t.id} className="flex items-center gap-3 rounded-xl border p-3">
-                    <Switch checked={t.is_active} onCheckedChange={() => toggleTicker(t.id, t.is_active)} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-slate-600 truncate">{t.message}</p>
-                      <p className="text-xs text-slate-400">הודעה קצרה (הייתה בשורת הרצה)</p>
-                    </div>
-                    <Button variant="ghost" size="sm" onClick={() => deleteTicker(t.id)} aria-label="מחיקה"><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                  </div>
-                ))}
               </CardContent>
             </Card>
           </TabsContent>

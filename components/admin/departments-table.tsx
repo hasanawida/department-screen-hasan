@@ -155,7 +155,7 @@ export function DepartmentsTable({ departments }: DepartmentsTableProps) {
           <DialogHeader>
             <DialogTitle>מחיקת מחלקה</DialogTitle>
             <DialogDescription>
-              האם אתה בטוח שברצונך למחוק מחלקה זו? פעולה זו תמחק גם את כל הפעילויות וההודעות הקשורות.
+              האם אתה בטוח שברצונך למחוק מחלקה זו? פעולה זו תמחק גם את כל הפעילויות הקשורות.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2">

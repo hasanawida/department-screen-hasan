@@ -27,6 +27,8 @@ type OrientationSettings = {
   show_weather: boolean;
   show_anchors: boolean;
   display_orientation: "landscape" | "portrait";
+  show_logo: boolean;
+  show_department: boolean;
 };
 
 const DEFAULT_SETTINGS: OrientationSettings = {
@@ -41,6 +43,8 @@ const DEFAULT_SETTINGS: OrientationSettings = {
   show_weather: true,
   show_anchors: true,
   display_orientation: "landscape",
+  show_logo: true,
+  show_department: true,
 };
 
 const LANG_LABELS: Record<string, string> = {
@@ -49,10 +53,11 @@ const LANG_LABELS: Record<string, string> = {
 const ALL_LANGS = ["he", "ar", "ru", "en"];
 
 const SECTION_LABELS: { key: keyof OrientationSettings; label: string }[] = [
+  { key: "show_logo",         label: "הלוגו של אשכולות (למעלה)" },
+  { key: "show_department",   label: "שם המחלקה (למעלה)" },
   { key: "show_activities",   label: "פעילויות (עכשיו / בהמשך הקרוב)" },
   { key: "show_menu",         label: "תפריט היום" },
   { key: "show_staff",        label: "הצוות היום" },
-  { key: "show_announcement", label: "הודעה חשובה" },
   { key: "show_calming",      label: "מסר מרגיע" },
   { key: "show_hebrew_date",  label: "תאריך עברי" },
   { key: "show_weather",      label: "מזג אוויר" },

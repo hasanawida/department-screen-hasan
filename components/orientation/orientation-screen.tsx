@@ -5,6 +5,7 @@ import {
   Sun, CloudSun, Sunset, MoonStar, HeartHandshake,
   Moon, CloudMoon, Cloud, CloudFog, CloudDrizzle, CloudRain, CloudSnow, CloudLightning,
 } from "lucide-react";
+import { EshkolotLogo } from "./eshkolot-logo";
 import { orientationColor, orientationTint } from "@/lib/orientation-color";
 import styles from "./orientation-screen.module.css";
 
@@ -22,6 +23,10 @@ type OrientationSettings = {
   show_weather: boolean;
   show_anchors: boolean;
   display_orientation?: "landscape" | "portrait";
+  /** הלוגו של אשכולות למעלה (ברירת מחדל: מוצג) */
+  show_logo?: boolean;
+  /** שם המחלקה למעלה (ברירת מחדל: מוצג) */
+  show_department?: boolean;
 };
 
 export type WeatherNow = { temp: number; code: number; isDay: boolean };
@@ -275,6 +280,7 @@ function FitText({ base, className, children, watch }: { base: number; className
 /* ───────────── המסך ───────────── */
 
 export default function OrientationScreen({
+  departmentName, departmentNameAr, departmentNameRu, departmentNameEn,
   departmentColor,
   settings: settingsProp,
   isPortrait: isPortraitProp,
@@ -344,8 +350,22 @@ export default function OrientationScreen({
   const accent = orientationColor(departmentColor);
   const stageStyle = { "--fit": fit, "--sage": accent, "--sage-tint": orientationTint(accent) } as React.CSSProperties;
 
+  // לוגו ושם המחלקה — לפי ההגדרות של המסך
+  const showLogo = s.show_logo !== false;
+  const showDept = s.show_department !== false;
+  const deptNameByLang: Record<Lang, string> = {
+    he: departmentName,
+    ar: departmentNameAr || departmentName,
+    ru: departmentNameRu || departmentName,
+    en: departmentNameEn || departmentName,
+  };
+
   if (!now) {
-    return <div className={styles.stage} data-layout={layout} style={stageStyle} dir="rtl" />;
+    return (
+      <div className={styles.stage} data-layout={layout} style={stageStyle} dir="rtl">
+        {showLogo && <EshkolotLogo className={styles.logo} />}
+      </div>
+    );
   }
 
   const tod = getTimeOfDay(now.getHours());
@@ -374,6 +394,17 @@ export default function OrientationScreen({
 
         {/* בלי לוגו ובלי שם מחלקה — רק הנקודות של השפות (כשיש כמה) */}
         <header className={styles.header}>
+          {showLogo && <EshkolotLogo className={styles.logo} />}
+          {showLogo && showDept && <span className={styles.headerRule} aria-hidden="true" />}
+          {showDept && (
+            <div className={styles.dept} dir={t.dir} lang={lang}>
+              <span className={styles.label}>{t.department}</span>
+              <span className={styles.deptValue}>
+                <span className={styles.deptDot} style={{ backgroundColor: accent }} aria-hidden="true" />
+                {deptNameByLang[lang]}
+              </span>
+            </div>
+          )}
           {langs.length > 1 && (
             <div className={styles.langDots} aria-hidden="true">
               {langs.map((l, i) => (

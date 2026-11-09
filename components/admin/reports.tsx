@@ -1,9 +1,11 @@
 "use client";
 
-// דוחות נוכחות: פעילויות (מי השתתף, לפי פעילות ולפי דייר, ומה לא סומן) ופיזיותרפיה (מי הוזמן ומי הגיע).
-// אפשר להדפיס (רק הדוח, בלי התפריט) או לשמור לאקסל.
+// דוחות נוכחות, כל תחום בנפרד:
+// תעסוקה — פעילויות של מדריכות התעסוקה (בלי מפעיל/ה), מפעילים — פעילויות עם מפעיל/ה,
+// פיזיותרפיה — מי הוזמן ומי הגיע. אפשר להדפיס (רק הדוח, בלי התפריט) או לשמור לאקסל.
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { FileSpreadsheet, Loader2, Printer } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { EshkolotLogo } from "@/components/orientation/eshkolot-logo";
@@ -11,6 +13,7 @@ import { btnGhost, btnPrimary, inputCls } from "@/components/admin/brand-ui";
 import { DAY_NAMES, addDaysISO, dayIndexOf, israelDateISO, israelTimeHM, weekStartISO } from "@/lib/week";
 import { cleanName, nameKey } from "@/lib/participants";
 import { buildOccurrences, fetchAll, fullDate, loadAttendance, type Occurrence } from "@/lib/reports";
+import { REPORT_KINDS, type ReportKind } from "@/lib/report-kinds";
 
 type Dept = { id: string; name: string; code: string | null; color: string | null };
 type Resident = { id: string; name: string; room_number: string | null; department_id: string | null; is_active: boolean | null };
@@ -20,7 +23,6 @@ type PhysioRow = {
 };
 type Tab = "activities" | "physio";
 type Preset = "today" | "week" | "lastWeek" | "month" | "lastMonth" | "custom";
-const NO_INSTRUCTOR = "__none";
 
 const PRESETS: { id: Preset; label: string }[] = [
   { id: "today", label: "היום" },
@@ -51,10 +53,11 @@ const dayName = (iso: string) => DAY_NAMES[dayIndexOf(iso)];
 const th = "border-b border-[#3F2F2D]/15 px-2 py-2 text-right text-[13px] font-bold text-[#5A826F] print:px-1 print:py-1 print:text-[10px] print:text-black";
 const td = "border-b border-[#3F2F2D]/10 px-2 py-2 align-top text-[14px] print:px-1 print:py-1 print:text-[10.5px]";
 
-export default function Reports() {
+export default function Reports({ kind = "occupation" }: { kind?: ReportKind }) {
   const supabase = useMemo(() => createClient(), []);
   const today = israelDateISO();
-  const [tab, setTab] = useState<Tab>("activities");
+  const tab: Tab = kind === "physio" ? "physio" : "activities";
+  const meta = REPORT_KINDS.find(k => k.kind === kind) ?? REPORT_KINDS[0];
   const [preset, setPreset] = useState<Preset>("week");
   const [range, setRange] = useState<[string, string]>(() => presetRange("week", israelDateISO()));
   const [deptId, setDeptId] = useState("");
@@ -114,9 +117,11 @@ export default function Reports() {
   const resById = useMemo(() => new Map(residents.map(r => [r.id, r])), [residents]);
 
   /* ── פעילויות ── */
-  const instructors = useMemo(() => Array.from(new Set(occ.map(o => o.instructor).filter(Boolean))).sort((a, b) => a.localeCompare(b, "he")), [occ]);
-  const shownOcc = useMemo(() => occ.filter(o =>
-    !instructor || (instructor === NO_INSTRUCTOR ? !o.instructor : nameKey(o.instructor) === nameKey(instructor))), [occ, instructor]);
+  // תעסוקה — רק פעילויות בלי מפעיל/ה; מפעילים — רק פעילויות עם מפעיל/ה (ואפשר לבחור מפעיל/ה)
+  const domainOcc = useMemo(() => occ.filter(o => (kind === "instructors" ? !!o.instructor : !o.instructor)), [occ, kind]);
+  const instructors = useMemo(() => Array.from(new Set(domainOcc.map(o => o.instructor).filter(Boolean))).sort((a, b) => a.localeCompare(b, "he")), [domainOcc]);
+  const shownOcc = useMemo(() => domainOcc.filter(o =>
+    kind !== "instructors" || !instructor || nameKey(o.instructor) === nameKey(instructor)), [domainOcc, instructor, kind]);
   const unmarked = shownOcc.filter(o => o.attended.length === 0 && !o.removed);
   const marksCount = shownOcc.reduce((n, o) => n + o.attended.length, 0);
   const uniqueAttendees = new Set(shownOcc.flatMap(o => o.attended.map(a => a.id ?? "name:" + a.name))).size;
@@ -202,7 +207,7 @@ export default function Reports() {
     const url = URL.createObjectURL(new Blob([bytes], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${tab === "activities" ? "נוכחות-בפעילויות" : "פיזיותרפיה"}-${from}-${to}.xlsx`;
+    a.download = `נוכחות-${meta.label}-${from}-${to}.xlsx`;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -210,10 +215,10 @@ export default function Reports() {
   }
 
   const rangeText = from === to ? `${dayName(from)}, ${fullDate(from)}` : `${fullDate(from)} עד ${fullDate(to)}`;
-  const title = tab === "activities" ? "דוח נוכחות בפעילויות" : "דוח פיזיותרפיה";
+  const title = meta.title;
   const filtersText = [
     chosenDept ? "מחלקה: " + chosenDept.name : "כל המחלקות",
-    tab === "activities" && instructor ? (instructor === NO_INSTRUCTOR ? "מדריכות תעסוקה" : "מפעיל/ה: " + instructor) : "",
+    kind === "instructors" && instructor ? "מפעיל/ה: " + instructor : "",
   ].filter(Boolean).join(", ");
 
   return (
@@ -230,8 +235,8 @@ export default function Reports() {
 
         <div className="mb-6 flex flex-wrap items-end justify-between gap-4 print:hidden">
           <div>
-            <h1 className="text-3xl font-extrabold tracking-tight">דוחות</h1>
-            <p className="mt-1 text-[15px] text-[#3F2F2D]/65">מי השתתף בפעילויות ומי הגיע לפיזיותרפיה, לפי תקופה ומחלקה.</p>
+            <h1 className="text-3xl font-extrabold tracking-tight">{meta.title}</h1>
+            <p className="mt-1 text-[15px] text-[#3F2F2D]/65">{meta.about} לפי תקופה ומחלקה.</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <button type="button" className={btnGhost} onClick={exportExcel} disabled={loading}><FileSpreadsheet className="h-4 w-4" /> שמירה לאקסל</button>
@@ -241,12 +246,12 @@ export default function Reports() {
 
         {/* בחירות */}
         <section className="mb-5 space-y-4 rounded-2xl bg-white p-5 shadow-[0_1px_2px_rgba(63,47,45,0.06)] print:hidden">
-          <div className="flex flex-wrap gap-1 rounded-xl bg-[#F6F2EE] p-1 text-sm font-semibold sm:inline-flex" role="tablist" aria-label="סוג הדוח">
-            {([["activities", "נוכחות בפעילויות"], ["physio", "פיזיותרפיה"]] as [Tab, string][]).map(([id, label]) => (
-              <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => setTab(id)}
-                className={"rounded-lg px-4 py-2 " + (tab === id ? "bg-white shadow-sm" : "text-[#3F2F2D]/60")}>{label}</button>
+          <nav className="flex flex-wrap gap-1 rounded-xl bg-[#F6F2EE] p-1 text-sm font-semibold sm:inline-flex" aria-label="תחום">
+            {REPORT_KINDS.map(k => (
+              <Link key={k.kind} href={`/admin/reports/${k.kind}`} aria-current={kind === k.kind ? "page" : undefined}
+                className={"rounded-lg px-4 py-2 " + (kind === k.kind ? "bg-white shadow-sm" : "text-[#3F2F2D]/60 hover:text-[#3F2F2D]")}>{k.label}</Link>
             ))}
-          </div>
+          </nav>
 
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-sm font-semibold text-[#5A826F]">תקופה:</span>
@@ -273,12 +278,11 @@ export default function Reports() {
                 {depts.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
               </select>
             </label>
-            {tab === "activities" && (
+            {kind === "instructors" && (
               <label>
                 <span className="mb-1 block text-sm font-semibold text-[#5A826F]">מפעיל/ה</span>
                 <select className={inputCls} value={instructor} onChange={e => setInstructor(e.target.value)}>
-                  <option value="">כולם</option>
-                  <option value={NO_INSTRUCTOR}>מדריכות תעסוקה (בלי מפעיל/ה)</option>
+                  <option value="">כל המפעילים</option>
                   {instructors.map(n => <option key={n} value={n}>{n}</option>)}
                 </select>
               </label>
@@ -312,7 +316,7 @@ export default function Reports() {
             {actView === "byActivity" && (
               <Table empty="אין פעילויות שהתקיימו בתקופה הזו." rows={shownOcc.length} head={
                 <tr>
-                  <th className={th}>תאריך</th><th className={th}>שעה</th><th className={th}>פעילות</th><th className={th}>מפעיל/ה</th>
+                  <th className={th}>תאריך</th><th className={th}>שעה</th><th className={th}>פעילות</th>{kind === "instructors" && <th className={th}>מפעיל/ה</th>}
                   {!deptId && <th className={th}>מחלקה</th>}
                   <th className={th}>רשומים</th><th className={th}>השתתפו</th><th className={th + " w-[38%]"}>מי השתתף</th>
                 </tr>
@@ -322,7 +326,7 @@ export default function Reports() {
                     <td className={td + " whitespace-nowrap"}>{dayName(o.date)}, {fullDate(o.date)}</td>
                     <td className={td + " tabular-nums"} dir="ltr">{o.time}</td>
                     <td className={td + " font-semibold"}>{o.title}{o.removed && <span className="font-normal text-[#3F2F2D]/55"> (כבר לא בלוח)</span>}</td>
-                    <td className={td}>{o.instructor || <span className="text-[#3F2F2D]/55">מדריכות תעסוקה</span>}</td>
+                    {kind === "instructors" && <td className={td}>{o.instructor}</td>}
                     {!deptId && <td className={td}>{deptName(o.departmentId)}</td>}
                     <td className={td + " tabular-nums"}>{o.registered.length || ""}</td>
                     <td className={td + " font-bold tabular-nums"}>{o.attended.length || ""}</td>
@@ -359,7 +363,7 @@ export default function Reports() {
             {actView === "unmarked" && (
               <Table empty="בכל הפעילויות שהתקיימו סומנה נוכחות." rows={unmarked.length} head={
                 <tr>
-                  <th className={th}>תאריך</th><th className={th}>שעה</th><th className={th}>פעילות</th><th className={th}>מפעיל/ה</th>
+                  <th className={th}>תאריך</th><th className={th}>שעה</th><th className={th}>פעילות</th>{kind === "instructors" && <th className={th}>מפעיל/ה</th>}
                   {!deptId && <th className={th}>מחלקה</th>}
                 </tr>
               }>
@@ -368,14 +372,16 @@ export default function Reports() {
                     <td className={td + " whitespace-nowrap"}>{dayName(o.date)}, {fullDate(o.date)}</td>
                     <td className={td + " tabular-nums"} dir="ltr">{o.time}</td>
                     <td className={td + " font-semibold"}>{o.title}</td>
-                    <td className={td}>{o.instructor || "מדריכות תעסוקה"}</td>
+                    {kind === "instructors" && <td className={td}>{o.instructor}</td>}
                     {!deptId && <td className={td}>{deptName(o.departmentId)}</td>}
                   </tr>
                 ))}
               </Table>
             )}
             <p className="mt-3 text-sm text-[#3F2F2D]/60 print:hidden">
-              הנוכחות מסומנת בקישור האישי של כל מפעיל/ה (בעמוד המפעילים), ובקישור של המחלקה למדריכות התעסוקה.
+              {kind === "instructors"
+                ? "הנוכחות מסומנת בקישור האישי של כל מפעיל/ה (בעמוד המפעילים)."
+                : "הנוכחות מסומנת בקישור של המחלקה למדריכות התעסוקה (בעמוד מדריכות תעסוקה)."}
             </p>
           </>
         )}

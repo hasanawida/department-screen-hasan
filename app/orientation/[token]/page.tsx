@@ -90,8 +90,11 @@ export default async function OrientationPage({ params }: any) {
 
   const settings = { ...DEFAULT_SETTINGS, ...(dept.orientation_settings ?? {}) };
 
-  // שם המחלקה כבר לא מוצג במסך — לא צריך לתרגם אותו
-  const translations = { name_ar: dept.name_ar, name_ru: dept.name_ru, name_en: dept.name_en };
+  // שם המחלקה בשפות האחרות — מתורגם פעם אחת ונשמר (רק כשהשם מוצג במסך)
+  let translations = { name_ar: dept.name_ar, name_ru: dept.name_ru, name_en: dept.name_en };
+  if ((settings as any).show_department !== false && (!dept.name_ar || !dept.name_ru || !dept.name_en)) {
+    translations = await translateDepartmentName(dept.id, dept.name);
+  }
 
   // התאריך של היום לפי שעון ישראל (השרת של Vercel עובד ב-UTC, ובין חצות ל-3 לפנות בוקר היה מציג את פעילויות אתמול)
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jerusalem" }).format(new Date());

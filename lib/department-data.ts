@@ -22,10 +22,8 @@ export async function loadDepartmentDisplay(supabase: SupabaseClient, code: stri
   const weekStart = weekStartISO(today);
   const weekDates = weekDatesISO(weekStart);
 
-  const [acts, ann, tick, ss, media, topic, menuRows, physio, allSettings] = await Promise.all([
+  const [acts, ss, media, topic, menuRows, physio, allSettings] = await Promise.all([
     supabase.from("activities").select("*").eq("department_id", department.id).eq("is_active", true),
-    supabase.from("announcements").select("title, content, is_active, start_date, end_date").eq("department_id", department.id).eq("is_active", true),
-    supabase.from("ticker_messages").select("message, display_order").or(`department_id.eq.${department.id},is_global.eq.true`).eq("is_active", true).order("display_order", { ascending: true }),
     supabase.from("screen_settings").select("display_settings, media_url, media_type").eq("department_id", department.id).maybeSingle(),
     supabase.from("department_media").select("media_url, media_type").eq("department_id", department.id).eq("is_active", true).order("display_order", { ascending: true }).limit(10),
     resolveTopic(supabase, department.id, weekStart),
@@ -39,18 +37,13 @@ export async function loadDepartmentDisplay(supabase: SupabaseClient, code: stri
   const settings = displaySettings(ss.data?.display_settings);
   const board = weeklyBoardSettings(settings.weekly_board);
 
-  // הודעות חשובות — מוצגות בלוח "היום" (שורת הרצה היא לחדשות בלבד)
-  const messages = Array.from(new Set([
-    ...(ann.data ?? [])
-      .filter((a: any) => (!a.start_date || a.start_date <= today) && (!a.end_date || a.end_date >= today))
-      .map((a: any) => String(a.content || a.title || "").trim()),
-    ...(tick.data ?? []).map((t: any) => String(t.message ?? "").trim()),
-  ].filter(Boolean)));
+  // ההודעות החשובות הוסרו (יש מסך מודעה)
+  const messages: string[] = [];
 
   const mediaList = (media.data ?? []).map((m: any) => ({ url: m.media_url, type: m.media_type || "image" }));
   if (mediaList.length === 0 && ss.data?.media_url) mediaList.push({ url: ss.data.media_url, type: ss.data.media_type || "image" });
 
-  // מחלקה שבחרה בעבר "רק הודעות" — כלומר בלי חדשות. ההודעות עברו ללוח "היום", ולכן אין בה שורת רצה
+  // מחלקה שבחרה בעבר "רק הודעות" — כלומר בלי חדשות, ולכן אין בה שורת רצה
   const news = settings.show_ticker && settings.ticker_source !== "messages" ? (await getN12Headlines()).map(n => n.title) : [];
 
   return {

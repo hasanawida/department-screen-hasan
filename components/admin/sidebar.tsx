@@ -5,8 +5,8 @@ import { useEffect, useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import {
-  Building2, CalendarDays, CalendarRange, CalendarSync, ClipboardList, Compass, GraduationCap, HeartPulse, LayoutDashboard,
-  Images, LogOut, Megaphone, Menu, MessageSquare, Monitor, ShieldCheck, Sparkles, UserRound, Users, UtensilsCrossed, X,
+  Activity, Building2, CalendarDays, CalendarRange, ClipboardCheck, ClipboardList, Compass, GraduationCap, HeartPulse, LayoutDashboard,
+  Images, LogOut, Menu, Monitor, ShieldCheck, Sparkles, UserRound, Users, UtensilsCrossed, X,
 } from "lucide-react"
 import { EshkolotLogo } from "@/components/orientation/eshkolot-logo"
 import { cn } from "@/lib/utils"
@@ -29,9 +29,6 @@ const GROUPS: { title?: string; items: Item[] }[] = [
   {
     title: "תוכן",
     items: [
-      { href: "/admin/import", label: "ייבוא מ-Outlook", icon: CalendarSync },
-      { href: "/admin/announcements", label: "הודעות חשובות", icon: Megaphone },
-      { href: "/admin/ticker", label: "הודעות קצרות", icon: MessageSquare },
       { href: "/admin/topics", label: "תוכנית נושאים", icon: Sparkles },
       { href: "/admin/icons", label: "אייקונים ותמונות", icon: Images },
     ],
@@ -47,8 +44,12 @@ const GROUPS: { title?: string; items: Item[] }[] = [
     ],
   },
   {
-    title: "דוחות",
-    items: [{ href: "/admin/reports", label: "נוכחות ופיזיותרפיה", icon: ClipboardList }],
+    title: "נוכחות",
+    items: [
+      { href: "/admin/reports/occupation", label: "נוכחות תעסוקה", icon: ClipboardList },
+      { href: "/admin/reports/instructors", label: "נוכחות מפעילים", icon: ClipboardCheck },
+      { href: "/admin/reports/physio", label: "נוכחות פיזיותרפיה", icon: Activity },
+    ],
   },
 ]
 

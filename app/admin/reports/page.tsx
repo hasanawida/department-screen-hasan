@@ -1,7 +1,6 @@
-import Reports from "@/components/admin/reports"
+import { redirect } from "next/navigation"
 
-export const metadata = { title: "דוחות נוכחות" }
-
+// הנוכחות מחולקת לפי תחום — כל אחד בעמוד משלו
 export default function ReportsPage() {
-  return <Reports />
+  redirect("/admin/reports/occupation")
 }

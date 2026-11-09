@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { CalendarDays, ChevronRight, ChevronLeft, Copy, ExternalLink, Loader2, RefreshCw, Repeat, Trash2, Undo2, Users, X, Check, Plus, Minus } from "lucide-react";
+import { CalendarDays, ChevronRight, ChevronLeft, Copy, ExternalLink, Loader2, Repeat, Trash2, Undo2, Users, X, Check, Plus, Minus } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import DepartmentDisplay, { type ViewKind } from "@/components/display/department-display";
 import { insertActivities, updateActivity } from "@/lib/activities-db";
@@ -53,7 +53,7 @@ type Draft = {
   parentId: string | null;
 };
 
-// שורת הרצה — לחדשות בלבד. ההודעות החשובות מוצגות בלוח "היום"
+// שורת הרצה — לחדשות בלבד
 const TICKER_OPTIONS: { value: string; label: string }[] = [
   { value: "news", label: "חדשות N12" },
   { value: "off", label: "בלי שורת רצה" },
@@ -90,7 +90,6 @@ export default function WeeklyEditor() {
   const [asScreen, setAsScreen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string>("");
-  const [syncing, setSyncing] = useState(false);
   const statusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const today = israelDateISO();
@@ -470,23 +469,6 @@ export default function WeeklyEditor() {
     refreshScreens();
   };
 
-  /* ── סנכרון מהיומן ── */
-  const syncNow = async () => {
-    setSyncing(true);
-    try {
-      const res = await fetch("/api/calendar/sync", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
-      const json = await res.json();
-      const results: { ok: boolean; label: string; message: string }[] = json.results ?? [];
-      if (!res.ok) flash(json.error || "הסנכרון נכשל");
-      else if (results.length === 0) flash("אין עדיין יומן מחובר — אפשר לחבר ב'ייבוא מהיומן'");
-      else flash(results.map(r => (r.ok ? "✓ " : "✗ ") + (r.label || "יומן") + ": " + r.message).join(" | "));
-      await loadActivities();
-    } catch {
-      flash("הסנכרון נכשל — בדקו את החיבור לאינטרנט");
-    }
-    setSyncing(false);
-  };
-
   /* ── תצוגה מקדימה ── */
   const [cu, frameRef] = usePreviewCu();
   const previewDays = useMemo(() => {
@@ -535,10 +517,10 @@ export default function WeeklyEditor() {
 
         <div className="ms-auto flex items-center gap-2">
           {status && <span className="max-w-[28rem] truncate rounded-full bg-[#E3ECE7] px-3 py-1.5 text-sm font-semibold text-[#3F2F2D]" role="status">{status}</span>}
-          <button onClick={syncNow} disabled={syncing}
-            className="inline-flex items-center gap-2 rounded-full border border-[#5A826F]/40 bg-white px-4 py-2 text-sm font-semibold text-[#5A826F] hover:bg-[#E3ECE7] disabled:opacity-60">
-            {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />} סנכרון מהיומן
-          </button>
+          <Link href="/admin/calendar"
+            className="inline-flex items-center gap-2 rounded-full border border-[#5A826F]/40 bg-white px-4 py-2 text-sm font-semibold text-[#5A826F] hover:bg-[#E3ECE7]">
+            <CalendarDays className="h-4 w-4" /> יומן
+          </Link>
           <Link href={"/display/" + dept.code} target="_blank"
             className="inline-flex items-center gap-2 rounded-full bg-[#3F2F2D] px-4 py-2 text-sm font-semibold text-[#F6F2EE] hover:bg-[#3F2F2D]/90">
             <ExternalLink className="h-4 w-4" /> פתיחת המסך
@@ -602,7 +584,7 @@ export default function WeeklyEditor() {
               menu={menuFromRows(menuRows)}
               menuNotes={menuNotesFromRows(menuRows)}
               messages={[]}
-              news={["כאן יופיעו כותרות N12 ו/או הודעות חשובות"]}
+              news={["כאן יופיעו כותרות החדשות של N12"]}
               media={[]}
               embeddedCu={cu}
               iconConfig={iconConfig}
@@ -920,7 +902,7 @@ export default function WeeklyEditor() {
                 <h2 className="mb-3 text-lg font-bold">סבב המסך</h2>
                 <div className="divide-y divide-[#3F2F2D]/10">
                   <Toggle label="1. לוח שבועי" on={display.show_weekly} onChange={v => saveDisplay({ ...display, show_weekly: v })} />
-                  <Toggle label="2. היום (עכשיו, בהמשך והודעות חשובות)" on={display.show_daily} onChange={v => saveDisplay({ ...display, show_daily: v })} />
+                  <Toggle label="2. היום (עכשיו ובהמשך)" on={display.show_daily} onChange={v => saveDisplay({ ...display, show_daily: v })} />
                   <Toggle label="3. מודעה (כתב ותמונות מתחלפות)" on={display.show_notice !== false} onChange={v => saveDisplay({ ...display, show_notice: v })} />
                   <Toggle label="4. פיזיותרפיה (מי מוזמן היום)" on={display.show_physio !== false} onChange={v => saveDisplay({ ...display, show_physio: v })} />
                   <Toggle label="5. תפריט היום" on={display.show_menu_today !== false} onChange={v => saveDisplay({ ...display, show_menu_today: v })} />
@@ -945,7 +927,7 @@ export default function WeeklyEditor() {
                   </Field>
                 </div>
                 <p className="mt-3 text-xs text-[#3F2F2D]/55">
-                  המודעה, ההודעות החשובות (בלוח "היום") והתמונות — ב<Link className="underline" href={"/admin/display-settings/" + dept.code}>הגדרות מחלקה</Link>.
+                  המודעה והתמונות — ב<Link className="underline" href={"/admin/display-settings/" + dept.code}>הגדרות מחלקה</Link>.
                   כותרות קשות מ-N12 מסוננות אוטומטית.
                 </p>
               </section>

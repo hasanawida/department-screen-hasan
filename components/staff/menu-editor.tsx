@@ -7,7 +7,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { createClient } from "@/lib/supabase/client";
 import DepartmentDisplay, { type ViewKind } from "@/components/display/department-display";
 import { latestIconConfig, menuLinePhotos, type IconConfig } from "@/lib/icon-config";
-import { loadIconConfig, saveIconConfig } from "@/lib/icon-config-db";
+import { updateIconConfig } from "@/lib/icon-config-db";
 import DishIconPicker from "@/components/admin/dish-icon-picker";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { dishImage, dishKey, dishLabel } from "@/lib/dishes";
@@ -17,7 +17,7 @@ import {
   shortDate, weekDatesISO, weekStartISO, weeklyBoardSettings, type Meal, type MenuRow,
 } from "@/lib/week";
 
-type SaveState = "idle" | "saving" | "saved" | "error" | "needs-update";
+type SaveState = "idle" | "saving" | "saved" | "error";
 type Slot = Meal | typeof MENU_NOTES;
 const key = (day: number, meal: Slot) => `${day}|${meal}`;
 const NOTES_KEY = key(0, MENU_NOTES);
@@ -49,9 +49,11 @@ export default function MenuEditor() {
   const [day, setDay] = useState(() => (todayIndex >= 0 ? todayIndex : 0));
   const [texts, setTexts] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
-  const [missingTable, setMissingTable] = useState(false);
+  // התפריט של השבוע לא נטען (תקלת חיבור): לא נותנים לערוך "שבוע ריק" — זה היה דורס את התפריט האמיתי
+  const [loadFailed, setLoadFailed] = useState(false);
   const [save, setSave] = useState<SaveState>("idle");
   const [copyAsk, setCopyAsk] = useState(false);
+  const [copyMsg, setCopyMsg] = useState("");
   const [copied, setCopied] = useState<Meal | null>(null);
   const [preview, setPreview] = useState<ViewKind>("menuToday");
   // תמונות הארוחות (נערכות בעמוד "אייקונים ותמונות")
@@ -62,12 +64,12 @@ export default function MenuEditor() {
   // תמונה ליד כל מנה בפירוט (בתפריט היום / בשבועי) — משותף לכל המסכים, נשמר מיד
   const [linesMsg, setLinesMsg] = useState<string | null>(null);
   async function setLinePhotos(on: boolean) {
+    const before = iconConfig;
     setIconConfig(c => ({ ...c, menu_lines: { today: on, week: on } }));
-    const latest = await loadIconConfig(supabase);
-    const { failed, saved } = await saveIconConfig(supabase, { ...latest, menu_lines: { today: on, week: on } });
-    setIconConfig(saved);
-    setLinesMsg(failed ? "לא נשמר בכל המסכים. נסו שוב." : "נשמר. המסכים מתעדכנים.");
-    setTimeout(() => setLinesMsg(null), 3000);
+    const { error, saved } = await updateIconConfig(supabase, cfg => ({ ...cfg, menu_lines: { today: on, week: on } }));
+    setIconConfig(saved ?? before);
+    setLinesMsg(error ?? "נשמר. יופיע במסכים בתוך כמה דקות.");
+    setTimeout(() => setLinesMsg(null), 4000);
   }
   // שכפול לשבועות הבאים
   const [fwdOpen, setFwdOpen] = useState(false);
@@ -80,14 +82,17 @@ export default function MenuEditor() {
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const [cu, frameRef] = usePreviewCu();
 
+  const loadId = useRef(0);
   const load = useCallback(async () => {
+    const id = ++loadId.current;
     setLoading(true);
     const { data, error } = await supabase.from("weekly_menus").select("day_index, meal, items").eq("week_start", weekStart);
+    if (id !== loadId.current) return; // החליפו שבוע בינתיים — התשובה הזו כבר לא רלוונטית
     if (error) {
-      setMissingTable(/weekly_menus|relation|schema cache/i.test(error.message));
+      setLoadFailed(true);
       setTexts({});
     } else {
-      setMissingTable(false);
+      setLoadFailed(false);
       const t: Record<string, string> = {};
       for (const r of data ?? []) t[key(r.day_index, r.meal as Slot)] = r.items ?? "";
       setTexts(t);
@@ -96,7 +101,7 @@ export default function MenuEditor() {
   }, [supabase, weekStart]);
 
   useEffect(() => { load(); }, [load]);
-  useEffect(() => { setDay(todayIndex >= 0 ? todayIndex : 0); setCopyAsk(false); setFwdOpen(false); setFwdMsg(""); setFwdSel([]); setFwdCount(FORWARD_SHOW); setFwdWeeks(null); }, [weekStart]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setDay(todayIndex >= 0 ? todayIndex : 0); setCopyAsk(false); setCopyMsg(""); setFwdOpen(false); setFwdMsg(""); setFwdSel([]); setFwdCount(FORWARD_SHOW); setFwdWeeks(null); }, [weekStart]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /** אילו מהשבועות הבאים כבר יש בהם תפריט */
   const loadForward = useCallback(async (count: number) => {
@@ -105,6 +110,8 @@ export default function MenuEditor() {
     const groups: string[][] = [];
     for (let i = 0; i < weeks.length; i += 10) groups.push(weeks.slice(i, i + 10));
     const results = await Promise.all(groups.map(g => supabase.from("weekly_menus").select("week_start, items").in("week_start", g).neq("items", "")));
+    // אם הבדיקה נכשלה — לא מציגים את כל השבועות כ"ריקים" (כך היו דורסים תפריט קיים בלי אזהרה)
+    if (results.some(r => r.error)) { setFwdWeeks(null); setFwdMsg("הבדיקה אילו שבועות כבר מלאים לא הצליחה. בדקו את החיבור, סגרו ופתחו שוב את השכפול."); return; }
     const data = results.flatMap(r => r.data ?? []);
     const filled = new Set(data.filter(r => String(r.items ?? "").trim()).map(r => r.week_start));
     setFwdWeeks(weeks.map(week => ({ week, has: filled.has(week) })));
@@ -112,23 +119,49 @@ export default function MenuEditor() {
 
   useEffect(() => { if (fwdOpen) loadForward(fwdCount); }, [fwdOpen, fwdCount, loadForward]);
 
-  const stateFromError = (message?: string): SaveState =>
-    !message ? "saved" : /meal_check|violates check/i.test(message) ? "needs-update" : "error";
+  // תאים שהשמירה שלהם נכשלה. הסימון "לא נשמר" נשאר עד שכולם נשמרו, והם נשמרים שוב לבד
+  // כשהחיבור חוזר (בשמירה המוצלחת הבאה) — כדי ששמירה מוצלחת של תא אחר לא תסתיר כישלון קודם.
+  const failed = useRef(new Map<string, { week: string; d: number; meal: Slot }>());
+  const latest = useRef(new Map<string, string>());
+  const upsertCell = (week: string, d: number, meal: Slot, items: string) =>
+    supabase.from("weekly_menus").upsert({ week_start: week, day_index: d, meal, items, updated_at: new Date().toISOString() }, { onConflict: "week_start,day_index,meal" });
 
-  async function persist(d: number, meal: Slot, items: string) {
+  async function persist(d: number, meal: Slot, items: string, week: string) {
     setSave("saving");
-    const { error } = await supabase
-      .from("weekly_menus")
-      .upsert({ week_start: weekStart, day_index: d, meal, items, updated_at: new Date().toISOString() }, { onConflict: "week_start,day_index,meal" });
-    setSave(stateFromError(error?.message));
+    const id = week + "|" + key(d, meal);
+    const { error } = await upsertCell(week, d, meal, items);
+    if (error) failed.current.set(id, { week, d, meal });
+    else {
+      failed.current.delete(id);
+      for (const [fid, f] of Array.from(failed.current.entries())) {
+        const again = await upsertCell(f.week, f.d, f.meal, latest.current.get(fid) ?? "");
+        if (!again.error) failed.current.delete(fid);
+      }
+    }
+    setSave(failed.current.size ? "error" : "saved");
   }
+
+  // גם בלי הקלדה נוספת: מה שלא נשמר נשלח שוב כל רבע דקה, עד שהחיבור חוזר
+  useEffect(() => {
+    const id = setInterval(async () => {
+      if (!failed.current.size) return;
+      for (const [fid, f] of Array.from(failed.current.entries())) {
+        const again = await upsertCell(f.week, f.d, f.meal, latest.current.get(fid) ?? "");
+        if (!again.error) failed.current.delete(fid);
+      }
+      setSave(failed.current.size ? "error" : "saved");
+    }, 15_000);
+    return () => clearInterval(id);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function change(d: number, meal: Slot, value: string) {
     const k = key(d, meal);
+    const week = weekStart;
+    latest.current.set(week + "|" + k, value);
     setTexts(t => ({ ...t, [k]: value }));
     setSave("saving");
-    clearTimeout(timers.current[k]);
-    timers.current[k] = setTimeout(() => persist(d, meal, value), 700);
+    clearTimeout(timers.current[week + "|" + k]);
+    timers.current[week + "|" + k] = setTimeout(() => persist(d, meal, value, week), 700);
   }
 
   /** אותה ארוחה לכל ימי השבוע (למשל ארוחת בוקר שחוזרת כל יום) */
@@ -136,22 +169,40 @@ export default function MenuEditor() {
     const value = texts[key(day, meal)] ?? "";
     setTexts(t => { const n = { ...t }; for (let i = 0; i < 7; i++) n[key(i, meal)] = value; return n; });
     setSave("saving");
+    for (let i = 0; i < 7; i++) latest.current.set(weekStart + "|" + key(i, meal), value);
     const rows = [0, 1, 2, 3, 4, 5, 6].map(i => ({ week_start: weekStart, day_index: i, meal, items: value, updated_at: new Date().toISOString() }));
     const { error } = await supabase.from("weekly_menus").upsert(rows, { onConflict: "week_start,day_index,meal" });
-    setSave(stateFromError(error?.message));
+    if (error) {
+      for (let i = 0; i < 7; i++) failed.current.set(weekStart + "|" + key(i, meal), { week: weekStart, d: i, meal });
+      setSave("error");
+      return;
+    }
+    setSave(failed.current.size ? "error" : "saved");
     setCopied(meal);
     setTimeout(() => setCopied(c => (c === meal ? null : c)), 2000);
   }
 
+  /** התפריט של השבוע הקודם במקום מה שכתוב השבוע (כל הארוחות וההערות) */
   async function copyPreviousWeek() {
     setCopyAsk(false);
+    setCopyMsg("");
     const prev = addDaysISO(weekStart, -7);
     const { data, error } = await supabase.from("weekly_menus").select("day_index, meal, items").eq("week_start", prev);
-    if (error || !data?.length) { setSave("error"); return; }
+    if (error) { setCopyMsg("ההעתקה לא הצליחה. בדקו את החיבור ונסו שוב."); return; }
+    if (!data?.some(r => String(r.items ?? "").trim())) { setCopyMsg("בשבוע הקודם אין תפריט להעתיק."); return; }
     setSave("saving");
-    const rows = data.map(r => ({ week_start: weekStart, day_index: r.day_index, meal: r.meal, items: r.items, updated_at: new Date().toISOString() }));
+    const now = new Date().toISOString();
+    const rows = data.map(r => ({ week_start: weekStart, day_index: r.day_index, meal: r.meal, items: r.items, updated_at: now }));
+    // "מחליף את מה שכתוב": מה שכתוב השבוע ואין לו מקבילה בשבוע הקודם — מתרוקן, כדי שלא יישאר ערבוב של שני תפריטים
+    const copiedKeys = new Set(data.map(r => key(r.day_index, r.meal as Slot)));
+    for (const [k, items] of Object.entries(texts)) {
+      if (copiedKeys.has(k) || !items.trim()) continue;
+      const [d, meal] = k.split("|");
+      rows.push({ week_start: weekStart, day_index: Number(d), meal, items: "", updated_at: now });
+    }
     const res = await supabase.from("weekly_menus").upsert(rows, { onConflict: "week_start,day_index,meal" });
-    setSave(stateFromError(res.error?.message));
+    if (res.error) { setSave("error"); setCopyMsg("ההעתקה לא הצליחה. בדקו את החיבור ונסו שוב."); return; }
+    setSave(failed.current.size ? "error" : "saved");
     load();
   }
 
@@ -172,7 +223,7 @@ export default function MenuEditor() {
     setFwdMsg("");
     const { error } = await supabase.from("weekly_menus").upsert(rows, { onConflict: "week_start,day_index,meal" });
     setFwdBusy(false);
-    if (error) { setSave(stateFromError(error.message)); setFwdMsg("השכפול לא הצליח. בדקו את החיבור ונסו שוב."); return; }
+    if (error) { setFwdMsg("השכפול לא הצליח. בדקו את החיבור ונסו שוב."); return; }
     setFwdMsg(
       `שוכפל ל-${targets.length === 1 ? "שבוע אחד" : `${targets.length} שבועות`}: ` +
       targets.map(w => shortDate(w) + "–" + shortDate(addDaysISO(w, 6))).join(", ") + "." +
@@ -199,16 +250,13 @@ export default function MenuEditor() {
 
   return (
     <div className="space-y-5">
-      {missingTable && (
-        <div className="rounded-2xl border border-[#FAB822]/60 bg-[#FDF0CC] p-4 text-[15px]">
-          טבלת התפריט עוד לא קיימת. מריצים פעם אחת את <b dir="ltr">scripts/010_menu_physio_calendar.sql</b> ב-Supabase.
+      {loadFailed && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#B56262]/40 bg-[#FDE8E1] p-4 text-[15px] text-[#7a2e22]" role="alert">
+          <span>התפריט של השבוע הזה לא נטען. בדקו את החיבור לאינטרנט. עד שהוא ייטען אי אפשר לערוך — כדי לא לדרוס את מה שכבר כתוב.</span>
+          <button type="button" className="rounded-xl bg-white px-4 py-2 font-semibold text-[#7a2e22] ring-1 ring-[#B56262]/40" onClick={load}>ניסיון נוסף</button>
         </div>
       )}
-      {save === "needs-update" && (
-        <div className="rounded-2xl border border-[#FAB822]/60 bg-[#FDF0CC] p-4 text-[15px]">
-          כדי לשמור השכמה, ארוחת עשר, ארוחת ארבע והערות — מריצים פעם אחת את <b dir="ltr">scripts/013_menu_meals.sql</b> ב-Supabase.
-        </div>
-      )}
+      {copyMsg && <div className="rounded-2xl bg-[#FDF0CC] p-3 text-[15px]" role="status">{copyMsg}</div>}
 
       {/* שבוע */}
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -222,7 +270,7 @@ export default function MenuEditor() {
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <SaveChip state={save} />
-          <button type="button" className={btnGhost} onClick={() => { setFwdOpen(o => !o); setFwdMsg(""); setFwdSel([]); }} disabled={missingTable || weekEmpty} aria-expanded={fwdOpen}>
+          <button type="button" className={btnGhost} onClick={() => { setFwdOpen(o => !o); setFwdMsg(""); setFwdSel([]); }} disabled={loading || loadFailed || weekEmpty} aria-expanded={fwdOpen}>
             שכפול לשבועות הבאים
           </button>
           {copyAsk ? (
@@ -232,7 +280,7 @@ export default function MenuEditor() {
               <button type="button" className={btnGhost + " !py-2"} onClick={() => setCopyAsk(false)}>לא</button>
             </span>
           ) : (
-            <button type="button" className={btnGhost} onClick={() => setCopyAsk(true)} disabled={missingTable}>העתקה מהשבוע הקודם</button>
+            <button type="button" className={btnGhost} onClick={() => { setCopyMsg(""); setCopyAsk(true); }} disabled={loading || loadFailed}>העתקה מהשבוע הקודם</button>
           )}
         </div>
       </div>
@@ -342,13 +390,13 @@ export default function MenuEditor() {
                 <label htmlFor={"meal-" + meal} className="text-lg font-bold">{MEAL_LABELS[meal]}</label>
                 <span className="text-xs tabular-nums text-[#3F2F2D]/50">בערך {MEAL_TIME[meal]}</span>
               </div>
-              <textarea id={"meal-" + meal} rows={snack ? 2 : 7} disabled={loading || missingTable}
+              <textarea id={"meal-" + meal} rows={snack ? 2 : 7} disabled={loading || loadFailed}
                 className={textareaCls + " resize-y " + (snack ? "min-h-[64px]" : "min-h-[170px]")}
                 placeholder={PLACEHOLDER[meal]}
                 value={texts[key(day, meal)] ?? ""}
                 onChange={e => change(day, meal, e.target.value)} />
               <DishPreview text={texts[key(day, meal)] ?? ""} config={iconConfig} supabase={supabase} onSaved={setIconConfig} />
-              <button type="button" onClick={() => copyToAllDays(meal)} disabled={loading || missingTable || !(texts[key(day, meal)] ?? "").trim()}
+              <button type="button" onClick={() => copyToAllDays(meal)} disabled={loading || loadFailed || !(texts[key(day, meal)] ?? "").trim()}
                 className="mt-1.5 rounded-lg px-2 py-1 text-sm font-semibold text-[#5A826F] hover:bg-[#E3ECE7] disabled:opacity-40">
                 {copied === meal ? "הועתק לכל הימים" : "העתקה לכל ימי השבוע"}
               </button>
@@ -359,7 +407,7 @@ export default function MenuEditor() {
 
       <section className="rounded-2xl bg-white p-4 shadow-[0_1px_2px_rgba(63,47,45,0.06)]">
         <label htmlFor="menu-notes" className="mb-2 block text-lg font-bold">הערות לכל השבוע</label>
-        <textarea id="menu-notes" rows={3} disabled={loading || missingTable} className={textareaCls + " resize-y"}
+        <textarea id="menu-notes" rows={3} disabled={loading || loadFailed} className={textareaCls + " resize-y"}
           placeholder={"תמיד תמצאו אצלנו גבינה לבנה, ריבה, ביסקוויטים, ירקות ולחם בכל שעות היום, גם בלילה.\nבתאבון!"}
           value={texts[NOTES_KEY] ?? ""} onChange={e => change(0, MENU_NOTES, e.target.value)} />
         <p className="mt-1 text-xs text-[#3F2F2D]/55">ההערות מופיעות למטה בתפריט היום ובתפריט השבועי.</p>
@@ -393,7 +441,6 @@ export default function MenuEditor() {
             menu={menu}
             menuNotes={notes}
             menuDayIndex={day}
-            messages={[]}
             news={[]}
             media={[]}
             embeddedCu={cu}
@@ -411,8 +458,7 @@ function SaveChip({ state }: { state: SaveState }) {
   const map = {
     saving: ["שומר…", "bg-[#FDF0CC] text-[#6b4e00]"],
     saved: ["נשמר", "bg-[#E3ECE7] text-[#2c4037]"],
-    error: ["לא נשמר — בדקו את החיבור", "bg-[#FDE8E1] text-[#7a2e22]"],
-    "needs-update": ["לא נשמר — צריך עדכון מסד נתונים", "bg-[#FDE8E1] text-[#7a2e22]"],
+    error: ["לא נשמר — בדקו את החיבור. מה שכתוב יישמר לבד כשהחיבור יחזור", "bg-[#FDE8E1] text-[#7a2e22]"],
   } as const;
   const [text, cls] = map[state];
   return <span role="status" className={"rounded-full px-3 py-1 text-sm font-semibold " + cls}>{text}</span>;

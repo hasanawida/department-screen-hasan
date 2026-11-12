@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
+import { cleanDepartmentCode, departmentCodeProblem, departmentErrorText } from "@/lib/department-code"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -26,30 +27,32 @@ export function AddDepartmentDialog() {
     color: "#3B82F6",
   })
 
+  const [error, setError] = useState("")
+  const code = cleanDepartmentCode(form.code).toLowerCase()
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setError("")
+    const name = form.name.trim()
+    if (!name) { setError("צריך שם למחלקה"); return }
+    const problem = departmentCodeProblem(code)
+    if (problem) { setError(problem); return }
     setIsLoading(true)
 
     const supabase = createClient()
-    
-    // Create department
-    const { data: dept, error } = await supabase
+    const { data: dept, error: insertError } = await supabase
       .from("departments")
-      .insert({
-        name: form.name,
-        code: form.code.toLowerCase().replace(/\s+/g, "-"),
-        color: form.color,
-      })
+      .insert({ name, code, color: form.color })
       .select()
       .single()
-
-    if (!error && dept) {
-      // Create default screen settings
-      await supabase.from("screen_settings").insert({
-        department_id: dept.id,
-        welcome_message: "ברוכים הבאים",
-      })
+    if (insertError || !dept) {
+      // לא נוצרה מחלקה — הטופס נשאר פתוח עם ההודעה
+      setIsLoading(false)
+      setError("המחלקה לא נוצרה: " + departmentErrorText(insertError ?? {}))
+      return
     }
+    // הגדרות המסך של המחלקה (ברירות המחדל). אם זה נכשל — הן נוצרות בשמירה הראשונה של הגדרה כלשהי
+    await supabase.from("screen_settings").insert({ department_id: dept.id })
 
     setIsLoading(false)
     setOpen(false)
@@ -93,7 +96,7 @@ export function AddDepartmentDialog() {
                 dir="ltr"
               />
               <p className="text-xs text-muted-foreground mt-1">
-                הקוד ישמש בכתובת: /display/{form.code || "dept-code"}
+                אותיות באנגלית, ספרות ומקף. הכתובת של המסך תהיה: <span dir="ltr">/display/{code || "dept-code"}</span>
               </p>
             </div>
             <div>
@@ -114,6 +117,7 @@ export function AddDepartmentDialog() {
               </div>
             </div>
           </div>
+          {error && <p role="alert" className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{error}</p>}
           <DialogFooter className="gap-2">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
               ביטול

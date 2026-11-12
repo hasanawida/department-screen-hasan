@@ -14,11 +14,13 @@ export default async function ShortOrientationLink({ params, searchParams }: {
   const { code } = await params;
   const sp = await searchParams;
   const supabase = await createClient();
-  const { data: dept } = await supabase
+  const { data: dept, error } = await supabase
     .from("departments")
     .select("view_token")
     .eq("code", decodeURIComponent(code))
     .maybeSingle();
+  // תקלה בקריאה היא לא "אין מחלקה כזו": זורקים, והמסך מציג דף המתנה ומנסה שוב לבד
+  if (error) throw new Error("departments: " + error.message);
   if (!dept?.view_token) notFound();
 
   const query = new URLSearchParams();

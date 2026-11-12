@@ -22,7 +22,9 @@ function LoginForm() {
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
-  const redirectTo = searchParams.get('redirectTo') || '/admin'
+  // חוזרים רק לעמוד בתוך המערכת (לא לכתובת חיצונית)
+  const back = searchParams.get('redirectTo') || ''
+  const redirectTo = back.startsWith('/') && !back.startsWith('//') && !back.includes('\\') ? back : '/admin'
   const notAllowed = searchParams.get('error') === 'not_allowed'
 
   const handleLogin = async (e: React.FormEvent) => {

@@ -53,6 +53,24 @@ export function toMinutes(hm: string): number {
   return (h || 0) * 60 + (m || 0);
 }
 
+/**
+ * מתי פעילות נגמרת, בדקות מחצות. עם שעת סיום — לפיה. בלי שעת סיום (או כששעת הסיום לא אחרי ההתחלה):
+ * שעה מההתחלה, אבל לא אחרי שהפעילות הבאה באותו יום מתחילה — כך "עכשיו" עובר לפעילות הבאה ברגע שהיא מתחילה,
+ * ולא נשאר חצי שעה על הקודמת.
+ */
+export function activityEndMinutes(a: { start: string; end?: string | null }, day: { start: string }[] = []): number {
+  const s = toMinutes(a.start);
+  const e = a.end ? toMinutes(a.end) : -1;
+  if (e > s) return e;
+  let implied = s + 60;
+  for (const other of day) {
+    if (!other.start) continue;
+    const os = toMinutes(other.start);
+    if (os > s && os < implied) implied = os;
+  }
+  return implied;
+}
+
 /** כמה זמן לפני פעילות היא מודגשת כ"בקרוב" — רק כשבאותו רגע לא מתקיימת שום פעילות */
 export const SOON_MINUTES = 60;
 export type NowMark = "now" | "soon";
@@ -68,8 +86,7 @@ export function nowMarks<T extends { id: string; start: string; end?: string }>(
   const timed = day.filter(a => !!a.start);
   for (const a of timed) {
     const s = toMinutes(a.start);
-    const e = a.end ? toMinutes(a.end) : s + 60;
-    if (nowMinutes >= s && nowMinutes < e) marks.set(a.id, "now");
+    if (nowMinutes >= s && nowMinutes < activityEndMinutes(a, timed)) marks.set(a.id, "now");
   }
   if (marks.size) return marks;
   const later = timed.map(a => toMinutes(a.start)).filter(m => m > nowMinutes);
@@ -110,7 +127,6 @@ export type BoardActivity = {
   dayIndex: DayIndex;
   date: string | null;  // אם זו פעילות של שבוע מסוים
   recurring: boolean;   // חוזרת כל שבוע
-  fromCalendar: boolean;
   parentId: string | null; // שינוי לשבוע אחד של פעילות קבועה
 };
 
@@ -141,7 +157,6 @@ export function normalizeActivity(row: ActivityRow, dayIndex: DayIndex): BoardAc
     date: row.activity_date ?? null,
     recurring: !row.activity_date,
     // מאאוטלוק. אירוע מהיומן של המערכת (evt:…) הוא כמו פעילות שהוכנסה ידנית
-    fromCalendar: !!row.external_uid && !String(row.external_uid).startsWith("evt:"),
     parentId: row.parent_id ? String(row.parent_id) : null,
   };
 }
@@ -154,7 +169,8 @@ export function normalizeActivity(row: ActivityRow, dayIndex: DayIndex): BoardAc
 export function withWeeklyTopic(title: string, topic?: string | null): string {
   const t = topic?.trim();
   if (!t) return title;
-  return title.replace(/^(\s*קבוצת נושא)(?!\s*:)/, `$1: ${t}`);
+  // רק "קבוצת נושא" כמילים שלמות (לא "קבוצת נושאים"), והנושא נכנס כמו שהוא (גם אם יש בו $)
+  return title.replace(/^(\s*קבוצת נושא)(?=\s|$)(?!\s*:)/, (_m, head: string) => `${head}: ${t}`);
 }
 
 /**
@@ -231,9 +247,9 @@ export function weeklyBoardSettings(raw: unknown): WeeklyBoardSettings {
 
 /* ───────────── חגים וזמני שבת בלוח ───────────── */
 
-/** פעילות שמוצגת גם בחג: הוכנסה ידנית לתאריך מסוים, או יובאה מהיומן (מה ששובץ ביומן — מתקיים) */
+/** פעילות שמוצגת גם בחג: מה שהוכנס לתאריך מסוים (לא פעילות קבועה שחוזרת כל שבוע) */
 export function isManualActivity(a: BoardActivity): boolean {
-  return !!a.date || a.fromCalendar;
+  return !!a.date;
 }
 
 /** מה לציין בכל אחד משבעת ימי השבוע, לפי ההגדרות של הלוח */
@@ -404,7 +420,9 @@ export function menuHasContent(menu: WeekMenu): boolean {
 /** "מרק: ירקות" ← כותרת קטנה ומנה. שורה בלי נקודתיים — רק מנה */
 export function splitMenuLine(line: string): { label: string | null; text: string } {
   const m = line.match(/^([^:]{1,16}):\s*(.+)$/);
-  return m ? { label: m[1].trim(), text: m[2].trim() } : { label: null, text: line };
+  // נקודתיים של שעה ("ב-10:00 קפה ועוגה") הן לא כותרת
+  if (!m || (/\d$/.test(m[1]) && /^\d/.test(m[2]))) return { label: null, text: line };
+  return { label: m[1].trim(), text: m[2].trim() };
 }
 
 /**

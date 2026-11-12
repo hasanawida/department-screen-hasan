@@ -6,7 +6,7 @@ import { EshkolotLogo, Pin, BRAND } from "@/components/orientation/eshkolot-logo
 import WeeklyBoard, { type WeeklyTopic } from "./weekly-board";
 import GridBoard from "./grid-board";
 import {
-  DAY_NAMES, MEAL_SHORT, NOTICE_IMAGE_SECONDS, boardDayInfos, dayIndexOf, hasNotice, israelDateISO, israelTimeHM, noticeImages, shortDate, toMinutes,
+  DAY_NAMES, MEAL_SHORT, NOTICE_IMAGE_SECONDS, activityEndMinutes, boardDayInfos, dayIndexOf, hasNotice, israelDateISO, israelTimeHM, noticeImages, shortDate, toMinutes,
   viewStyle, visibleActivities, withWeeklyTopic,
   type BoardActivity, type DisplaySettings, type NoticeContent, type WeekMenu, type WeeklyBoardSettings,
 } from "@/lib/week";
@@ -30,7 +30,6 @@ export type DepartmentDisplayProps = {
   /** בעורך התפריט: איזה יום להציג ב"תפריט היום" (במסך — היום עצמו) */
   menuDayIndex?: number;
   /** לא בשימוש (ההודעות החשובות הוסרו — יש מסך מודעה) */
-  messages?: string[];
   news: string[];
   media: { url: string; type: string }[];
   /** מי מהמחלקה מוזמן היום לפיזיותרפיה */
@@ -290,8 +289,11 @@ function DailyView({ today, nowMinutes, menu, board, physio, topic, look = { tex
   /** גודל הכתב והאייקונים (מהגדרות המחלקה) */
   look?: { text: number; icons: number };
 }) {
-  const end = (a: BoardActivity) => (a.end ? toMinutes(a.end) : toMinutes(a.start) + 60);
-  const current = today.find(a => nowMinutes >= toMinutes(a.start) && nowMinutes < end(a));
+  // מה מתקיים עכשיו — לפי אותו כלל כמו ההדגשה בלוח השבועי. כשכמה פעילויות מתקיימות במקביל,
+  // בגדול מוצגת זו שהתחילה אחרונה, והאחרות בשורה מתחתיה (פעם פעילות שנייה שכבר התחילה לא הופיעה בשום מקום).
+  const running = today.filter(a => !!a.start && nowMinutes >= toMinutes(a.start) && nowMinutes < activityEndMinutes(a, today));
+  const current = running.length ? running.reduce((best, a) => (toMinutes(a.start) > toMinutes(best.start) ? a : best)) : undefined;
+  const alsoNow = running.filter(a => a !== current);
   // בכתב גדול — פחות פעילויות בהמשך היום, כדי שהכול ייכנס
   const upcoming = today.filter(a => toMinutes(a.start) > nowMinutes).slice(0, look.text > 1.3 ? 2 : current ? 4 : 3);
   const nextOne = !current ? upcoming[0] : undefined;
@@ -318,6 +320,9 @@ function DailyView({ today, nowMinutes, menu, board, physio, topic, look = { tex
                   {board.show_location && current.location && <span><MapPin aria-hidden="true" />{current.location}</span>}
                   {board.show_instructor && current.instructor && <span><User aria-hidden="true" />{current.instructor}</span>}
                 </span>
+              )}
+              {alsoNow.length > 0 && (
+                <span className={styles.nowMeta}><span>במקביל: {alsoNow.map(a => withWeeklyTopic(a.title, topic?.title)).join(" · ")}</span></span>
               )}
             </>
           ) : (

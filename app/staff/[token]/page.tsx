@@ -29,9 +29,7 @@ export default async function StaffPage({ params }: { params: Promise<{ token: s
   return (
     <StaffShell title="הקישור לא פעיל">
       <div className="rounded-2xl bg-white p-6 text-[17px] leading-relaxed">
-        {role === "missing"
-          ? "המערכת עוד לא הוגדרה לעמודי צוות. מבקשים מהמנהל להריץ את עדכון מסד הנתונים."
-          : "הקישור הזה לא קיים או שהוחלף בקישור חדש. מבקשים מהמנהל את הקישור העדכני."}
+        הקישור הזה לא קיים או שהוחלף בקישור חדש. מבקשים מהמנהל את הקישור העדכני.
       </div>
     </StaffShell>
   );

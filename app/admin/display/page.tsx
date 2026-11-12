@@ -7,10 +7,12 @@ export const metadata = { title: "מסכי מחלקות" };
 
 export default async function AdminDisplayPage() {
   const supabase = await createClient();
-  const { data: departments } = await supabase
+  const { data: departments, error } = await supabase
     .from("departments")
     .select("id, name, code, color")
     .order("name", { ascending: true });
+  // תקלה בקריאה היא לא "אין מחלקות עדיין"
+  if (error) throw new Error(error.message);
 
   const items: ScreenItem[] = (departments ?? [])
     .filter(d => d.code)

@@ -5,10 +5,12 @@ import { AddDepartmentDialog } from "@/components/admin/add-department-dialog"
 export default async function DepartmentsPage() {
   const supabase = await createClient()
   
-  const { data: departments } = await supabase
+  const { data: departments, error } = await supabase
     .from("departments")
     .select("*")
     .order("name", { ascending: true })
+  // תקלה בקריאה היא לא "אין מחלקות עדיין"
+  if (error) throw new Error(error.message)
 
   return (
     <div className="p-6">

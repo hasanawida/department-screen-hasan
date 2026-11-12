@@ -10,10 +10,13 @@ export default async function ViewPage({ params }: { params: Promise<{ token: st
   const { token } = await params
   const supabase = await createClient()
 
-  const { data: instructor } = await supabase.from("instructors").select("name").eq("view_token", token).maybeSingle()
+  // תקלת חיבור היא לא "קישור לא קיים": עמוד התקלה מציע ניסיון נוסף (ולא "הדף לא נמצא", שנראה כאילו הקישור בוטל)
+  const { data: instructor, error: e1 } = await supabase.from("instructors").select("name").eq("view_token", token).maybeSingle()
+  if (e1) throw new Error(e1.message)
   if (instructor?.name) return <AttendancePortal mode="instructor" name={instructor.name} />
 
-  const { data: department } = await supabase.from("departments").select("id, name").eq("view_token", token).maybeSingle()
+  const { data: department, error: e2 } = await supabase.from("departments").select("id, name").eq("view_token", token).maybeSingle()
+  if (e2) throw new Error(e2.message)
   if (department) return <AttendancePortal mode="department" name={department.name} departmentId={department.id} />
 
   notFound()

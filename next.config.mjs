@@ -1,12 +1,3 @@
-import withPWA from 'next-pwa'
-
-const pwaConfig = withPWA({
-  dest: 'public',
-  register: true,
-  skipWaiting: true,
-  disable: process.env.NODE_ENV === 'development',
-})
-
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
@@ -26,8 +17,20 @@ const nextConfig = {
         source,
         headers: [{ key: 'Cache-Control', value: 'no-store' }],
       })),
+      // תמונות הפעילויות, המנות והארוחות: הטלוויזיה שומרת אותן אצלה ליום שלם.
+      // בלי זה היא בודקת מול השרת כל תמונה בכל החלפת תצוגה (מאות אלפי בקשות ביום מכל המסכים),
+      // וכשהרשת נופלת לרגע — התמונות נעלמות מהלוח.
+      {
+        source: '/:folder(activities|dishes|meals)/:file*',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=86400, stale-while-revalidate=604800' }],
+      },
+      // ה-service worker של המסכים: תמיד הגרסה העדכנית
+      {
+        source: '/sw.js',
+        headers: [{ key: 'Cache-Control', value: 'no-cache, no-store, must-revalidate' }],
+      },
     ]
   },
 }
 
-export default pwaConfig(nextConfig)
+export default nextConfig

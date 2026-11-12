@@ -5,19 +5,14 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 import OrientationScreen from "./orientation-screen";
 import ScreenHeartbeat from "@/components/display/screen-heartbeat";
+import { israelDateISO } from "@/lib/week";
+import { registerScreenWorker, safeReload, serverReady } from "@/lib/screen-recovery";
 import "./orientation-fonts.css";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
 );
-
-// כל כמה זמן לרענן את הנתונים מהשרת (בלי טעינה מלאה של הדף)
-const REFRESH_MS = 5 * 60 * 1000;
-
-function israelDateKey() {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jerusalem" }).format(new Date());
-}
 
 export default function OrientationScreenWrapper({
   departmentId,
@@ -26,7 +21,6 @@ export default function OrientationScreenWrapper({
   departmentNameRu,
   departmentNameEn,
   departmentColor,
-  activities,
   settings,
 }: any) {
   const router = useRouter();
@@ -35,21 +29,24 @@ export default function OrientationScreenWrapper({
 
   const isPortrait = currentSettings?.display_orientation === "portrait";
 
-  // רענון מהשרת כל כמה דקות, ומיד כשמתחלף היום
+  // השעון, התאריך ומזג האוויר מתעדכנים בדפדפן, וההגדרות נקראות כל דקה (למטה) — לכן מהשרת
+  // מרעננים רק פעם ביום, כשמתחלף התאריך (כך גם גרסה חדשה של המערכת מגיעה למסך בלי לגעת בו).
+  // הרענון יוצא רק כשהשרת זמין; אם אין רשת — מנסים שוב כל דקה.
   useEffect(() => {
-    let lastDay = israelDateKey();
-    const refreshId = setInterval(() => router.refresh(), REFRESH_MS);
-    const dayId = setInterval(() => {
-      const today = israelDateKey();
-      if (today !== lastDay) {
-        lastDay = today;
-        router.refresh();
-      }
+    registerScreenWorker();
+    let lastDay = israelDateISO();
+    let pending = false;
+    let checking = false;
+    const dayId = setInterval(async () => {
+      const today = israelDateISO();
+      if (today !== lastDay) { lastDay = today; pending = true; }
+      if (!pending || checking) return;
+      checking = true;
+      const ok = await serverReady();
+      checking = false;
+      if (ok) { pending = false; router.refresh(); }
     }, 60 * 1000);
-    return () => {
-      clearInterval(refreshId);
-      clearInterval(dayId);
-    };
+    return () => clearInterval(dayId);
   }, [router]);
 
   useEffect(() => {
@@ -107,7 +104,7 @@ export default function OrientationScreenWrapper({
         { event: "UPDATE", schema: "public", table: "departments", filter: `id=eq.${departmentId}` },
         (payload: any) => {
           const n = payload.new;
-          if (n.force_refresh) window.location.reload();
+          if (n.force_refresh) safeReload();
           if (n.orientation_color) setColor(n.orientation_color);
           if (n.orientation_settings) setCurrentSettings((prev: any) => ({ ...prev, ...n.orientation_settings }));
         },
@@ -139,7 +136,6 @@ export default function OrientationScreenWrapper({
         departmentNameRu={departmentNameRu}
         departmentNameEn={departmentNameEn}
         departmentColor={color}
-        activities={activities}
         settings={currentSettings}
         isPortrait={isPortrait}
       />

@@ -1,85 +1,71 @@
-# מסך המחלקה 🏥
+# לוח הפעילות של אשכולות
 
-מערכת תצוגת מידע דיגיטלית למחלקות בית אבות.
+מערכת המסכים של המחלקות: לוח פעילויות שבועי, "היום", תפריט, פיזיותרפיה, מסכי התמצאות, נוכחות ודוחות.
 
-## מה זה?
+Next.js 14 (App Router) · Supabase (Postgres, Auth, Storage, Realtime) · Vercel.
 
-- **מסך תצוגה** — מוצג בטלוויזיה בכל מחלקה: פעילויות יומיות, הודעות, שעון ותאריך
-- **ממשק ניהול** — מנהלים מוסיפים/עורכים פעילויות והודעות מכל מקום
-- **עדכונים חיים** — שינוי בניהול מתעדכן על המסך באופן מיידי
+## כתובות
+
+| כתובת | מה זה | מי נכנס |
+|---|---|---|
+| `/display/<קוד מחלקה>` | מסך המחלקה בטלוויזיה | בלי התחברות |
+| `/o/<קוד מחלקה>` ← `/orientation/<token>` | מסך התמצאות | בלי התחברות |
+| `/physio` (או `/physio?dept=<קוד>`) | מסך חדר הפיזיותרפיה | בלי התחברות |
+| `/view/<token>` | העמוד האישי של מפעיל/ה — סימון נוכחות | קישור אישי |
+| `/staff/<token>` | הדיאטנית (תפריט) / צוות הפיזיותרפיה (זימונים) | קישור אישי |
+| `/settings/<token>` | הגדרות מסך ההתמצאות של מחלקה | קישור אישי |
+| `/admin` | ניהול | התחברות (מנהלים בלבד) |
+
+## מבנה
+
+```
+app/                 עמודים (admin, display, orientation, o, physio, view, staff, settings, auth, api/admins, api/health)
+components/admin/    עמודי הניהול (עורך הלוח, יומן, דיירים, מפעילים, דוחות, אייקונים…)
+components/display/  מסך המחלקה (לוח שבועי, טבלה, היום, תפריט, פיזיותרפיה)
+components/orientation/  מסך ההתמצאות והלוגו
+components/staff/    עורך התפריט ועורך הפיזיותרפיה (משמשים גם בניהול)
+components/view/     העמוד של המפעיל/ה
+lib/                 לוגיקה משותפת: שבועות ותאריכים (week.ts), לוח עברי וזמני שבת, דוחות, אייקונים ומנות
+public/sw.js         דף המתנה למסכים כשאין רשת (ראו "מסכים שנשארים דולקים")
+scripts/             עדכוני מסד הנתונים (לפי מספר), ו-schema-snapshot.sql — המבנה כפי שהוא בפרודקשן
+```
+
+## מסכים שנשארים דולקים
+
+הטלוויזיות עובדות 24/7 בלי שמישהו עומד לידן, ולכן מסך לא אמור להיתקע על דף שגיאה:
+
+- לפני כל רענון או טעינה מחדש המסך בודק ב-`/api/health` שהשרת והמסד זמינים. אם לא — הלוח שכבר מוצג
+  נשאר, והוא מנסה שוב כל דקה (`lib/screen-recovery.ts`).
+- תקלה בטעינת הנתונים מציגה שעון ותאריך ("המסך יתעדכן מעצמו בעוד רגע") וחוזרת לבד
+  (`components/display/screen-recovering.tsx`, קובצי `error.tsx` / `not-found.tsx` של המסכים).
+- כשאין רשת בדיוק בזמן טעינת הדף (למשל אחרי הפסקת חשמל), `public/sw.js` מציג את אותו דף המתנה
+  במקום דף השגיאה של הדפדפן, ומנסה שוב כל 20 שניות.
+- תמונות הפעילויות והמנות נשמרות בטלוויזיה ליום שלם (`next.config.mjs`), כך שהן לא נעלמות בנפילת רשת קצרה.
 
 ## הפעלה מקומית
 
-### 1. שכפל ותקין
-
 ```bash
-git clone <your-repo>
-cd department-screen
-pnpm install
+npm install
+cp .env.local.example .env.local   # ולמלא את הערכים
+npm run dev
 ```
 
-### 2. הגדר Supabase
+## משתני סביבה (Vercel ← Settings ← Environment Variables)
 
-1. צור פרויקט חינמי ב-[supabase.com](https://supabase.com)
-2. העתק את ה-URL ו-anon key מ: **Project Settings → API**
-3. צור קובץ `.env.local`:
+| משתנה | חובה | למה |
+|---|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | כן | כתובת הפרויקט ב-Supabase |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | כן | המפתח הציבורי |
+| `SUPABASE_SERVICE_ROLE_KEY` | כן | הוספה והסרה של מנהלים בעמוד "מנהלי מערכת" (נשאר בשרת בלבד) |
+| `ADMIN_EMAILS` | מומלץ | אימיילים של מנהלים ראשיים, מופרדים בפסיקים |
+| `ANTHROPIC_API_KEY` | לא | תרגום שם המחלקה לערבית, רוסית ואנגלית במסך ההתמצאות (בלעדיו השם מוצג בעברית) |
 
-```bash
-cp .env.local.example .env.local
-# ערוך את הקובץ עם הפרטים שלך
-```
+מי נכנס לניהול: מי שמופיע ב-`ADMIN_EMAILS` או בטבלת `admins`. ב-Supabase צריך לכבות
+הרשמה חופשית (Authentication ← Sign In / Providers ← Allow new users to sign up).
 
-4. הרץ את הסכמה ב-**SQL Editor** בסופאבייס:
+## פריסה
 
-```sql
--- הדבק את תוכן scripts/001_create_tables.sql
--- ואז את תוכן scripts/002_seed_data.sql
-```
+כל דחיפה ל-`main` ב-GitHub נפרסת ל-Vercel. שינויים במסד הנתונים מריצים ב-Supabase ← SQL Editor
+(הקבצים בתיקיית `scripts/`, לפי הסדר; בראש כל קובץ כתוב מה הוא עושה ומתי להריץ אותו).
 
-5. הפעל Realtime עבור הטבלאות ב: **Database → Replication → Supabase Realtime**  
-   סמן: `activities`, `announcements`, `ticker_messages`
-
-### 3. הפעל
-
-```bash
-pnpm dev
-```
-
-פתח [http://localhost:3000](http://localhost:3000)
-
-## פריסה ל-Vercel
-
-1. דחוף לגיטהאב
-2. ייבא ב-[vercel.com/new](https://vercel.com/new)
-3. הוסף את משתני הסביבה ב-**Settings → Environment Variables**:
-   - `NEXT_PUBLIC_SUPABASE_URL`
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-4. פרוס ✅
-
-## מבנה הפרויקט
-
-```
-app/
-  page.tsx              # דף בית — רשימת מחלקות
-  display/[code]/       # מסך תצוגה לכל מחלקה
-  admin/                # ממשק ניהול (מוגן בהתחברות)
-  auth/                 # התחברות והרשמה
-components/
-  display/              # רכיבי מסך התצוגה
-  admin/                # רכיבי ממשק הניהול
-lib/
-  supabase/             # חיבור Supabase
-  types.ts              # TypeScript types
-scripts/
-  001_create_tables.sql # סכמת בסיס הנתונים
-  002_seed_data.sql     # נתוני דוגמה
-```
-
-## URLs
-
-| כתובת | תיאור |
-|-------|-------|
-| `/` | דף בית — בחירת מחלקה |
-| `/display/[code]` | מסך תצוגה למחלקה |
-| `/admin` | לוח בקרה (דורש התחברות) |
-| `/auth/login` | התחברות |
+לפני דחיפה: `npm run typecheck` ו-`npm run build`.

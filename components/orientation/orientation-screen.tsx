@@ -54,6 +54,8 @@ type WeatherKind = "clear" | "partly" | "cloudy" | "fog" | "drizzle" | "rain" | 
 // אשכולות אורנים, גדרה
 const LOCATION = { lat: 31.8136, lon: 34.7792 };
 const WEATHER_REFRESH_MS = 20 * 60 * 1000;
+/** אחרי כמה זמן בלי עדכון מפסיקים להציג את מזג האוויר (עדיף בלי מאשר טמפרטורה של הבוקר בערב) */
+const WEATHER_MAX_AGE_MS = 90 * 60 * 1000;
 
 /* ───────────── תרגומים ───────────── */
 
@@ -176,13 +178,30 @@ function getSeason(month: number): SeasonKey {
   return "winter";
 }
 
+/**
+ * השעה והתאריך לפי שעון ישראל — לא לפי אזור הזמן שמוגדר במכשיר.
+ * סטרימר חדש מגיע לפעמים עם אזור זמן אחר, ואז המסך היה מציג שעה ויום לא נכונים.
+ */
+const ISRAEL_TZ = "Asia/Jerusalem";
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const israelFormat = new Intl.DateTimeFormat("en-GB", {
+  timeZone: ISRAEL_TZ, hourCycle: "h23", weekday: "short", year: "numeric", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit",
+});
+function israelParts(date: Date) {
+  const parts = israelFormat.formatToParts(date);
+  const num = (type: string) => Number(parts.find(p => p.type === type)?.value ?? 0);
+  const weekday = WEEKDAYS.indexOf(parts.find(p => p.type === "weekday")?.value ?? "");
+  return { year: num("year"), month: num("month"), day: num("day"), hour: num("hour") % 24, minute: num("minute"), weekday: weekday < 0 ? date.getDay() : weekday };
+}
+
 function formatClock(date: Date) {
-  return String(date.getHours()).padStart(2, "0") + ":" + String(date.getMinutes()).padStart(2, "0");
+  const { hour, minute } = israelParts(date);
+  return String(hour).padStart(2, "0") + ":" + String(minute).padStart(2, "0");
 }
 
 function monthName(date: Date, lang: Lang) {
   const locales: Record<Lang, string> = { he: "he-IL", ar: "ar-u-nu-latn", ru: "ru-RU", en: "en-GB" };
-  const name = new Intl.DateTimeFormat(locales[lang], { month: "long" }).format(date);
+  const name = new Intl.DateTimeFormat(locales[lang], { month: "long", timeZone: ISRAEL_TZ }).format(date);
   return name.charAt(0).toUpperCase() + name.slice(1);
 }
 
@@ -215,6 +234,7 @@ function WeatherIcon({ kind, isDay, className }: { kind: WeatherKind; isDay: boo
 
 function useWeather(enabled: boolean, override: WeatherNow | null | undefined) {
   const [weather, setWeather] = useState<WeatherNow | null>(null);
+  const [fetchedAt, setFetchedAt] = useState(0);
   const useOverride = override !== undefined;
 
   useEffect(() => {
@@ -232,9 +252,10 @@ function useWeather(enabled: boolean, override: WeatherNow | null | undefined) {
         const c = json?.current;
         if (!cancelled && c && typeof c.temperature_2m === "number") {
           setWeather({ temp: Math.round(c.temperature_2m), code: Number(c.weather_code) || 0, isDay: c.is_day === 1 });
+          setFetchedAt(Date.now());
         }
       } catch {
-        // בלי אינטרנט — פשוט לא מציגים מזג אוויר (לא מציגים מידע לא נכון)
+        // בלי אינטרנט — הנתון האחרון נשאר עד שהוא מתיישן (WEATHER_MAX_AGE_MS), ואז לא מציגים מזג אוויר
       }
     }
     load();
@@ -242,7 +263,9 @@ function useWeather(enabled: boolean, override: WeatherNow | null | undefined) {
     return () => { cancelled = true; clearInterval(id); };
   }, [enabled, useOverride]);
 
-  return useOverride ? override : weather;
+  if (useOverride) return override;
+  // המסך מתרענן כל דקה עם השעון, כך שנתון שהתיישן יורד מהמסך לבד
+  return weather && Date.now() - fetchedAt <= WEATHER_MAX_AGE_MS ? weather : null;
 }
 
 function useViewportPortrait() {
@@ -368,17 +391,18 @@ export default function OrientationScreen({
     );
   }
 
-  const tod = getTimeOfDay(now.getHours());
+  const il = israelParts(now);
+  const tod = getTimeOfDay(il.hour);
   const TodIcon = tod === "morning" ? Sun : tod === "noon" ? CloudSun : tod === "evening" ? Sunset : MoonStar;
   const kind = weather ? weatherKind(weather.code) : null;
 
   const rows: { key: string; label: string; value: string; ltr?: boolean }[] = [
-    { key: "day", label: t.day, value: t.days[now.getDay()] },
+    { key: "day", label: t.day, value: t.days[il.weekday] },
     { key: "time", label: t.time, value: formatClock(now), ltr: true },
-    { key: "date", label: t.date, value: String(now.getDate()), ltr: true },
+    { key: "date", label: t.date, value: String(il.day), ltr: true },
     { key: "month", label: t.month, value: monthName(now, lang) },
-    { key: "year", label: t.year, value: String(now.getFullYear()), ltr: true },
-    { key: "season", label: t.season, value: t.seasons[getSeason(now.getMonth() + 1)] },
+    { key: "year", label: t.year, value: String(il.year), ltr: true },
+    { key: "season", label: t.season, value: t.seasons[getSeason(il.month)] },
   ];
 
   // עמודת הכותרות (יום, שעה, תאריך…) ברוחב של הכותרת הארוכה בשפה הנוכחית

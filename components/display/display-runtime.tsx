@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 import { israelDateISO } from "@/lib/week";
+import { registerScreenWorker, safeReload, serverReady } from "@/lib/screen-recovery";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -15,6 +16,9 @@ const supabase = createClient(
  * - מרענן את הנתונים מהשרת כל כמה דקות (פעילויות, תפריט, חדשות, יומן)
  * - מרענן מיד כשמתחלף היום
  * - "רענון מסך" מהניהול (force_refresh) טוען מחדש את הדף
+ *
+ * כל רענון נעשה רק אחרי בדיקה שהשרת זמין. כשאין רשת — הלוח הקיים נשאר על המסך,
+ * והרענון מנסה שוב כל דקה עד שהוא מצליח.
  */
 export default function DisplayRuntime({ departmentId, refreshMinutes = 5, watchTable }: {
   departmentId?: string;
@@ -24,11 +28,27 @@ export default function DisplayRuntime({ departmentId, refreshMinutes = 5, watch
   const router = useRouter();
 
   useEffect(() => {
+    registerScreenWorker();
+
+    let stopped = false;
+    let checking = false;
+    let behind = false; // רענון שלא יצא לפועל (אין רשת) — מנסים שוב כל דקה
+    const refresh = async () => {
+      if (checking || stopped) return;
+      checking = true;
+      const ok = await serverReady();
+      checking = false;
+      if (stopped) return;
+      behind = !ok;
+      if (ok) router.refresh();
+    };
+
     let day = israelDateISO();
-    const refreshId = setInterval(() => router.refresh(), refreshMinutes * 60 * 1000);
-    const dayId = setInterval(() => {
+    const refreshId = setInterval(refresh, refreshMinutes * 60 * 1000);
+    const minuteId = setInterval(() => {
       const d = israelDateISO();
-      if (d !== day) { day = d; router.refresh(); }
+      if (d !== day) { day = d; refresh(); }
+      else if (behind) refresh();
     }, 60 * 1000);
 
     // מסך מלא בלחיצה הראשונה, בלי גלילה
@@ -44,7 +64,7 @@ export default function DisplayRuntime({ departmentId, refreshMinutes = 5, watch
         supabase
           .channel("display-dept-" + departmentId)
           .on("postgres_changes" as any, { event: "UPDATE", schema: "public", table: "departments", filter: `id=eq.${departmentId}` },
-            (payload: any) => { if (payload.new?.force_refresh) window.location.reload(); })
+            (payload: any) => { if (payload.new?.force_refresh) safeReload(); })
           .subscribe(),
       );
     }
@@ -52,14 +72,15 @@ export default function DisplayRuntime({ departmentId, refreshMinutes = 5, watch
       channels.push(
         supabase
           .channel("display-watch-" + watchTable)
-          .on("postgres_changes" as any, { event: "*", schema: "public", table: watchTable }, () => router.refresh())
+          .on("postgres_changes" as any, { event: "*", schema: "public", table: watchTable }, () => { refresh(); })
           .subscribe(),
       );
     }
 
     return () => {
+      stopped = true;
       clearInterval(refreshId);
-      clearInterval(dayId);
+      clearInterval(minuteId);
       document.removeEventListener("click", goFullscreen);
       document.documentElement.style.overflow = "";
       document.body.style.overflow = "";

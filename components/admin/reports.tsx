@@ -83,24 +83,26 @@ export default function Reports({ kind = "occupation" }: { kind?: ReportKind }) 
   };
 
   const load = useCallback(async () => {
-    if (!from || !to || from > to) return;
+    if (!from || !to) return;
+    // טווח הפוך: לא משאירים על המסך דוח של טווח אחר
+    if (from > to) { setOcc([]); setPhysio([]); setError("תאריך ההתחלה מאוחר מתאריך הסיום."); return; }
     setLoading(true);
     setError("");
     try {
       const res = await fetchAll<Resident>((a, b) => {
         let q = supabase.from("residents").select("id, name, room_number, department_id, is_active");
         if (deptId) q = q.eq("department_id", deptId);
-        return q.order("name").range(a, b);
+        return q.order("name").order("id").range(a, b);
       });
       setResidents(res);
       if (tab === "activities") {
         const { acts, marks, participants } = await loadAttendance(supabase, from, to, deptId || null);
-        setOcc(buildOccurrences({ rows: acts, marks, participants, from, to, nowISO: today, nowHM: israelTimeHM() }));
+        setOcc(buildOccurrences({ rows: acts, marks, participants, from, to, nowISO: today, nowHM: israelTimeHM(), departmentNames: depts.map(d => d.name) }));
       } else {
         const rows = await fetchAll<PhysioRow>((a, b) => {
           let q = supabase.from("physio_appointments").select("*").gte("appt_date", from).lte("appt_date", to);
           if (deptId) q = q.eq("department_id", deptId);
-          return q.order("appt_date").order("start_time").range(a, b);
+          return q.order("appt_date").order("start_time").order("id").range(a, b);
         });
         setPhysio(rows.sort((x, y) => x.appt_date.localeCompare(y.appt_date) || hm(x.start_time).localeCompare(hm(y.start_time))));
       }
@@ -108,7 +110,7 @@ export default function Reports({ kind = "occupation" }: { kind?: ReportKind }) 
       setError("הדוח לא נטען: " + (e instanceof Error ? e.message : String(e)));
     }
     setLoading(false);
-  }, [supabase, tab, from, to, deptId, today]);
+  }, [supabase, tab, from, to, deptId, today, depts]);
 
   useEffect(() => { load(); }, [load]);
 

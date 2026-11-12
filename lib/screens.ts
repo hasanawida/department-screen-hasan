@@ -4,8 +4,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { MAX_UPLOAD_BYTES, looksLikeImage, prepareImage } from "./image-prep";
 
 /**
- * רענון המסכים של מחלקה: force_refresh עולה ל-true (המסכים נטענים מחדש)
- * ואחרי כמה שניות חוזר ל-false. כמה שינויים ברצף — רענון אחד.
+ * רענון המסכים של מחלקה: force_refresh עולה ל-true (המסכים נטענים מחדש) ומיד חוזר ל-false.
+ * כמה שינויים ברצף — רענון אחד.
+ * (פעם הדגל חזר ל-false רק אחרי 3 שניות; מי שסגר את הלשונית בינתיים השאיר אותו דלוק,
+ * ומאז כל שינוי אחר בשורת המחלקה טען מחדש את המסכים שלה.)
  */
 const timers = new Map<string, ReturnType<typeof setTimeout>>();
 export function refreshDepartmentScreens(supabase: SupabaseClient, departmentId: string | null | undefined, delayMs = 1500) {
@@ -15,8 +17,7 @@ export function refreshDepartmentScreens(supabase: SupabaseClient, departmentId:
   timers.set(departmentId, setTimeout(async () => {
     timers.delete(departmentId);
     await supabase.from("departments").update({ force_refresh: true }).eq("id", departmentId);
-    // הבונה של supabase שולח את הבקשה רק כשמחכים לה — לכן then
-    setTimeout(() => { supabase.from("departments").update({ force_refresh: false }).eq("id", departmentId).then(() => {}); }, 3000);
+    await supabase.from("departments").update({ force_refresh: false }).eq("id", departmentId);
   }, delayMs));
 }
 
@@ -38,16 +39,16 @@ export async function uploadImage(supabase: SupabaseClient, input: File, folder:
   return { url: data.publicUrl };
 }
 
-/** מוודא שלמפעיל יש רשומה וקישור אישי (לעמוד שבו מסמנים נוכחות) */
-export async function ensureInstructors(supabase: SupabaseClient, names: (string | null | undefined)[]) {
-  const wanted = Array.from(new Set(names.map(n => (n ?? "").trim()).filter(Boolean)));
-  if (!wanted.length) return;
-  const { data, error } = await supabase.from("instructors").select("id, name, view_token").in("name", wanted);
-  if (error) return;
-  const token = () => Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
-  for (const name of wanted) {
-    const row = (data ?? []).find((r: any) => r.name === name);
-    if (!row) await supabase.from("instructors").insert({ name, view_token: token() });
-    else if (!row.view_token) await supabase.from("instructors").update({ view_token: token() }).eq("id", row.id);
-  }
+const BUCKET_MARK = "/storage/v1/object/public/department-media/";
+
+/**
+ * מוחק מהאחסון קובץ שהועלה למערכת (לפי הכתובת הציבורית שלו), אחרי שהוסר מהמסך.
+ * לא קריטי: אם המחיקה נכשלה הקובץ פשוט נשאר באחסון, ולכן אין כאן הודעת שגיאה.
+ */
+export async function removeStoredFile(supabase: SupabaseClient, url: string | null | undefined) {
+  const at = String(url ?? "").indexOf(BUCKET_MARK);
+  if (at < 0) return;
+  const path = decodeURIComponent(String(url).slice(at + BUCKET_MARK.length).split("?")[0]);
+  if (!path) return;
+  try { await supabase.storage.from("department-media").remove([path]); } catch { /* נשאר באחסון */ }
 }

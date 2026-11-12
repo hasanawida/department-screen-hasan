@@ -7,6 +7,7 @@
 import { useEffect } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { PING_MS, deviceRowId, readDeviceInfo, type ScreenKind } from "@/lib/screen-devices";
+import { safeReload } from "@/lib/screen-recovery";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -50,6 +51,9 @@ export default function ScreenHeartbeat({ kind, departmentId }: { kind: ScreenKi
     const ping = async () => {
       if (stopped || busy) return;
       busy = true;
+      // בקשה שנתקעת (רשת חלשה) מבוטלת אחרי 20 שניות — אחרת הדיווחים היו נעצרים עד טעינה מחדש
+      const ctrl = new AbortController();
+      const abort = setTimeout(() => ctrl.abort(), 20_000);
       const { data, error } = await supabase.rpc("screen_ping", {
         p_id: rowId,
         p_device: device,
@@ -58,17 +62,18 @@ export default function ScreenHeartbeat({ kind, departmentId }: { kind: ScreenKi
         p_path: window.location.pathname + window.location.search,
         p_info: readDeviceInfo(),
         p_session: session,
-      });
+      }).abortSignal(ctrl.signal);
+      clearTimeout(abort);
       busy = false;
       if (stopped) return;
       if (again) { again = false; ping(); return; }
       if (error) {
-        // עוד לא הריצו את scripts/015 — מנסים שוב בעוד עשר דקות, בלי להפריע למסך
-        timer = setTimeout(ping, 10 * 60 * 1000);
+        // תקלת רשת רגעית: מדווחים שוב בדיווח הבא (בלי לחכות יותר — אחרת המסך נראה "כבוי" בניהול)
+        timer = setTimeout(ping, PING_MS);
         return;
       }
-      // השרת מחליט אם לרענן (לפי השעון שלו, לא של הטלוויזיה)
-      if ((data as { reload?: boolean } | null)?.reload) { window.location.reload(); return; }
+      // השרת מחליט אם לרענן (לפי השעון שלו, לא של הטלוויזיה). הטעינה מחדש — רק כשהשרת זמין
+      if ((data as { reload?: boolean } | null)?.reload) { safeReload(); return; }
       timer = setTimeout(ping, PING_MS);
     };
     ping();

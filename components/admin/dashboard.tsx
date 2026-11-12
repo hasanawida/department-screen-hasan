@@ -99,7 +99,7 @@ export async function Dashboard({ supabase, email }: { supabase: SupabaseClient;
                     <Link href={`/admin/weekly?dept=${code}`} className="inline-flex items-center gap-2 rounded-xl bg-[#3F2F2D] px-3.5 py-2 text-sm font-semibold text-[#F6F2EE] hover:bg-[#3F2F2D]/90">
                       <CalendarDays className="h-4 w-4" /> עריכת הלוח
                     </Link>
-                    <Link href={`/display/${code}`} target="_blank" className="inline-flex items-center gap-2 rounded-xl border border-[#3F2F2D]/15 px-3.5 py-2 text-sm font-semibold hover:bg-[#E3ECE7]">
+                    <Link href={`/display/${code}?preview=1`} target="_blank" className="inline-flex items-center gap-2 rounded-xl border border-[#3F2F2D]/15 px-3.5 py-2 text-sm font-semibold hover:bg-[#E3ECE7]">
                       <ExternalLink className="h-4 w-4" /> פתיחת המסך
                     </Link>
                     <Link href={`/admin/display-settings/${code}`} className="inline-flex items-center gap-2 rounded-xl border border-[#3F2F2D]/15 px-3.5 py-2 text-sm font-semibold hover:bg-[#E3ECE7]">

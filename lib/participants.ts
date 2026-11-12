@@ -31,21 +31,57 @@ export function similarNames(a: string, b: string): boolean {
   return cb.startsWith(ca + " ") || ca.startsWith(cb + " ");
 }
 
+/** מה שמפריד בין פעילויות בכרטיס הדייר: פסיק, נקודה-פסיק או שורה חדשה. לוכסן לא מפריד — יש פעילויות שהשם שלהן כולל לוכסן */
+const TERM_SEPARATORS = /[,،;\n]+/;
+
+/** הפעילויות שכתובות בשדה אחד של הכרטיס, כל אחת לחוד */
+const termsOf = (text: string | null | undefined): string[] =>
+  String(text ?? "").split(TERM_SEPARATORS).map(t => cleanName(t).toLowerCase()).filter(t => t.length >= 2);
+
 /** הפעילויות שכתובות בכרטיס הדייר, כל אחת לחוד */
 export function residentTerms(r: Omit<ResidentCard, "id" | "department_id">): string[] {
-  return [r.personal_activity, r.group_activity, r.leisure_activity]
-    .flatMap(t => String(t ?? "").split(/[,،;\n/]+/))
-    .map(t => cleanName(t).toLowerCase())
-    .filter(t => t.length >= 2);
+  return [r.personal_activity, r.group_activity, r.leisure_activity].flatMap(termsOf);
 }
 
-/** האם הפעילות מתאימה למה שכתוב בכרטיס הדייר: לפי שם הפעילות, או לפי שם המפעיל/ה */
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/**
+ * האם מה שכתוב בכרטיס מופיע בשם הפעילות — כמילה, לא כחלק ממילה אחרת:
+ * "רון" לא מתאים ל"משחקי זיכרון", ו"שי" לא ל"שירה בציבור" (פעם כל רצף אותיות התאים, ודיירים נרשמו לפעילויות לא קשורות).
+ * מותרת אות שימוש אחת לפני המילה ("וריקודים"), ומילה של ארבע אותיות ומעלה מתאימה גם כתחילת מילה ("ריקוד" ← "ריקודים").
+ */
+function termInTitle(title: string, term: string): boolean {
+  const end = term.length >= 4 ? "" : "($|[^\\p{L}\\p{N}])";
+  return new RegExp("(^|[^\\p{L}\\p{N}])[ובלהמשכ]?" + escapeRe(term) + end, "u").test(title);
+}
+
+/** האם שם הפעילות המלא כתוב בשדה כמו שהוא (גם שם שיש בו פסיק או לוכסן — כך הוא נשמר כשבוחרים אותו מהרשימה) */
+function fieldHasTitle(field: string, title: string): boolean {
+  const f = field.replace(/[;،\n]/g, ",").replace(/[ \t]+/g, " ").toLowerCase();
+  for (let i = f.indexOf(title); i >= 0; i = f.indexOf(title, i + 1)) {
+    const before = f.slice(0, i).trimEnd(), after = f.slice(i + title.length).trimStart();
+    if ((!before || before.endsWith(",")) && (!after || after.startsWith(","))) return true;
+  }
+  return false;
+}
+
+/**
+ * האם הפעילות מתאימה למה שכתוב בכרטיס הדייר: לפי שם הפעילות, או לפי שם המפעיל/ה.
+ * שם מפעיל/ה: התאמה מלאה בכל השדות; התאמה חלקית ("אלדד" ← "אלדד כהן") רק בשדה הפנאי, שבו בוחרים מפעילים.
+ */
 export function matchesActivity(title: string, r: Omit<ResidentCard, "id" | "department_id">, instructor?: string | null): boolean {
   const t = cleanName(title).toLowerCase();
   const who = cleanName(instructor ?? "");
-  return residentTerms(r).some(term =>
-    (!!t && t.includes(term)) || (!!who && (nameKey(who) === nameKey(term) || similarNames(who, term))),
-  );
+  const fields: [string | null | undefined, boolean][] = [[r.personal_activity, false], [r.group_activity, false], [r.leisure_activity, true]];
+  for (const [text, leisure] of fields) {
+    if (!String(text ?? "").trim()) continue;
+    if (t && fieldHasTitle(String(text), t)) return true;
+    for (const term of termsOf(text)) {
+      if (t && termInTitle(t, term)) return true;
+      if (who && (nameKey(who) === nameKey(term) || (leisure && similarNames(who, term)))) return true;
+    }
+  }
+  return false;
 }
 
 /** הדיירים שהכרטיס שלהם מתאים לפעילות (רק מהמחלקה של הפעילות) — לרשימת המשתתפים גם בלי רישום שמור */

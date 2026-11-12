@@ -9,7 +9,7 @@ import Link from "next/link";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { Ban, Check, ImagePlus, Loader2, Search, Trash2, Wand2 } from "lucide-react";
 import { uploadImage } from "@/lib/screens";
-import { loadIconConfig, saveIconConfig } from "@/lib/icon-config-db";
+import { updateIconConfig } from "@/lib/icon-config-db";
 import { DISH_LIST, DISH_NONE, autoDishKey, dishImage, dishLabel } from "@/lib/dishes";
 import type { IconConfig } from "@/lib/icon-config";
 import { inputCls } from "@/components/admin/brand-ui";
@@ -40,11 +40,10 @@ export default function DishIconPicker({ supabase, line, config, onSaved, onClos
   /** שומר על בסיס ההגדרה העדכנית ביותר (אולי מישהו שינה בינתיים בעמוד האייקונים) */
   const update = async (busyKey: string, change: (cfg: IconConfig) => IconConfig) => {
     setBusy(busyKey); setErr(null);
-    const latest = await loadIconConfig(supabase);
-    const { failed, saved } = await saveIconConfig(supabase, change(latest));
+    const { error, saved } = await updateIconConfig(supabase, change);
     setBusy(null);
-    if (failed) setErr("לא נשמר בכל המחלקות. נסו שוב.");
-    onSaved(saved);
+    if (error) setErr(error);
+    if (saved) onSaved(saved);
   };
 
   const setLine = (key: string | null) => update(key ?? "auto", cfg => {

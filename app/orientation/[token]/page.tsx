@@ -1,38 +1,24 @@
-// @ts-nocheck
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { createClient } from "@supabase/supabase-js";
 import { notFound } from "next/navigation";
+import { createAnonServerClient } from "@/lib/supabase/anon-server";
 import OrientationScreenWrapper from "@/components/orientation/orientation-screen-wrapper";
-import { activitiesByDay, dayIndexOf, weekStartISO, type ActivityRow } from "@/lib/week";
 import { orientationColor } from "@/lib/orientation-color";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-);
-
-type ActivityCategory = "meal" | "group" | "rest" | "therapy" | "free";
-
-const CATEGORY_MAP: Record<string, ActivityCategory> = {
-  "ארוחה": "meal", "אוכל": "meal",
-  "קבוצה": "group", "פעילות": "group",
-  "מנוחה": "rest", "טיפול": "therapy",
-};
-
-function guessCategory(title: string): ActivityCategory | undefined {
-  for (const [keyword, cat] of Object.entries(CATEGORY_MAP)) {
-    if (title.includes(keyword)) return cat;
-  }
-  return undefined;
-}
+// תמיד הנתונים העדכניים מהמסד (בלי המטמון של Next) — אחרת שינוי שם של מחלקה לא מגיע למסך
+export const fetchCache = "force-no-store";
+const supabase = createAnonServerClient();
 
 async function translateDepartmentName(
   deptId: string,
   nameHe: string,
 ): Promise<{ name_ar: string; name_ru: string; name_en: string }> {
+  const hebrew = { name_ar: nameHe, name_ru: nameHe, name_en: nameHe };
+  if (!process.env.ANTHROPIC_API_KEY) return hebrew;
   try {
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
+      // שירות התרגום לא מעכב את טעינת המסך: אם הוא לא עונה מהר — השם מוצג בעברית, וננסה שוב בטעינה הבאה
+      signal: AbortSignal.timeout(6000),
       headers: {
         "Content-Type": "application/json",
         "x-api-key": process.env.ANTHROPIC_API_KEY!,
@@ -50,17 +36,18 @@ Hebrew name: "${nameHe}"`,
         }],
       }),
     });
+    if (!response.ok) return hebrew;
     const data = await response.json();
     const text = data.content?.[0]?.text ?? "{}";
     const parsed = JSON.parse(text.replace(/```json|```/g, "").trim());
-    await supabase.from("departments").update({
-      name_ar: parsed.name_ar,
-      name_ru: parsed.name_ru,
-      name_en: parsed.name_en,
-    }).eq("id", deptId);
-    return parsed;
+    const clean = (v: unknown) => (typeof v === "string" ? v.trim().slice(0, 80) : "");
+    const names = { name_ar: clean(parsed.name_ar), name_ru: clean(parsed.name_ru), name_en: clean(parsed.name_en) };
+    // שומרים רק תרגום מלא (שלוש השפות); תשובה חלקית או שגויה לא נשמרת במקום השם
+    if (!names.name_ar || !names.name_ru || !names.name_en) return hebrew;
+    await supabase.from("departments").update(names).eq("id", deptId);
+    return names;
   } catch {
-    return { name_ar: nameHe, name_ru: nameHe, name_en: nameHe };
+    return hebrew;
   }
 }
 
@@ -84,9 +71,11 @@ export default async function OrientationPage({ params }: any) {
     .from("departments")
     .select("id, name, name_ar, name_ru, name_en, color, orientation_color, orientation_settings")
     .eq("view_token", token)
-    .single();
+    .maybeSingle();
 
-  if (deptError || !dept) notFound();
+  // תקלה בקריאה היא לא "אין מחלקה כזו": זורקים, והמסך מציג דף המתנה ומנסה שוב לבד
+  if (deptError) throw new Error("departments: " + deptError.message);
+  if (!dept) notFound();
 
   const settings = { ...DEFAULT_SETTINGS, ...(dept.orientation_settings ?? {}) };
 
@@ -96,25 +85,6 @@ export default async function OrientationPage({ params }: any) {
     translations = await translateDepartmentName(dept.id, dept.name);
   }
 
-  // התאריך של היום לפי שעון ישראל (השרת של Vercel עובד ב-UTC, ובין חצות ל-3 לפנות בוקר היה מציג את פעילויות אתמול)
-  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jerusalem" }).format(new Date());
-  // הפעילויות של היום: גם קבועות (חוזרות כל שבוע) וגם של התאריך הזה, בלי שבועות שבוטלו
-  const { data: rawActivities } = await supabase
-    .from("activities")
-    .select("*")
-    .eq("department_id", dept.id)
-    .eq("is_active", true);
-  const todays = activitiesByDay((rawActivities ?? []) as ActivityRow[], weekStartISO(today))[dayIndexOf(today)];
-
-  const activities = todays.map((a) => ({
-    id:        a.id,
-    title:     a.title,
-    startTime: a.start || "00:00",
-    endTime:   a.end,
-    category:  guessCategory(a.title),
-    isActive:  true,
-  }));
-
   return (
     <OrientationScreenWrapper
       departmentId={dept.id}
@@ -123,7 +93,6 @@ export default async function OrientationPage({ params }: any) {
       departmentNameRu={translations.name_ru ?? dept.name}
       departmentNameEn={translations.name_en ?? dept.name}
       departmentColor={orientationColor(dept.orientation_color)}
-      activities={activities}
       settings={settings}
     />
   );

@@ -37,20 +37,22 @@ export async function resolveTopic(supabase: SupabaseClient, departmentId: strin
     supabase.from("annual_topics").select("id", { count: "exact", head: true }),
   ]);
 
-  // לפני שהורץ קובץ ה-SQL — אין טבלת תוכנית
-  const planReady = !pl.error && !count.error;
-  const hasPlan = planReady && (count.count ?? 0) > 0;
+  // תקלה בקריאה היא לא "אין נושא": זורקים, כדי שלא יוצג נושא ישן (או ריק) במקום הנכון
+  const failed = ov.error ?? pl.error ?? count.error;
+  if (failed) throw new Error("נושא השבוע לא נטען: " + failed.message);
+  const hasPlan = (count.count ?? 0) > 0;
 
   const override = ov.data && String(ov.data.title ?? "").trim() ? { id: String(ov.data.id), ...pick(ov.data) } : null;
-  const plan = planReady && pl.data && String(pl.data.title ?? "").trim() ? { id: String(pl.data.id), ...pick(pl.data) } : null;
+  const plan = pl.data && String(pl.data.title ?? "").trim() ? { id: String(pl.data.id), ...pick(pl.data) } : null;
 
   if (override) return { topic: override, source: "override", override, plan, hasPlan };
   if (plan) return { topic: plan, source: "plan", override, plan, hasPlan };
 
   if (!hasPlan) {
-    const { data: prev } = await supabase.from("weekly_topics").select("title, description, image_url, week_start")
+    const { data: prev, error } = await supabase.from("weekly_topics").select("title, description, image_url, week_start")
       .eq("department_id", departmentId).eq("is_active", true).lt("week_start", weekStart)
       .order("week_start", { ascending: false }).limit(1).maybeSingle();
+    if (error) throw new Error("נושא השבוע לא נטען: " + error.message);
     if (prev && String(prev.title ?? "").trim()) {
       return { topic: pick(prev), source: "earlier", override, plan, hasPlan, earlierFrom: prev.week_start };
     }

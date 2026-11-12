@@ -8,8 +8,11 @@ export const metadata: Metadata = {
   title: 'מערכת המחלקה',
   description: 'מערכת ניהול מחלקה',
   manifest: '/manifest.json',
+  // מערכת פנימית: שום עמוד שלה לא אמור להופיע במנועי חיפוש
+  robots: { index: false, follow: false },
   icons: {
-    apple: '/icon-192.png',
+    icon: '/icon.svg',
+    apple: '/apple-icon.png',
   },
 }
 

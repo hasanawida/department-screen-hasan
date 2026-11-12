@@ -14,8 +14,9 @@ export const DISH_TYPES: DishType[] = [
   { key: "shabbat-dinner", label: "ארוחת ליל שישי", words: ["ליל שישי"], first: true },
   // מנות טחונות: פירות ומעדנים — לפי מה שהם; כל השאר — תמונת "מנה טחונה"
   { key: "fruit-puree", label: "רסק פירות", words: ["רסק"], first: true },
-  { key: "dairy", label: "מעדנים ויוגורט", words: ["טחונה: מעדנ"], first: true },
-  { key: "dairy", label: "מעדנים ויוגורט", words: ["מעדנ", "יוגורט"] },
+  // "מעדן" ביחיד נכתב בנ' סופית, ולכן הוא מילה נפרדת מ"מעדנ" (מעדנים, מעדני)
+  { key: "dairy", label: "מעדנים ויוגורט", words: ["טחונה: מעדנ", "טחונה: מעדן"], first: true },
+  { key: "dairy", label: "מעדנים ויוגורט", words: ["מעדנ", "מעדן", "יוגורט"] },
   { key: "pureed", label: "מנה טחונה", words: ["טחונ"] },
   // מרקים
   { key: "noodle-soup", label: "מרק אטריות", words: ["מרק אטריות"] },
@@ -82,6 +83,13 @@ export const DISH_TYPES: DishType[] = [
   { key: "challah", label: "חלה ולחם", words: ["חלה", "לחם"], weak: true },
 ];
 
+/** הכלל הראשי של כל מנה: הרגיל (לא first ולא weak) אם יש כזה, אחרת היחיד שיש */
+const MAIN_RULE = new Map<string, DishType>();
+for (const d of DISH_TYPES) {
+  const cur = MAIN_RULE.get(d.key);
+  if (!cur || ((cur.first || cur.weak) && !d.first && !d.weak)) MAIN_RULE.set(d.key, d);
+}
+
 export const defaultDishImage = (key: string) => `/dishes/${key}.jpg`;
 
 /** בחירה ידנית של "בלי תמונה" לשורה בתפריט */
@@ -104,8 +112,10 @@ export function dishKey(line: string, cfg?: IconConfig): string | null {
   if (manual && (DISH_TYPES.some(d => d.key === manual) || cfg?.dishes?.custom?.some(c => c.key === manual))) return manual;
   for (const c of cfg?.dishes?.custom ?? []) if (c.words?.some(w => w.trim() && t.includes(w.trim()))) return c.key;
   const pos = (d: DishType) => {
-    // מילים שנערכו בניהול מחליפות את כל המילים של המנה
-    const words = cfg?.dishes?.types?.[d.key]?.words ?? d.words;
+    // מילים שנערכו בניהול מחליפות את המילים של הכלל הראשי של המנה. כללי עזר של אותה מנה
+    // (first / weak — למשל "טחונה: מעדן", או "דייסה" סתם) נשארים עם המילים שלהם, אחרת העריכה הייתה משנה גם את סדר העדיפויות
+    const edited = MAIN_RULE.get(d.key) === d ? cfg?.dishes?.types?.[d.key]?.words : null;
+    const words = edited ?? d.words;
     let best = -1;
     for (const w of words) { const i = w.trim() ? t.indexOf(w.trim()) : -1; if (i >= 0 && (best < 0 || i < best)) best = i; }
     return best;

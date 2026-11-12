@@ -1,3 +1,4 @@
+import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import DisplayRuntime from "@/components/display/display-runtime";
 import ScreenHeartbeat from "@/components/display/screen-heartbeat";
@@ -16,12 +17,18 @@ export default async function PhysioScreen({ searchParams }: { searchParams: Pro
   const supabase = await createClient();
   const today = israelDateISO();
 
-  const [{ data: rows }, { data: depts }] = await Promise.all([
+  const [appointments, departments] = await Promise.all([
     supabase.from("physio_appointments").select("*").eq("appt_date", today).order("start_time"),
     supabase.from("departments").select("id, name, code, color"),
   ]);
+  // תקלה בקריאה היא לא "אין מוזמנים היום": זורקים, והמסך מציג דף המתנה ומנסה שוב לבד
+  const failed = appointments.error ?? departments.error;
+  if (failed) throw new Error("physio: " + failed.message);
+  const rows = appointments.data, depts = departments.data;
 
-  const only = dept ? (depts ?? []).find(d => d.code === decodeURIComponent(dept)) : null;
+  const only = dept ? (depts ?? []).find(d => d.code === dept) : null;
+  // קוד מחלקה שלא קיים (שגיאת הקלדה בכתובת): לא מציגים במקומו את המוזמנים של כל הבית
+  if (dept && !only) notFound();
   const dep = (id: string | null) => (depts ?? []).find(d => d.id === id);
   const appts: PhysioAppt[] = (rows ?? [])
     .filter(r => !only || r.department_id === only.id)

@@ -1,9 +1,8 @@
 "use client";
 
-export default function Error({ error }: { error: Error }) {
-  return (
-    <div dir="rtl" className="flex min-h-screen items-center justify-center">
-      <p className="text-2xl text-red-600">{error.message}</p>
-    </div>
-  );
+import ScreenRecovering from "@/components/display/screen-recovering";
+
+// תקלה בטעינת המסך: מציגים שעון ותאריך, והדף חוזר לבד כשהשרת זמין
+export default function Error() {
+  return <ScreenRecovering />;
 }

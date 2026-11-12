@@ -3,11 +3,12 @@
 // עריכת האייקונים והתמונות שבמסכים: תמונה לכל סוג פעילות ולכל מנה בתפריט, המילים שמזהות כל אחד,
 // סוגים ומנות חדשים, ובחירה ידנית של אייקון לשם פעילות מסוים.
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ImagePlus, Loader2, Plus, RotateCcw, Search, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { uploadImage } from "@/lib/screens";
-import { saveIconConfig } from "@/lib/icon-config-db";
+import { loadIconConfig, saveIconConfig } from "@/lib/icon-config-db";
+import { mergeIconConfig } from "@/lib/icon-config-merge";
 import { Card, PageShell, Toggle, btnGhost, btnPrimary, inputCls, textareaCls } from "@/components/admin/brand-ui";
 import { activityKey } from "@/components/display/icons";
 import {
@@ -18,10 +19,63 @@ import { DISH_LIST, dishImage } from "@/lib/dishes";
 
 type Row = { id: string; department_id: string; display_settings: any };
 
+/** מה שנערך בעמוד, בצורה שנוחה לטופס */
+type Parts = {
+  images: Record<string, string>;       // סוג מובנה ← תמונה שהועלתה
+  wordsText: Record<string, string>;    // סוג מובנה ← מילים (טקסט חופשי)
+  custom: CustomIconType[];
+  byTitle: Record<string, string>;
+  meals: NonNullable<IconConfig["meals"]>;
+  dishImages: Record<string, string>;
+  dishWords: Record<string, string>;
+  dishCustom: CustomIconType[];
+  /** בחירות לשורות מסוימות בתפריט (נעשות בטופס התפריט) — נשמרות כמו שהן */
+  dishLines: Record<string, string>;
+  menuLines: NonNullable<IconConfig["menu_lines"]>;
+};
+
+function partsOf(cfg: IconConfig): Parts {
+  const images: Record<string, string> = {}, wordsText: Record<string, string> = {};
+  for (const [k, v] of Object.entries(cfg.types ?? {})) {
+    if (v?.image) images[k] = v.image;
+    if (v?.words?.length) wordsText[k] = v.words.join(", ");
+  }
+  const dishImages: Record<string, string> = {}, dishWords: Record<string, string> = {};
+  for (const [k, v] of Object.entries(cfg.dishes?.types ?? {})) {
+    if (v?.image) dishImages[k] = v.image;
+    if (v?.words?.length) dishWords[k] = v.words.join(", ");
+  }
+  return {
+    images, wordsText, custom: cfg.custom ?? [], byTitle: cfg.titles ?? {}, meals: cfg.meals ?? {},
+    dishImages, dishWords, dishCustom: cfg.dishes?.custom ?? [], dishLines: cfg.dishes?.lines ?? {}, menuLines: cfg.menu_lines ?? {},
+  };
+}
+
+function configOf(p: Parts): IconConfig {
+  const types: IconConfig["types"] = {};
+  for (const t of ACTIVITY_TYPES) {
+    const image = p.images[t.key];
+    const words = parseWords(p.wordsText[t.key] ?? "");
+    if (image || words.length) types[t.key] = { image: image || null, words: words.length ? words : null };
+  }
+  const dTypes: NonNullable<IconConfig["dishes"]>["types"] = {};
+  for (const d of DISH_LIST) {
+    const image = p.dishImages[d.key];
+    const words = parseWords(p.dishWords[d.key] ?? "");
+    if (image || words.length) dTypes[d.key] = { image: image || null, words: words.length ? words : null };
+  }
+  return { types, custom: p.custom, titles: p.byTitle, meals: p.meals, dishes: { types: dTypes, custom: p.dishCustom, lines: p.dishLines }, menu_lines: p.menuLines };
+}
+
 export default function IconsManager() {
   const supabase = useMemo(() => createClient(), []);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [titles, setTitles] = useState<string[]>([]);
+  // ההגדרה כפי שנטענה (או נשמרה) לאחרונה — כדי לדעת בשמירה מה באמת השתנה כאן, ומה נשמר בינתיים ממקום אחר
+  const baseRef = useRef<IconConfig>({});
+  const stampRef = useRef("");
+  const [rev, setRev] = useState(0);
 
   // מה שנערך (נשמר רק בלחיצה על "שמירה")
   const [images, setImages] = useState<Record<string, string>>({});       // סוג מובנה ← תמונה שהועלתה
@@ -39,61 +93,56 @@ export default function IconsManager() {
   const [dishLines, setDishLines] = useState<Record<string, string>>({});
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
+  const [msg, setMsg] = useState<{ text: string; bad: boolean } | null>(null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const msgTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const flash = (m: string) => { setMsg(m); setTimeout(() => setMsg(null), 3500); };
+  const flash = (text: string, bad = false) => {
+    if (msgTimer.current) clearTimeout(msgTimer.current);
+    setMsg({ text, bad });
+    msgTimer.current = setTimeout(() => setMsg(null), bad ? 8000 : 4000);
+  };
   const touch = () => setDirty(true);
 
+  const applyParts = useCallback((p: Parts) => {
+    setImages(p.images); setWordsText(p.wordsText); setCustom(p.custom); setByTitle(p.byTitle); setMeals(p.meals);
+    setDishImages(p.dishImages); setDishWords(p.dishWords); setDishCustom(p.dishCustom); setDishLines(p.dishLines); setMenuLines(p.menuLines);
+    setRev(n => n + 1);
+  }, []);
+
   /* ── טעינה ── */
-  useEffect(() => {
-    (async () => {
-      const [ss, acts] = await Promise.all([
-        supabase.from("screen_settings").select("id, department_id, display_settings"),
-        supabase.from("activities").select("title").eq("is_active", true),
-      ]);
-      const cfg = latestIconConfig((ss.data ?? []) as Row[]);
-      const img: Record<string, string> = {}, words: Record<string, string> = {};
-      for (const [k, v] of Object.entries(cfg.types ?? {})) {
-        if (v?.image) img[k] = v.image;
-        if (v?.words?.length) words[k] = v.words.join(", ");
-      }
-      setImages(img); setWordsText(words);
-      setCustom(cfg.custom ?? []);
-      setByTitle(cfg.titles ?? {});
-      setMeals(cfg.meals ?? {});
-      const dImg: Record<string, string> = {}, dWords: Record<string, string> = {};
-      for (const [k, v] of Object.entries(cfg.dishes?.types ?? {})) {
-        if (v?.image) dImg[k] = v.image;
-        if (v?.words?.length) dWords[k] = v.words.join(", ");
-      }
-      setDishImages(dImg); setDishWords(dWords);
-      setDishCustom(cfg.dishes?.custom ?? []);
-      setMenuLines(cfg.menu_lines ?? {});
-      setDishLines(cfg.dishes?.lines ?? {});
-      const names: string[] = Array.from(new Set<string>((acts.data ?? []).map((a: any) => String(a.title ?? "").trim()).filter(Boolean)));
-      setTitles(names.sort((a, b) => a.localeCompare(b, "he")));
+  const load = useCallback(async () => {
+    setLoading(true); setLoadError(null);
+    const [ss, acts] = await Promise.all([
+      supabase.from("screen_settings").select("id, department_id, display_settings"),
+      supabase.from("activities").select("title").eq("is_active", true),
+    ]);
+    // אם ההגדרות לא נטענו — לא מציגים עמוד ריק שאפשר לשמור (זה היה מוחק את ההגדרות האמיתיות)
+    if (ss.error || !ss.data || acts.error) {
+      setLoadError((ss.error ?? acts.error)?.message ?? "ההגדרות לא נטענו");
       setLoading(false);
-    })();
-  }, [supabase]);
+      return;
+    }
+    const cfg = latestIconConfig(ss.data as Row[]);
+    const parts = partsOf(cfg);
+    applyParts(parts);
+    baseRef.current = configOf(parts);
+    stampRef.current = cfg.updated_at ?? "";
+    const names: string[] = Array.from(new Set<string>((acts.data ?? []).map((a: any) => String(a.title ?? "").trim()).filter(Boolean)));
+    setTitles(names.sort((a, b) => a.localeCompare(b, "he")));
+    setDirty(false);
+    setLoading(false);
+  }, [supabase, applyParts]);
+  useEffect(() => { load(); }, [load]);
 
   /** ההגדרה כפי שהיא עכשיו בעריכה (גם לתצוגה וגם לשמירה) */
-  const config: IconConfig = useMemo(() => {
-    const types: IconConfig["types"] = {};
-    for (const t of ACTIVITY_TYPES) {
-      const image = images[t.key];
-      const words = parseWords(wordsText[t.key] ?? "");
-      if (image || words.length) types[t.key] = { image: image || null, words: words.length ? words : null };
-    }
-    const dTypes: NonNullable<IconConfig["dishes"]>["types"] = {};
-    for (const d of DISH_LIST) {
-      const image = dishImages[d.key];
-      const words = parseWords(dishWords[d.key] ?? "");
-      if (image || words.length) dTypes[d.key] = { image: image || null, words: words.length ? words : null };
-    }
-    return { types, custom, titles: byTitle, meals, dishes: { types: dTypes, custom: dishCustom, lines: dishLines }, menu_lines: menuLines };
-  }, [images, wordsText, custom, byTitle, meals, dishImages, dishWords, dishCustom, dishLines, menuLines]);
+  const config: IconConfig = useMemo(
+    () => configOf({ images, wordsText, custom, byTitle, meals: meals ?? {}, dishImages, dishWords, dishCustom, dishLines, menuLines }),
+    [images, wordsText, custom, byTitle, meals, dishImages, dishWords, dishCustom, dishLines, menuLines],
+  );
+  const configRef = useRef(config);
+  configRef.current = config;
 
   /* ── העלאת תמונה ── */
   const upload = async (key: string, file: File | undefined, done: (url: string) => void) => {
@@ -101,18 +150,37 @@ export default function IconsManager() {
     setBusyKey(key);
     const res = await uploadImage(supabase, file, "icons");
     setBusyKey(null);
-    if ("error" in res) { flash(res.error); return; }
+    if ("error" in res) { flash(res.error, true); return; }
     done(res.url); touch();
   };
 
-  /* ── שמירה: לכל המחלקות, ורענון המסכים ── */
+  /* ── שמירה: לכל המחלקות ── */
   const save = useCallback(async () => {
     setSaving(true);
-    const { failed } = await saveIconConfig(supabase, config);
+    const mine = config;
+    // קוראים קודם את מה ששמור עכשיו: אם מישהו שינה בינתיים (למשל תמונה למנה מטופס התפריט),
+    // ממזגים את השינויים שלו עם שלנו במקום לדרוס אותם
+    let latest: IconConfig;
+    try {
+      latest = await loadIconConfig(supabase);
+    } catch {
+      setSaving(false);
+      flash("לא נשמר — אין חיבור. נסו שוב.", true);
+      return;
+    }
+    const changedElsewhere = (latest.updated_at ?? "") !== stampRef.current;
+    const { error, saved } = await saveIconConfig(supabase, changedElsewhere ? mergeIconConfig(baseRef.current, mine, latest) : mine);
     setSaving(false);
-    if (failed) flash(`לא נשמר ב-${failed} מחלקות. נסו שוב.`);
-    else { setDirty(false); flash("נשמר. המסכים מתעדכנים."); }
-  }, [config, supabase]);
+    if (saved) {
+      const parts = partsOf(saved);
+      baseRef.current = configOf(parts);
+      stampRef.current = saved.updated_at ?? "";
+      // אם המשיכו לערוך בזמן השמירה — משאירים את העריכה, והיא תישמר בלחיצה הבאה
+      if (configRef.current === mine) { applyParts(parts); setDirty(!!error); }
+    }
+    if (error) flash(error, true);
+    else flash(changedElsewhere ? "נשמר, יחד עם שינויים שנעשו בינתיים ממקום אחר. יופיע במסכים בתוך כמה דקות." : "נשמר. יופיע במסכים בתוך כמה דקות.");
+  }, [config, supabase, applyParts]);
 
   /* ── סוג חדש ── */
   const [newLabel, setNewLabel] = useState("");
@@ -150,6 +218,17 @@ export default function IconsManager() {
       </PageShell>
     );
   }
+  if (loadError) {
+    return (
+      <PageShell title="אייקונים ותמונות">
+        <div className="rounded-xl border border-[#B56262]/30 bg-[#B56262]/10 p-4 text-[#3F2F2D]" role="alert">
+          <div className="font-bold">ההגדרות לא נטענו</div>
+          <p className="mt-1 text-sm text-[#3F2F2D]/70">בדקו את החיבור לאינטרנט ונסו שוב. כלום לא נמחק.</p>
+          <button type="button" className={btnPrimary + " mt-3"} onClick={load}>ניסיון נוסף</button>
+        </div>
+      </PageShell>
+    );
+  }
 
   return (
     <PageShell
@@ -157,7 +236,7 @@ export default function IconsManager() {
       subtitle="התמונות שליד כל פעילות בלוח השבועי ובתפריט היום. השינויים חלים על כל המחלקות."
       actions={
         <>
-          {msg && <span className="text-sm font-semibold text-[#5A826F]" role="status">{msg}</span>}
+          {msg && <span className={"text-sm font-semibold " + (msg.bad ? "text-[#B56262]" : "text-[#5A826F]")} role={msg.bad ? "alert" : "status"}>{msg.text}</span>}
           <button type="button" className={btnPrimary} onClick={save} disabled={!dirty || saving}>
             {saving && <Loader2 className="h-4 w-4 animate-spin" />} שמירה
           </button>
@@ -190,7 +269,7 @@ export default function IconsManager() {
                       onChange={e => { const v = e.target.value; setWordsText(m => ({ ...m, [t.key]: v })); touch(); }}
                     />
                     <div className="mt-1 text-xs text-[#3F2F2D]/50">
-                      {wordsText[t.key]?.trim() ? "מילים שנערכו" : "ריק = מילות ברירת המחדל"}
+                      {wordsText[t.key]?.trim() ? "המילים האלה מחליפות את מילות ברירת המחדל" : "ריק = מילות ברירת המחדל"}
                     </div>
                   </>
                 )}
@@ -198,7 +277,7 @@ export default function IconsManager() {
             ))}
             {custom.map(c => (
               <TypeCard
-                key={c.key}
+                key={c.key + ":" + rev}
                 label={c.label}
                 image={c.image}
                 busy={busyKey === c.key}
@@ -324,12 +403,12 @@ export default function IconsManager() {
                   aria-label={`מילים שמזהות ${d.label}`}
                   onChange={e => { const v = e.target.value; setDishWords(m => ({ ...m, [d.key]: v })); touch(); }}
                 />
-                <div className="mt-1 text-xs text-[#3F2F2D]/50">{dishWords[d.key]?.trim() ? "מילים שנערכו" : "ריק = מילות ברירת המחדל"}</div>
+                <div className="mt-1 text-xs text-[#3F2F2D]/50">{dishWords[d.key]?.trim() ? "המילים האלה מחליפות את מילות ברירת המחדל" : "ריק = מילות ברירת המחדל"}</div>
               </TypeCard>
             ))}
             {dishCustom.filter(c => !q || c.label.includes(q)).map(c => (
               <TypeCard
-                key={c.key}
+                key={c.key + ":" + rev}
                 label={c.label}
                 image={c.image}
                 round

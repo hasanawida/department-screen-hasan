@@ -55,13 +55,8 @@ const ALL_LANGS = ["he", "ar", "ru", "en"];
 const SECTION_LABELS: { key: keyof OrientationSettings; label: string }[] = [
   { key: "show_logo",         label: "הלוגו של אשכולות (למעלה)" },
   { key: "show_department",   label: "שם המחלקה (למעלה)" },
-  { key: "show_activities",   label: "פעילויות (עכשיו / בהמשך הקרוב)" },
-  { key: "show_menu",         label: "תפריט היום" },
-  { key: "show_staff",        label: "הצוות היום" },
   { key: "show_calming",      label: "מסר מרגיע" },
-  { key: "show_hebrew_date",  label: "תאריך עברי" },
   { key: "show_weather",      label: "מזג אוויר" },
-  { key: "show_anchors",      label: "עוגנים קבועים" },
 ];
 
 // צבעים כהים מספיק לכותרות על רקע קרם ולכתב לבן בפס המסר
@@ -80,16 +75,21 @@ export default function OrientationSettingsPage() {
   const [settings, setSettings] = useState<OrientationSettings>(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState("");
   const [notFound, setNotFound] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
 
   async function loadData() {
     const { data, error } = await supabase
       .from("departments")
       .select("id, name, orientation_color, orientation_settings")
       .eq("view_token", token)
-      .single();
+      .maybeSingle();
 
-    if (error || !data) { setNotFound(true); setLoading(false); return; }
+    // תקלת חיבור היא לא "מחלקה לא נמצאה"
+    if (error) { setLoadFailed(true); setLoading(false); return; }
+    setLoadFailed(false);
+    if (!data) { setNotFound(true); setLoading(false); return; }
     setDeptName(data.name);
     setColor(orientationColor(data.orientation_color));
     setSettings({ ...DEFAULT_SETTINGS, ...(data.orientation_settings ?? {}) });
@@ -102,19 +102,22 @@ export default function OrientationSettingsPage() {
   }, [token]);
 
   async function handleSave() {
-    const { error } = await supabase
+    setSaveError("");
+    const { data, error } = await supabase
       .from("departments")
       .update({
         orientation_color: color,
         orientation_settings: settings,
       })
-      .eq("view_token", token);
+      .eq("view_token", token)
+      .select("id");
 
-    if (!error) {
-      setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
-      await loadData();
+    if (error || !data?.length) {
+      setSaveError("לא נשמר" + (error ? ": " + error.message : ". רעננו את העמוד ונסו שוב."));
+      return;
     }
+    setSaved(true);
+    setTimeout(() => setSaved(false), 3000);
   }
 
   function toggleLang(lang: string) {
@@ -137,6 +140,13 @@ export default function OrientationSettingsPage() {
   if (loading) return (
     <div dir="rtl" className="flex min-h-screen items-center justify-center">
       <p className="text-2xl text-slate-500">טוען...</p>
+    </div>
+  );
+
+  if (loadFailed) return (
+    <div dir="rtl" className="flex min-h-screen flex-col items-center justify-center gap-4 p-6 text-center">
+      <p className="text-2xl text-slate-700">ההגדרות לא נטענו. בדקו את החיבור לאינטרנט.</p>
+      <Button onClick={() => { setLoading(true); loadData(); }}>ניסיון נוסף</Button>
     </div>
   );
 
@@ -305,6 +315,7 @@ export default function OrientationSettingsPage() {
           </CardContent>
         </Card>
 
+        {saveError && <p role="alert" className="rounded-xl bg-red-50 px-4 py-3 text-center text-lg font-semibold text-red-700">{saveError}</p>}
         <Button
           onClick={handleSave}
           className="w-full rounded-2xl py-6 text-2xl font-bold bg-emerald-600 hover:bg-emerald-700"
@@ -318,7 +329,7 @@ export default function OrientationSettingsPage() {
 
         <p className="text-center text-slate-400 text-lg">
           קישור למסך:{" "}
-          <a href={"/orientation/" + token} target="_blank" className="text-emerald-600 underline">
+          <a href={"/orientation/" + token + "?preview=1"} target="_blank" className="text-emerald-600 underline">
             /orientation/{token?.slice(0, 8)}...
           </a>
         </p>

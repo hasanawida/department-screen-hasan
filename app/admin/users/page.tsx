@@ -10,6 +10,7 @@ type Admin = { email: string; created_at: string; created_by: string | null };
 
 export default function AdminUsersPage() {
   const [list, setList] = useState<Admin[]>([]);
+  const [envAdmins, setEnvAdmins] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
@@ -24,7 +25,7 @@ export default function AdminUsersPage() {
       const res = await fetch("/api/admins/list");
       const data = await res.json();
       if (!res.ok) setError(data.error || "שגיאה בטעינה");
-      else setList(data.admins || []);
+      else { setList(data.admins || []); setEnvAdmins(data.envAdmins || []); }
     } catch (e: any) {
       setError(e?.message || "שגיאה בטעינה");
     }
@@ -131,7 +132,7 @@ export default function AdminUsersPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5" /> מנהלים קיימים ({list.length})
+            <Users className="h-5 w-5" /> מנהלים קיימים ({list.length + envAdmins.filter(e => !list.some(a => a.email === e)).length})
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -142,12 +143,21 @@ export default function AdminUsersPage() {
           )}
           {loading ? (
             <p className="text-slate-500 text-center py-6">טוען...</p>
-          ) : list.length === 0 ? (
-            <p className="text-slate-500 text-center py-6">
-              אין מנהלים בטבלה. אם אתה הראשון — צור טבלה + הוסף את עצמך דרך ה-SQL שבקליפבורד.
+          ) : list.length === 0 && envAdmins.length === 0 ? (
+            <p className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+              עוד לא הוגדר אף מנהל, ולכן כרגע כל חשבון רשום יכול להיכנס לניהול.
+              מוסיפים כאן את עצמכם (האימייל שאיתו נכנסתם) — ומאותו רגע רק מי שברשימה נכנס.
             </p>
           ) : (
             <div className="space-y-2">
+              {envAdmins.filter(e => !list.some(a => a.email === e)).map((email) => (
+                <div key={"env-" + email} className="flex items-center justify-between rounded-xl border p-3">
+                  <div>
+                    <p className="font-semibold" dir="ltr">{email}</p>
+                    <p className="text-xs text-slate-500">מנהל ראשי · מוגדר בהגדרות השרת (ADMIN_EMAILS), לא מוסר מכאן</p>
+                  </div>
+                </div>
+              ))}
               {list.map((a) => (
                 <div key={a.email} className="flex items-center justify-between rounded-xl border p-3">
                   <div>

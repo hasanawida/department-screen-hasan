@@ -40,6 +40,10 @@ export function ResidentsList({ residents, departments, registrations = {}, leis
   const [isReassigning, setIsReassigning] = useState(false)
   const [reassignStats, setReassignStats] = useState<{matched: number} | null>(null)
   const [saveMsg, setSaveMsg] = useState<{ name: string; result: SyncResult; noActivity: string[]; deptCode: string | null } | null>(null)
+  // פעולה שלא נשמרה (תקלת חיבור, או שההתחברות פגה) — מוצגת עד שסוגרים
+  const [opError, setOpError] = useState("")
+  const failText = (what: string, error: { message?: string } | null) =>
+    `${what} לא הצליח/ה${error?.message ? ": " + error.message : ". ייתכן שההתחברות פגה — רעננו את העמוד והתחברו מחדש."}`
   const deptCode = (id: string | null | undefined) => departments.find(d => d.id === id)?.code ?? null
 
   const filtered = filterDept === "all" ? data : data.filter(r => r.department_id === filterDept)
@@ -74,9 +78,12 @@ export function ResidentsList({ residents, departments, registrations = {}, leis
   const handleBulkDelete = async () => {
     setIsDeleting(true)
     const supabase = createClient()
-    await supabase.from("residents").delete().in("id", Array.from(selected))
-    setData(data.filter(r => !selected.has(r.id)))
-    setSelected(new Set())
+    setOpError("")
+    const { data: gone, error } = await supabase.from("residents").delete().in("id", Array.from(selected)).select("id")
+    const goneIds = new Set((gone ?? []).map((r: any) => String(r.id)))
+    if (error || goneIds.size < selected.size) setOpError(error || !goneIds.size ? failText("המחיקה", error) : `נמחקו ${goneIds.size} מתוך ${selected.size}. את השאר לא הצלחנו למחוק.`)
+    setData(data.filter(r => !goneIds.has(r.id)))
+    setSelected(new Set(Array.from(selected).filter(id => !goneIds.has(id))))
     setShowDeleteConfirm(false)
     setIsDeleting(false)
     router.refresh()
@@ -135,11 +142,14 @@ export function ResidentsList({ residents, departments, registrations = {}, leis
     if (!importDept || importPreview.length === 0) return
     setIsImporting(true)
     const supabase = createClient()
-    let totalSaved = 0, totalMatched = 0
+    let totalSaved = 0, totalMatched = 0, failed = 0
+    setOpError("")
     for (const r of importPreview) {
-      const { data: newRes } = await supabase.from("residents").insert({ name: r.name, room_number: r.room_number || null, phone: r.phone || null, personal_activity: r.personal_activity || null, group_activity: r.group_activity || null, leisure_activity: r.leisure_activity || null, department_id: importDept, is_active: true }).select("*, departments(name)").single()
-      if (newRes) { setData(prev => [...prev, newRes]); totalSaved++; totalMatched += (await assignParticipants(newRes.id, importDept, r.personal_activity, r.group_activity, r.leisure_activity)).added }
+      const { data: newRes, error } = await supabase.from("residents").insert({ name: r.name, room_number: r.room_number || null, phone: r.phone || null, personal_activity: r.personal_activity || null, group_activity: r.group_activity || null, leisure_activity: r.leisure_activity || null, department_id: importDept, is_active: true }).select("*, departments(name)").single()
+      if (error || !newRes) { failed++; continue }
+      setData(prev => [...prev, newRes]); totalSaved++; totalMatched += (await assignParticipants(newRes.id, importDept, r.personal_activity, r.group_activity, r.leisure_activity)).added
     }
+    if (failed) setOpError(`${failed} דיירים מתוך ${importPreview.length} לא יובאו (תקלת חיבור?). בודקים ברשימה מי חסר, ומייבאים שוב רק אותם.`)
     setImportStats({ saved: totalSaved, matched: totalMatched })
     setImportPreview([]); setShowImport(false); setIsImporting(false)
     router.refresh()
@@ -149,7 +159,10 @@ export function ResidentsList({ residents, departments, registrations = {}, leis
     if (!addForm.name || !addForm.department_id) return
     setIsSaving(true)
     const supabase = createClient()
-    const { data: newRes } = await supabase.from("residents").insert({ name: addForm.name, room_number: addForm.room_number || null, phone: addForm.phone || null, personal_activity: addForm.personal_activity || null, group_activity: addForm.group_activity || null, leisure_activity: addForm.leisure_activity || null, department_id: addForm.department_id, is_active: true }).select("*, departments(name)").single()
+    setOpError("")
+    const { data: newRes, error } = await supabase.from("residents").insert({ name: addForm.name, room_number: addForm.room_number || null, phone: addForm.phone || null, personal_activity: addForm.personal_activity || null, group_activity: addForm.group_activity || null, leisure_activity: addForm.leisure_activity || null, department_id: addForm.department_id, is_active: true }).select("*, departments(name)").single()
+    // לא נשמר — הטופס נשאר פתוח עם מה שנכתב
+    if (error || !newRes) { setOpError(failText("ההוספה", error)); setIsSaving(false); return }
     if (newRes) {
       setData([...data, newRes])
       const result = await assignParticipants(newRes.id, addForm.department_id, addForm.personal_activity, addForm.group_activity, addForm.leisure_activity)
@@ -160,8 +173,12 @@ export function ResidentsList({ residents, departments, registrations = {}, leis
   }
 
   const handleDelete = async (id: string) => {
+    const who = data.find(r => r.id === id)
+    if (!window.confirm(`למחוק את ${who?.name ?? "הדייר/ת"} מרשימת הדיירים? הרישום לפעילויות יימחק גם הוא.`)) return
     const supabase = createClient()
-    await supabase.from("residents").delete().eq("id", id)
+    setOpError("")
+    const { data: gone, error } = await supabase.from("residents").delete().eq("id", id).select("id")
+    if (error || !gone?.length) { setOpError(failText("המחיקה", error)); return }
     setData(data.filter(r => r.id !== id))
   }
 
@@ -172,7 +189,10 @@ export function ResidentsList({ residents, departments, registrations = {}, leis
 
   const saveEdit = async (id: string) => {
     const supabase = createClient()
-    await supabase.from("residents").update({ name: editForm.name, room_number: editForm.room_number || null, phone: editForm.phone || null, department_id: editForm.department_id || null, personal_activity: editForm.personal_activity || null, group_activity: editForm.group_activity || null, leisure_activity: editForm.leisure_activity || null }).eq("id", id)
+    setOpError("")
+    const { data: updated, error } = await supabase.from("residents").update({ name: editForm.name, room_number: editForm.room_number || null, phone: editForm.phone || null, department_id: editForm.department_id || null, personal_activity: editForm.personal_activity || null, group_activity: editForm.group_activity || null, leisure_activity: editForm.leisure_activity || null }).eq("id", id).select("id")
+    // לא נשמר — הכרטיס נשאר פתוח לעריכה, ולא מציגים "נשמר"
+    if (error || !updated?.length) { setOpError(failText("השמירה", error)); return }
     setData(data.map(r => r.id === id ? { ...r, ...editForm, departments: departments.find(d => d.id === editForm.department_id) ? { name: departments.find(d => d.id === editForm.department_id)!.name } : r.departments } : r))
     const result = await assignParticipants(id, editForm.department_id || null, editForm.personal_activity, editForm.group_activity, editForm.leisure_activity)
     setSaveMsg({ name: editForm.name, result, noActivity: leisureWithoutActivity(editForm.leisure_activity, editForm.department_id), deptCode: deptCode(editForm.department_id) })
@@ -227,6 +247,12 @@ export function ResidentsList({ residents, departments, registrations = {}, leis
         </div>
       )}
 
+      {opError && (
+        <div role="alert" className="flex items-start justify-between gap-3 rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700">
+          <span>{opError}</span>
+          <button onClick={() => setOpError("")} className="shrink-0 text-xs underline">סגור</button>
+        </div>
+      )}
       {saveMsg && (
         <div role="status" className="bg-[#E3ECE7] rounded-2xl p-4 text-sm flex flex-wrap items-center gap-3">
           <span className="flex-1 min-w-0">

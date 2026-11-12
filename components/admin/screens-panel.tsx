@@ -95,9 +95,12 @@ export default function ScreensPanel({ kind, items, otherKinds = [] }: {
 
   /** רענון: למסכים שמדווחים — לפי שעון השרת; ותמיד גם בדרך הישנה, למסכים שעוד לא מדווחים */
   const reload = async (key: string, ids: string[], departmentId?: string) => {
-    if (ids.length && !missingTable) await supabase.rpc("screen_reload", { p_ids: ids });
-    if (departmentId && (!ids.length || missingTable)) refreshDepartmentScreens(supabase, departmentId, 0);
-    say(key, ids.length > 1 ? "נשלח רענון. המסכים ייטענו מחדש תוך כמה שניות." : "נשלח רענון. המסך ייטען מחדש תוך כמה שניות.");
+    let failed = false;
+    if (ids.length && !missingTable) failed = !!(await supabase.rpc("screen_reload", { p_ids: ids })).error;
+    // בדרך הישנה (לפי המחלקה): למסכים שעוד לא מדווחים, וגם כגיבוי אם הבקשה הראשונה נכשלה
+    if (departmentId && (!ids.length || missingTable || failed)) refreshDepartmentScreens(supabase, departmentId, 0);
+    say(key, failed && !departmentId ? "הרענון לא נשלח. בדקו את החיבור ונסו שוב."
+      : ids.length > 1 ? "נשלח רענון. המסכים ייטענו מחדש תוך כמה שניות." : "נשלח רענון. המסך ייטען מחדש תוך כמה שניות.");
     setTimeout(load, 5000);
   };
 
@@ -112,12 +115,14 @@ export default function ScreensPanel({ kind, items, otherKinds = [] }: {
     const label = editing.value.trim() || null;
     setDevices(ds => ds.map(d => (d.id === editing.id ? { ...d, label } : d)));
     setEditing(null);
-    await supabase.from("screen_devices").update({ label }).eq("id", editing.id);
+    const { error } = await supabase.from("screen_devices").update({ label }).eq("id", editing.id);
+    if (error) { say(editing.id, "השם לא נשמר. בדקו את החיבור."); load(); }
   };
 
   const remove = async (d: ScreenDevice) => {
     setDevices(ds => ds.filter(x => x.id !== d.id));
-    await supabase.from("screen_devices").delete().eq("id", d.id);
+    const { error } = await supabase.from("screen_devices").delete().eq("id", d.id);
+    if (error) { say(d.id, "המסך לא הוסר. בדקו את החיבור."); load(); }
   };
 
   const mine = devices.filter(d => d.kind === kind);

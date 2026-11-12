@@ -1,11 +1,11 @@
 "use client";
 
-// יומן אחד לכל המחלקות — במקום יומן Outlook.
+// יומן אחד לכל המחלקות.
 // אירוע נשמר כפעילות בכל מחלקה שנבחרה, עם מזהה משותף (external_uid = "evt:…"),
 // ולכן מופיע לבד בלוחות של המחלקות. עריכה ומחיקה חלות על כל המחלקות של האירוע יחד.
 // הפעילויות הקבועות של הלוחות מוצגות כאן לפי בחירה, ונערכות בעורך הלוח של כל מחלקה.
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { ChevronLeft, ChevronRight, MapPin, Plus, Repeat, User, X } from "lucide-react";
@@ -13,7 +13,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Card, Field, btnGhost, btnPrimary, btnSage, inputCls } from "@/components/admin/brand-ui";
 import InstructorSelect, { resolveInstructorName, useInstructorNames } from "@/components/admin/instructor-select";
 import { insertActivities, updateActivity } from "@/lib/activities-db";
-import { ensureInstructors, refreshDepartmentScreens } from "@/lib/screens";
+import { refreshDepartmentScreens } from "@/lib/screens";
 import {
   DAY_CODES, DAY_NAMES, activitiesByDay, addDaysISO, dayIndexOf, israelDateISO, shortDate, toMinutes, weekDatesISO, weekStartISO,
   type ActivityRow,
@@ -33,7 +33,6 @@ type Item = {
   date: string;
   recurring: boolean;
   group: string | null;   // אירוע של היומן (evt:…)
-  outlook: boolean;       // הגיע מאאוטלוק
   rows: Row[];
   deptIds: string[];
 };
@@ -52,8 +51,9 @@ type Draft = {
 
 const EVT = "evt:";
 const isEvent = (r: Row) => String(r.external_uid ?? "").startsWith(EVT);
-const isOutlook = (r: Row) => String(r.external_uid ?? "").startsWith("cal:");
 const newGroup = () => EVT + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+/** כרטיס של שינוי לשבוע אחד (העתק של אירוע קבוע, עם parent_id) */
+const isWeekChange = (it: Item | null | undefined) => !!it && !it.recurring && it.rows.some(r => !!r.parent_id);
 const hm = (t: string | null | undefined) => String(t ?? "").slice(0, 5);
 const MONTHS = ["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"];
 const FALLBACK_COLOR = "#5A826F";
@@ -64,19 +64,6 @@ async function fetchActivities(supabase: SupabaseClient, from: string, to: strin
   for (let i = 0; i < 50; i++) {
     const { data, error } = await supabase.from("activities").select("*").eq("is_active", true)
       .or(`activity_date.is.null,and(activity_date.gte.${from},activity_date.lte.${to})`)
-      .order("id").range(i * 1000, i * 1000 + 999);
-    if (error) throw error;
-    out.push(...((data ?? []) as Row[]));
-    if (!data || data.length < 1000) break;
-  }
-  return out;
-}
-
-/** כל השורות שהגיעו מאאוטלוק ועדיין פעילות */
-async function fetchOutlookRows(supabase: SupabaseClient): Promise<Row[]> {
-  const out: Row[] = [];
-  for (let i = 0; i < 50; i++) {
-    const { data, error } = await supabase.from("activities").select("*").eq("is_active", true).eq("source", "calendar")
       .order("id").range(i * 1000, i * 1000 + 999);
     if (error) throw error;
     out.push(...((data ?? []) as Row[]));
@@ -105,8 +92,9 @@ function weekItems(rows: Row[], weekStart: string, showFixed: boolean): Item[][]
         const event = isEvent(row);
         if (recurring && !event && !showFixed) continue;
         const group = event ? String(row.external_uid) : null;
-        // אותו אירוע בכמה מחלקות — כרטיס אחד; אם במחלקה אחת שינו שעה או שם — כרטיס נפרד
-        const key = (group ? group + "|" + a.start + "|" + a.title + "|" + recurring : "m:" + [a.title, a.start, a.end, a.location, a.instructor, recurring].join("|")) + "@" + dates[i];
+        // אותו אירוע בכמה מחלקות — כרטיס אחד. אם במחלקה אחת שינו משהו (שעה, שם, מקום, מפעיל/ה) — כרטיס נפרד,
+        // כדי ששמירה של כרטיס אחד לא תדרוס את מה שהמחלקה האחרת שינתה אצלה
+        const key = (group ?? "m:") + "|" + [a.title, a.start, a.end, a.location, a.instructor, recurring].join("|") + "@" + dates[i];
         const found = merged.get(key);
         if (found) {
           found.rows.push(row);
@@ -115,7 +103,7 @@ function weekItems(rows: Row[], weekStart: string, showFixed: boolean): Item[][]
         }
         const item: Item = {
           key, title: a.title, start: a.start, end: a.end, location: a.location, instructor: a.instructor,
-          date: dates[i], recurring, group, outlook: isOutlook(row), rows: [row], deptIds: [deptId],
+          date: dates[i], recurring, group, rows: [row], deptIds: [deptId],
         };
         merged.set(key, item);
         days[i].push(item);
@@ -133,7 +121,6 @@ export default function HouseCalendar() {
   const [anchor, setAnchor] = useState(today);
   const [rows, setRows] = useState<Row[]>([]);
   const [depts, setDepts] = useState<Dept[]>([]);
-  const [outlookActive, setOutlookActive] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [filter, setFilter] = useState<string[]>([]);
@@ -143,7 +130,6 @@ export default function HouseCalendar() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
   const [askDelete, setAskDelete] = useState(false);
-  const [askOutlook, setAskOutlook] = useState(false);
   const instructorNames = useInstructorNames();
 
   // סינון והצגת הקבועות נשמרים בדפדפן (נוחות בלבד)
@@ -174,18 +160,24 @@ export default function HouseCalendar() {
   const rangeFrom = mode === "week" ? weekDates[0] : monthWeeks[0];
   const rangeTo = mode === "week" ? weekDates[6] : addDaysISO(monthWeeks[monthWeeks.length - 1], 6);
 
+  const loadId = useRef(0);
   const load = useCallback(async () => {
+    const id = ++loadId.current;
     setLoadError("");
     try {
-      const [d, list, src] = await Promise.all([
+      const [d, list] = await Promise.all([
         supabase.from("departments").select("id, name, code, color").order("name"),
         fetchActivities(supabase, rangeFrom, rangeTo),
-        supabase.from("calendar_sources").select("id, is_active"),
       ]);
-      setDepts((d.data ?? []) as Dept[]);
+      if (id !== loadId.current) return; // עברו שבוע/חודש בינתיים — התשובה האחרונה שנשלחה היא שקובעת
+      if (d.error) throw d.error;
+      const list2 = (d.data ?? []) as Dept[];
+      setDepts(list2);
       setRows(list);
-      setOutlookActive((src.data ?? []).filter((x: any) => x.is_active !== false).length);
+      // מחלקה שנמחקה לא נשארת בסינון (אחרת היומן נראה ריק בלי סיבה)
+      setFilter(f => (f.some(x => !list2.some(dep => dep.id === x)) ? f.filter(x => list2.some(dep => dep.id === x)) : f));
     } catch (e: any) {
+      if (id !== loadId.current) return;
       setLoadError("לא הצלחנו לטעון את היומן: " + (e?.message ?? "שגיאה"));
     }
     setLoading(false);
@@ -233,6 +225,11 @@ export default function HouseCalendar() {
 
   /** הבדיקות לפני שמירה. מחזיר הודעת שגיאה, או null */
   const checkDraft = (d: Draft): string | null => {
+    // שינוי לשבוע אחד של אירוע קבוע: נשאר באותו שבוע ולא הופך לקבוע (אחרת הקבוע והשינוי היו מופיעים שניהם)
+    if (isWeekChange(d.item)) {
+      if (d.weekly) return "זה שינוי לשבוע אחד של אירוע קבוע, ולכן הוא לא יכול לחזור כל שבוע. כדי לשנות את האירוע הקבוע — פותחים אותו בשבוע אחר.";
+      if (weekStartISO(d.date) !== weekStartISO(d.item!.date)) return "זה שינוי לשבוע אחד של אירוע קבוע — התאריך צריך להישאר באותו שבוע.";
+    }
     if (!d.title.trim()) return "צריך שם לאירוע";
     if (!/^\d{2}:\d{2}$/.test(d.start)) return "צריך שעת התחלה";
     if (d.end && toMinutes(d.end) <= toMinutes(d.start)) return "שעת הסיום צריכה להיות אחרי שעת ההתחלה";
@@ -253,8 +250,7 @@ export default function HouseCalendar() {
   });
 
   /** סיום שמירה: רענון המסכים, ואם משהו נכשל — סוגרים, טוענים מחדש ומציגים את השגיאה (כדי לא לשמור שוב על נתונים ישנים) */
-  async function finishSave(errors: string[], touched: Set<string>, instructor: string | null) {
-    if (instructor) { try { await ensureInstructors(supabase, [instructor]); } catch { /* לא קריטי */ } }
+  async function finishSave(errors: string[], touched: Set<string>) {
     for (const d of touched) refreshDepartmentScreens(supabase, d);
     setBusy(false);
     setDraft(null);
@@ -275,48 +271,49 @@ export default function HouseCalendar() {
     if (!it) {
       const group = newGroup(); // מזהה אחד לכל המחלקות של האירוע
       const res = await insertActivities(supabase, draft.deptIds.map(department_id => ({ ...fields, department_id, source: "manual", external_uid: group })));
-      if (res.error) errors.push(res.error.message);
+      // שום דבר לא נשמר — הטופס נשאר פתוח עם מה שנכתב, ואפשר לנסות שוב
+      if (res.error) { setBusy(false); setMsg("לא נשמר: " + res.error.message); return; }
     } else {
       // אירוע קיים: עדכון בכל המחלקות שנשארו, הוספה לחדשות, הסרה מאלה שירדו
-      const group = it.group ?? (it.rows.some(isOutlook) ? newGroup() : (it.rows.find(isEvent)?.external_uid as string | undefined) ?? newGroup());
+      const group = it.group ?? (it.rows.find(isEvent)?.external_uid as string | undefined) ?? newGroup();
+      // אירוע קבוע שהופך לחד-פעמי, או יורד ממחלקה: השינויים "רק לשבוע אחד" שלו נמחקים יחד איתו
+      // (אחרת הם נשארים בלוח בלי האירוע שהם שייכים אליו)
+      const dropChildrenOf = async (r: Row) => {
+        if (r.activity_date) return;
+        const res = await supabase.from("activities").delete().eq("parent_id", r.id);
+        if (res.error) errors.push(res.error.message);
+      };
       for (const r of it.rows) {
         touched.add(r.department_id);
-        const keep = draft.deptIds.includes(r.department_id);
-        if (isOutlook(r)) {
-          // מאאוטלוק: הסנכרון מזהה את האירוע לפי התאריך שלו. אם התאריך משתנה (או שהאירוע נהיה שבועי) —
-          // המקורי מוסתר והגרסה החדשה נשמרת כאירוע של היומן; אחרת משנים במקום, והסנכרון לא ידרוס
-          const moved = draft.weekly || draft.date !== r.activity_date;
-          if (keep && !moved) {
-            const res = await updateActivity(supabase, String(r.id), { ...fields, source: "override" });
-            if (res.error) errors.push(res.error.message);
-            continue;
-          }
-          const res = await supabase.from("activities").update({ is_active: false, source: "override" }).eq("id", r.id);
-          if (res.error) { errors.push(res.error.message); continue; }
-          if (keep) {
-            const ins = await insertActivities(supabase, [{ ...fields, department_id: r.department_id, source: "manual", external_uid: group }]);
-            if (ins.error) errors.push(ins.error.message);
-          }
-          continue;
-        }
-        if (keep) {
+        if (draft.deptIds.includes(r.department_id)) {
           const patch: Record<string, unknown> = { ...fields };
           if (!r.external_uid) patch.external_uid = group;
+          if (!r.activity_date && !draft.weekly) { await dropChildrenOf(r); patch.skip_dates = []; }
           const res = await updateActivity(supabase, String(r.id), patch);
           if (res.error) errors.push(res.error.message);
         } else {
+          await dropChildrenOf(r);
           const res = await supabase.from("activities").delete().eq("id", r.id);
           if (res.error) errors.push(res.error.message);
         }
       }
       const have = new Set(it.rows.map(r => r.department_id));
       const add = draft.deptIds.filter(d => !have.has(d));
-      if (add.length) {
-        const res = await insertActivities(supabase, add.map(department_id => ({ ...fields, department_id, source: "manual", external_uid: group })));
+      // מחלקה שכבר יש לה שורה של האירוע הזה (בכרטיס אחר, כי שינו אצלה משהו) — מעדכנים אותה, לא מוסיפים שורה שנייה
+      const insert: string[] = [];
+      for (const department_id of add) {
+        const existing = rows.find(r => r.external_uid === group && r.department_id === department_id
+          && (it.recurring ? !r.activity_date : r.activity_date === it.date));
+        if (!existing) { insert.push(department_id); continue; }
+        const res = await updateActivity(supabase, String(existing.id), { ...fields });
+        if (res.error) errors.push(res.error.message);
+      }
+      if (insert.length) {
+        const res = await insertActivities(supabase, insert.map(department_id => ({ ...fields, department_id, source: "manual", external_uid: group })));
         if (res.error) errors.push(res.error.message);
       }
     }
-    await finishSave(errors, touched, fields.instructor_name);
+    await finishSave(errors, touched);
   }
 
   /** אירוע שבועי — שינוי רק בשבוע הזה: הקבוע לא מוצג השבוע, ובמקומו גרסה לתאריך הזה (כמו בעורך הלוח) */
@@ -331,19 +328,27 @@ export default function HouseCalendar() {
     const fields = fieldsOf(draft, false);
     const errors: string[] = [];
     const touched = new Set<string>(draft.deptIds);
+    for (const r of it.rows) touched.add(r.department_id);
+    // קודם הגרסה של השבוע הזה, ורק אחריה מסתירים את האירוע הקבוע לשבוע הזה.
+    // בסדר ההפוך, תקלה באמצע הייתה מעלימה את האירוע מהשבוע בלי להשאיר במקומו כלום.
+    const parentOf = new Map(it.rows.map(r => [r.department_id, String(r.id)]));
+    const group = it.group ?? newGroup();
+    const ins = await insertActivities(supabase, draft.deptIds.map(department_id => ({
+      ...fields, department_id, source: "manual", external_uid: group, parent_id: parentOf.get(department_id) ?? null,
+    })));
+    if (ins.error) { setBusy(false); setMsg("לא נשמר: " + ins.error.message); return; }
+    const skipped: Row[] = [];
     for (const r of it.rows) {
-      touched.add(r.department_id);
       const res = await supabase.from("activities").update({ skip_dates: Array.from(new Set([...(r.skip_dates ?? []), ws])).sort() }).eq("id", r.id);
-      if (res.error) errors.push(/skip_dates/.test(res.error.message) ? "צריך להריץ את scripts/012_topics_plan_attendance.sql ב-Supabase" : res.error.message);
+      if (res.error) { errors.push(res.error.message); break; }
+      skipped.push(r);
     }
-    if (!errors.length) {
-      const parentOf = new Map(it.rows.map(r => [r.department_id, String(r.id)]));
-      const res = await insertActivities(supabase, draft.deptIds.map(department_id => ({
-        ...fields, department_id, source: "manual", external_uid: it.group ?? newGroup(), parent_id: parentOf.get(department_id) ?? null,
-      })));
-      if (res.error) errors.push(res.error.message);
+    if (errors.length) {
+      // לא הצליח עד הסוף — מחזירים הכול למצב הקודם, כדי שלא יופיעו גם האירוע הקבוע וגם הגרסה לשבוע
+      await supabase.from("activities").delete().in("id", (ins.data ?? []).map((r: any) => r.id));
+      for (const r of skipped) await supabase.from("activities").update({ skip_dates: r.skip_dates ?? [] }).eq("id", r.id);
     }
-    await finishSave(errors, touched, fields.instructor_name);
+    await finishSave(errors, touched);
   }
 
   /** מחיקה: "week" — רק בשבוע הזה (לאירוע שחוזר כל שבוע), "all" — לגמרי */
@@ -356,7 +361,7 @@ export default function HouseCalendar() {
     if (scope === "week" && it.recurring) {
       for (const r of it.rows) {
         const res = await supabase.from("activities").update({ skip_dates: Array.from(new Set([...(r.skip_dates ?? []), ws])).sort() }).eq("id", r.id);
-        if (res.error) errors.push(/skip_dates/.test(res.error.message) ? "צריך להריץ את scripts/012_topics_plan_attendance.sql ב-Supabase" : res.error.message);
+        if (res.error) errors.push(res.error.message);
       }
     } else {
       const ids = it.rows.map(r => String(r.id));
@@ -366,9 +371,7 @@ export default function HouseCalendar() {
         if (res.error) errors.push(res.error.message);
       }
       for (const r of it.rows) {
-        const res = isOutlook(r)
-          ? await supabase.from("activities").update({ is_active: false, source: "override" }).eq("id", r.id)
-          : await supabase.from("activities").delete().eq("id", r.id);
+        const res = await supabase.from("activities").delete().eq("id", r.id);
         if (res.error) errors.push(res.error.message);
       }
     }
@@ -377,75 +380,6 @@ export default function HouseCalendar() {
     setAskDelete(false);
     setDraft(null);
     setMsg(errors.length ? "לא נמחק: " + errors[0] : "");
-    await load();
-  }
-
-  /**
-   * מעבר מאאוטלוק: קודם עוצרים את הסנכרון, ואז האירועים שהגיעו מאאוטלוק נשארים כאירועים של המערכת.
-   * אירוע שחוזר כל שבוע באאוטלוק (מופיע בשני השבועות שסונכרנו, באותו יום ושעה) הופך לאירוע שבועי —
-   * אחרת היה נעלם מהלוחות אחרי שבועיים.
-   */
-  async function stopOutlook() {
-    setAskOutlook(false);
-    setBusy(true);
-    setMsg("");
-    const stop = await supabase.from("calendar_sources").update({ is_active: false }).eq("is_active", true);
-    if (stop.error) { setBusy(false); setMsg("לא הצלחנו לעצור את הסנכרון: " + stop.error.message); return; }
-    let outlook: Row[] = [];
-    try { outlook = await fetchOutlookRows(supabase); }
-    catch (e: any) { setBusy(false); setMsg("הסנכרון נעצר, אבל לא הצלחנו לקרוא את האירועים: " + (e?.message ?? "שגיאה")); await load(); return; }
-
-    const today = israelDateISO();
-    const series = new Map<string, Row[]>();
-    for (const r of outlook) {
-      if (!r.activity_date) continue;
-      const base = String(r.external_uid ?? "").replace(/@[^@]*$/, "");
-      const k = [r.department_id, base, dayIndexOf(r.activity_date), hm(r.start_time)].join("|");
-      const list = series.get(k);
-      if (list) list.push(r); else series.set(k, [r]);
-    }
-    const errors: string[] = [];
-    let weeklyMade = 0;
-    const handled = new Set<string>();
-    for (const list of series.values()) {
-      if (list.length < 2) continue;
-      list.sort((x, z) => String(x.activity_date).localeCompare(String(z.activity_date)));
-      const last = list[list.length - 1];
-      const past = list.filter(r => String(r.activity_date) < today);
-      const row: Record<string, unknown> = {
-        title: last.title, start_time: hm(last.start_time), end_time: last.end_time ? hm(last.end_time) : null,
-        location: last.location ?? null, instructor_name: last.instructor_name ?? null,
-        day_of_week: DAY_CODES[dayIndexOf(String(last.activity_date))], activity_date: null, is_recurring: true, is_active: true,
-        department_id: last.department_id, source: "manual", external_uid: newGroup(),
-        // בשבועות שהמופע כבר עבר — נשאר המופע עם התאריך (שהנוכחות שסומנה לא תיעלם), והשבועי לא מוצג
-        skip_dates: Array.from(new Set(past.map(r => weekStartISO(String(r.activity_date))))).sort(),
-      };
-      let ins = await supabase.from("activities").insert(row);
-      if (ins.error && /skip_dates/.test(ins.error.message)) { const { skip_dates: _s, ...rest } = row; ins = await supabase.from("activities").insert(rest); }
-      if (ins.error) { errors.push(ins.error.message); continue; }
-      weeklyMade++;
-      for (const r of list) {
-        handled.add(String(r.id));
-        const res = String(r.activity_date) < today
-          ? await supabase.from("activities").update({ source: "manual" }).eq("id", r.id)
-          : await supabase.from("activities").update({ is_active: false, source: "override" }).eq("id", r.id);
-        if (res.error) errors.push(res.error.message);
-      }
-    }
-    const rest = outlook.filter(r => !handled.has(String(r.id))).map(r => String(r.id));
-    for (let i = 0; i < rest.length; i += 200) {
-      const res = await supabase.from("activities").update({ source: "manual" }).in("id", rest.slice(i, i + 200));
-      if (res.error) errors.push(res.error.message);
-    }
-    for (const d of new Set(outlook.map(r => r.department_id))) refreshDepartmentScreens(supabase, d);
-    setBusy(false);
-    setMsg(
-      "הסנכרון מאאוטלוק נעצר. " +
-      (weeklyMade ? `${weeklyMade === 1 ? "אירוע אחד שחזר" : weeklyMade + " אירועים שחזרו"} כל שבוע ${weeklyMade === 1 ? "נשמר כאירוע שבועי" : "נשמרו כאירועים שבועיים"} ביומן. ` : "") +
-      (rest.length ? `${rest.length} ${rest.length === 1 ? "אירוע נשאר" : "אירועים נשארו"} בתאריכים שלהם. ` : "") +
-      "אירוע שחוזר כל שבועיים או פחות — כדאי להוסיף ביומן." +
-      (errors.length ? " חלק לא נשמר: " + errors[0] : ""),
-    );
     await load();
   }
 
@@ -543,25 +477,6 @@ export default function HouseCalendar() {
           </label>
         )}
       </div>
-
-      {outlookActive > 0 && (
-        <Card className="border border-[#FAB822]/50">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-[15px]">
-              <b>יומן Outlook עדיין מחובר</b> ({outlookActive === 1 ? "יומן אחד" : `${outlookActive} יומנים`}). אפשר לעבור ליומן של המערכת: האירועים שכבר הגיעו נשארים, והסנכרון נעצר.
-            </p>
-            {askOutlook ? (
-              <span className="flex items-center gap-2 text-sm">
-                לעצור את הסנכרון מאאוטלוק?
-                <button type="button" className={btnPrimary + " !py-2"} disabled={busy} onClick={stopOutlook}>כן, לעצור</button>
-                <button type="button" className={btnGhost + " !py-2"} onClick={() => setAskOutlook(false)}>לא</button>
-              </span>
-            ) : (
-              <button type="button" className={btnGhost} onClick={() => setAskOutlook(true)}>מעבר ליומן של המערכת</button>
-            )}
-          </div>
-        </Card>
-      )}
 
       {loadError && <div role="alert" className="rounded-2xl bg-[#FDE8E1] p-3 text-[15px] text-[#7a2e22]">{loadError}</div>}
       {msg && !draft && <div role="status" className="rounded-2xl bg-[#E3ECE7] p-3 text-[15px]">{msg}</div>}
@@ -664,10 +579,14 @@ export default function HouseCalendar() {
                 <input type="date" className={inputCls} dir="ltr" value={draft.date} onChange={e => e.target.value && setDraft({ ...draft, date: e.target.value })} />
               </Field>
               <Field label="חזרה">
-                <label className="flex h-10 cursor-pointer items-center gap-2 text-[15px]">
-                  <input type="checkbox" className="h-4 w-4 accent-[#5A826F]" checked={draft.weekly} onChange={e => setDraft({ ...draft, weekly: e.target.checked })} />
-                  כל יום {DAY_NAMES[dayIndexOf(draft.date)]}
-                </label>
+                {isWeekChange(draft.item) ? (
+                  <span className="flex h-10 items-center text-sm text-[#3F2F2D]/65">שינוי לשבוע הזה בלבד</span>
+                ) : (
+                  <label className="flex h-10 cursor-pointer items-center gap-2 text-[15px]">
+                    <input type="checkbox" className="h-4 w-4 accent-[#5A826F]" checked={draft.weekly} onChange={e => setDraft({ ...draft, weekly: e.target.checked })} />
+                    כל יום {DAY_NAMES[dayIndexOf(draft.date)]}
+                  </label>
+                )}
               </Field>
               <Field label="משעה">
                 <input type="time" step={300} className={inputCls + " text-center"} dir="ltr" value={draft.start} onChange={e => setDraft({ ...draft, start: e.target.value })} />
@@ -708,7 +627,6 @@ export default function HouseCalendar() {
                 {draft.item?.recurring ? " \"שמירה לכל השבועות\" משנה את כל השבועות; \"רק בשבוע הזה\" — רק את התאריך הזה." : ""}
               </p>
             )}
-            {draft.item?.outlook && <p className="text-xs text-[#3F2F2D]/60">האירוע הגיע מאאוטלוק. אחרי שינוי כאן — הסנכרון לא ידרוס אותו.</p>}
 
             {msg && <p role="alert" className="text-sm font-semibold text-[#B56262]">{msg}</p>}
 

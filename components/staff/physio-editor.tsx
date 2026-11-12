@@ -3,7 +3,7 @@
 // לוח הזמנים של הפיזיותרפיה — מי מוזמן לטיפול, משעה עד שעה.
 // מה שנשמר כאן מופיע מיד במסך הפיזיותרפיה, ובמסך של כל מחלקה (מי מהמחלקה מוזמן היום).
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import PhysioBoard, { type PhysioAppt } from "@/components/display/physio-board";
@@ -38,7 +38,7 @@ function pad(h: string, m: string) {
 }
 
 /** "08:30-09:15 שרה כהן, כיאן" או "08:30 שרה כהן" ← שורה אחת ברשימה מודבקת */
-function parseLine(line: string, depts: Dept[]) {
+function parseLine(line: string, depts: Dept[], isResident: (name: string) => boolean = () => false) {
   const r = line.match(/(\d{1,2})[:.](\d{2})\s*(?:[-–—]|עד)\s*(\d{1,2})[:.](\d{2})/);
   const s = r ?? line.match(/(\d{1,2})[:.](\d{2})/);
   if (!s) return null;
@@ -51,11 +51,22 @@ function parseLine(line: string, depts: Dept[]) {
     if (toMinutes(end) <= toMinutes(start)) end = "";
   }
   let rest = (line.slice(0, s.index) + " " + line.slice((s.index ?? 0) + s[0].length)).trim();
+  const tidy = (t: string) => normalize(t.replace(/^[\s\-–—,:|.]+|[\s\-–—,:|.]+$/g, ""));
   let department_id = "";
-  for (const d of [...depts].sort((a, b) => b.name.length - a.name.length)) {
-    if (rest.includes(d.name)) { department_id = d.id; rest = rest.split(d.name).join(" "); break; }
+  // שם שמופיע ברשימת הדיירים כמו שהוא — לא מפרקים אותו. המחלקה מזוהה רק בסוף השורה ("שרה כהן, כיאן"):
+  // פעם היא זוהתה בכל מקום, ודיירת בשם "יסמין לוי" נרשמה כ"לוי" במחלקת יסמין.
+  if (!isResident(tidy(rest))) {
+    for (const d of [...depts].sort((a, b) => b.name.length - a.name.length)) {
+      const at = rest.lastIndexOf(d.name);
+      if (at <= 0 || tidy(rest.slice(at + d.name.length))) continue; // לא בסוף השורה
+      const before = rest.slice(0, at).replace(/(מחלקת|מחלקה)\s*$/, "");
+      if (!/[\s,|\-–—]$/.test(before) || !tidy(before)) continue;   // חלק ממילה אחרת, או שלא נשאר שם
+      department_id = d.id;
+      rest = before;
+      break;
+    }
   }
-  const name = normalize(rest.replace(/^[\s\-–—,:|.]+|[\s\-–—,:|.]+$/g, ""));
+  const name = tidy(rest);
   if (!name) return null;
   return { start, end, name, department_id };
 }
@@ -77,6 +88,8 @@ async function writeAppointments(
   return { error: res.error, endTimeMissing };
 }
 
+const NOT_LOADED = "הרשימה של היום לא נטענה. בדקו את החיבור ולחצו \"ניסיון נוסף\" לפני שמוסיפים טיפולים.";
+
 export default function PhysioEditor({ screenUrl }: { screenUrl?: string }) {
   const supabase = useMemo(() => createClient(), []);
   const today = israelDateISO();
@@ -84,7 +97,8 @@ export default function PhysioEditor({ screenUrl }: { screenUrl?: string }) {
   const [rows, setRows] = useState<Row[]>([]);
   const [depts, setDepts] = useState<Dept[]>([]);
   const [residents, setResidents] = useState<Resident[]>([]);
-  const [missingTable, setMissingTable] = useState(false);
+  // הרשימה של היום לא נטענה (תקלת חיבור): לא מוסיפים ולא מעתיקים על "יום ריק" — כך נוצרו טיפולים כפולים
+  const [loadFailed, setLoadFailed] = useState(false);
   const [form, setForm] = useState<Form>(EMPTY_FORM);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -99,21 +113,27 @@ export default function PhysioEditor({ screenUrl }: { screenUrl?: string }) {
   const [otherName, setOtherName] = useState(false);
   const [cu, frameRef] = usePreviewCu();
 
-  useEffect(() => {
-    (async () => {
-      const [d, r] = await Promise.all([
-        supabase.from("departments").select("id, name, code, color").order("name"),
-        supabase.from("residents").select("id, name, department_id").eq("is_active", true).order("name"),
-      ]);
-      setDepts((d.data ?? []) as Dept[]);
-      setResidents((r.data ?? []) as Resident[]);
-    })();
+  // המחלקות והדיירים. אם לא נטענו — לא עורכים (בלי רשימת הדיירים, טיפול נשמר בלי דייר/ת ובלי מחלקה)
+  const [baseFailed, setBaseFailed] = useState(false);
+  const loadBase = useCallback(async () => {
+    const [d, r] = await Promise.all([
+      supabase.from("departments").select("id, name, code, color").order("name"),
+      supabase.from("residents").select("id, name, department_id").eq("is_active", true).order("name").limit(5000),
+    ]);
+    if (d.error || r.error) { setBaseFailed(true); return; }
+    setBaseFailed(false);
+    setDepts((d.data ?? []) as Dept[]);
+    setResidents((r.data ?? []) as Resident[]);
   }, [supabase]);
+  useEffect(() => { loadBase(); }, [loadBase]);
 
+  const loadId = useRef(0);
   const load = useCallback(async () => {
+    const id = ++loadId.current;
     const { data, error } = await supabase.from("physio_appointments").select("*").eq("appt_date", date).order("start_time");
-    if (error) { setMissingTable(/physio_appointments|relation|schema cache/i.test(error.message)); setRows([]); return; }
-    setMissingTable(false);
+    if (id !== loadId.current) return; // החליפו תאריך בינתיים
+    if (error) { setLoadFailed(true); setRows([]); return; }
+    setLoadFailed(false);
     setRows((data ?? []) as Row[]);
   }, [supabase, date]);
 
@@ -125,6 +145,7 @@ export default function PhysioEditor({ screenUrl }: { screenUrl?: string }) {
     // כמו בחירת מחלקה בטופס: דייר/ה ממחלקה אחרת יורד/ת מהבחירה
     if (!form.id) pickDept(id && id !== NO_DEPT ? id : "");
   }
+  const notLoaded = loadFailed || baseFailed;
   const inFilter = (deptId: string | null) => !deptFilter || (deptFilter === NO_DEPT ? !deptId : deptId === deptFilter);
 
   const deptName = (id: string | null) => (id ? depts.find(d => d.id === id)?.name ?? null : null);
@@ -150,8 +171,10 @@ export default function PhysioEditor({ screenUrl }: { screenUrl?: string }) {
   }
   /** פתיחת טיפול קיים לעריכה */
   function openRow(r: Row) {
-    setForm({ id: r.id, start: hm(r.start_time), end: r.end_time ? hm(r.end_time) : "", name: r.resident_name, department_id: r.department_id ?? "", note: r.note ?? "" });
-    setOtherName(!findResident(r.resident_name));
+    // המחלקה — זו שהדייר/ת נמצא/ת בה עכשיו (אם עבר/ה מחלקה מאז שהטיפול נרשם, השמירה מתקנת גם את הטיפול)
+    const resident = residents.find(x => x.id === r.resident_id) ?? findResident(r.resident_name);
+    setForm({ id: r.id, start: hm(r.start_time), end: r.end_time ? hm(r.end_time) : "", name: r.resident_name, department_id: resident?.department_id ?? r.department_id ?? "", note: r.note ?? "" });
+    setOtherName(!resident);
   }
 
   /** שינוי שעת ההתחלה מזיז גם את שעת הסיום, ושומר על משך הטיפול */
@@ -168,15 +191,17 @@ export default function PhysioEditor({ screenUrl }: { screenUrl?: string }) {
     if (!form.name.trim()) { setError("בוחרים דייר/ה מהרשימה (או כותבים שם)"); return; }
     if (!form.start) { setError("צריך שעת התחלה"); return; }
     if (form.end && toMinutes(form.end) <= toMinutes(form.start)) { setError("שעת הסיום צריכה להיות אחרי שעת ההתחלה"); return; }
+    if (notLoaded) { setError(NOT_LOADED); return; }
     setBusy(true);
-    const r = otherName ? null : findResident(form.name, form.department_id);
+    const r = otherName ? null : findResident(form.name, form.department_id) ?? findResident(form.name);
     const row = {
       appt_date: date,
       start_time: form.start,
       end_time: form.end || null,
       resident_name: form.name.trim(),
       resident_id: r?.id ?? null,
-      department_id: form.department_id || r?.department_id || null,
+      // דייר/ת מהרשימה — תמיד במחלקה שלו/ה (כך הטיפול מופיע במסך של המחלקה הנכונה)
+      department_id: r?.department_id || form.department_id || null,
       note: form.note.trim() || null,
     };
     const res = await writeAppointments(supabase, form.id ? { update: row, id: form.id } : { insert: [row] });
@@ -207,17 +232,21 @@ export default function PhysioEditor({ screenUrl }: { screenUrl?: string }) {
     }
   }
 
-  async function remove(id: string) {
-    await supabase.from("physio_appointments").delete().eq("id", id);
-    if (form.id === id) setForm(EMPTY_FORM);
+  async function remove(row: Row) {
+    if (!window.confirm(`למחוק את הטיפול של ${row.resident_name} בשעה ${hm(row.start_time)}?`)) return;
+    setError(""); setNotice("");
+    const { error } = await supabase.from("physio_appointments").delete().eq("id", row.id);
+    if (error) { setError("המחיקה לא הצליחה: " + error.message); return; }
+    if (form.id === row.id) setForm(EMPTY_FORM);
     load();
   }
 
-  const parsed = useMemo(() => paste.split(/\r?\n/).map(l => l.trim()).filter(Boolean).map(l => ({ line: l, p: parseLine(l, depts) })), [paste, depts]);
+  const parsed = useMemo(() => paste.split(/\r?\n/).map(l => l.trim()).filter(Boolean).map(l => ({ line: l, p: parseLine(l, depts, n => !!findResident(n)) })), [paste, depts, residents]); // eslint-disable-line react-hooks/exhaustive-deps
   const good = parsed.filter(x => x.p);
 
   async function addPasted() {
     if (!good.length) return;
+    if (notLoaded) { setError(NOT_LOADED); return; }
     setBusy(true); setError(""); setNotice("");
     const rowsToAdd = good.map(({ p }) => {
       const r = findResident(p!.name);
@@ -236,16 +265,32 @@ export default function PhysioEditor({ screenUrl }: { screenUrl?: string }) {
 
   async function copyLastWeek() {
     setError(""); setNotice("");
+    if (notLoaded) { setError(NOT_LOADED); return; }
     const { data, error } = await supabase.from("physio_appointments").select("*").eq("appt_date", addDaysISO(date, -7));
-    if (error) { setError(error.message); return; }
+    if (error) { setError("ההעתקה לא הצליחה: " + error.message); return; }
     if (!data?.length) { setError("לא היו טיפולים באותו יום בשבוע שעבר"); return; }
     const have = new Set(rows.map(r => hm(r.start_time) + "|" + normalize(r.resident_name)));
-    const add = (data as Row[]).filter(r => !have.has(hm(r.start_time) + "|" + normalize(r.resident_name)))
-      .map(r => ({
+    let gone = 0;
+    const add: Record<string, unknown>[] = [];
+    for (const r of data as Row[]) {
+      if (have.has(hm(r.start_time) + "|" + normalize(r.resident_name))) continue;
+      // דייר/ת מהרשימה: לפי המצב של היום — במחלקה הנוכחית שלו/ה; מי שכבר לא ברשימת הדיירים לא מוזמן/ת שוב
+      const resident = r.resident_id ? residents.find(x => x.id === r.resident_id) : undefined;
+      if (r.resident_id && !resident) { gone++; continue; }
+      add.push({
         appt_date: date, start_time: hm(r.start_time), end_time: r.end_time ? hm(r.end_time) : null,
-        resident_name: r.resident_name, resident_id: r.resident_id, department_id: r.department_id, note: r.note,
-      }));
-    if (add.length) await writeAppointments(supabase, { insert: add });
+        resident_name: resident?.name ?? r.resident_name, resident_id: resident?.id ?? null,
+        department_id: resident ? resident.department_id : r.department_id, note: r.note,
+      });
+    }
+    if (add.length) {
+      const res = await writeAppointments(supabase, { insert: add });
+      if (res.error) { setError("ההעתקה לא הצליחה: " + res.error.message); return; }
+    }
+    setNotice(
+      (add.length ? (add.length === 1 ? "הועתק טיפול אחד." : `הועתקו ${add.length} טיפולים.`) : "כל הטיפולים מהשבוע שעבר כבר ברשימה.") +
+      (gone ? ` ${gone === 1 ? "טיפול אחד לא הועתק, כי הדייר/ת כבר לא ברשימת הדיירים." : `${gone} טיפולים לא הועתקו, כי הדיירים כבר לא ברשימת הדיירים.`}` : ""),
+    );
     load();
   }
 
@@ -279,9 +324,10 @@ export default function PhysioEditor({ screenUrl }: { screenUrl?: string }) {
 
   return (
     <div className="space-y-5">
-      {missingTable && (
-        <div className="rounded-2xl border border-[#FAB822]/60 bg-[#FDF0CC] p-4 text-[15px]">
-          טבלת הפיזיותרפיה עוד לא קיימת. מריצים פעם אחת את <b dir="ltr">scripts/010_menu_physio_calendar.sql</b> ב-Supabase.
+      {notLoaded && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#B56262]/40 bg-[#FDE8E1] p-4 text-[15px] text-[#7a2e22]" role="alert">
+          <span>הרשימה לא נטענה. בדקו את החיבור לאינטרנט. עד שהיא תיטען אי אפשר להוסיף טיפולים — כדי שלא ייווצרו כפילויות.</span>
+          <button type="button" className="rounded-xl bg-white px-4 py-2 font-semibold text-[#7a2e22] ring-1 ring-[#B56262]/40" onClick={() => { loadBase(); load(); }}>ניסיון נוסף</button>
         </div>
       )}
 
@@ -298,8 +344,8 @@ export default function PhysioEditor({ screenUrl }: { screenUrl?: string }) {
         <div className="flex flex-wrap gap-2">
           {date !== today && <button type="button" className={btnGhost} onClick={() => setDate(today)}>חזרה להיום</button>}
           {tab === "summons" && <>
-            <button type="button" className={btnGhost} onClick={copyLastWeek} disabled={missingTable}>העתקה מהשבוע שעבר</button>
-            <button type="button" className={btnGhost} onClick={() => setShowPaste(v => !v)} disabled={missingTable}>{showPaste ? "סגירת ההדבקה" : "הדבקת רשימה"}</button>
+            <button type="button" className={btnGhost} onClick={copyLastWeek} disabled={notLoaded}>העתקה מהשבוע שעבר</button>
+            <button type="button" className={btnGhost} onClick={() => setShowPaste(v => !v)} disabled={notLoaded}>{showPaste ? "סגירת ההדבקה" : "הדבקת רשימה"}</button>
           </>}
           {screenHref && <a className={btnGhost} href={screenHref} target="_blank" rel="noreferrer">{chosen ? "פתיחת המסך של " + chosen.name : "פתיחת המסך"}</a>}
         </div>
@@ -393,7 +439,7 @@ export default function PhysioEditor({ screenUrl }: { screenUrl?: string }) {
                     </span>
                   )}
                   {tab === "summons" && (
-                    <button type="button" aria-label={"מחיקת " + r.resident_name} className="h-9 w-9 shrink-0 rounded-xl text-xl text-[#B56262] hover:bg-[#FDE8E1]" onClick={() => remove(r.id)}>×</button>
+                    <button type="button" aria-label={"מחיקת " + r.resident_name} className="h-9 w-9 shrink-0 rounded-xl text-xl text-[#B56262] hover:bg-[#FDE8E1]" onClick={() => remove(r)}>×</button>
                   )}
                 </li>
               ))}
@@ -443,7 +489,7 @@ export default function PhysioEditor({ screenUrl }: { screenUrl?: string }) {
               <input className={inputCls} value={form.note} onChange={e => setForm({ ...form, note: e.target.value })} />
             </Field>
             <div className="flex gap-2">
-              <button type="button" className={btnPrimary + " flex-1"} disabled={busy || missingTable} onClick={save}>
+              <button type="button" className={btnPrimary + " flex-1"} disabled={busy || notLoaded} onClick={save}>
                 {busy ? "שומר…" : form.id ? "שמירת השינויים" : "הוספה ללוח"}
               </button>
               {form.id && <button type="button" className={btnGhost} onClick={() => { setForm(EMPTY_FORM); setOtherName(false); }}>ביטול</button>}

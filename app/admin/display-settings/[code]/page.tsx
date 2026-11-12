@@ -12,7 +12,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { CheckCircle, Settings, Image as ImageIcon, X, Palette, Megaphone, ArrowRight, ArrowLeft, Loader2, ImagePlus } from "lucide-react";
 import Link from "next/link";
-import { refreshDepartmentScreens, uploadImage } from "@/lib/screens";
+import { refreshDepartmentScreens, removeStoredFile, uploadImage } from "@/lib/screens";
+import { patchDisplaySettings } from "@/lib/display-settings-db";
 import DepartmentDisplay from "@/components/display/department-display";
 import { ScreenFrame, usePreviewCu } from "@/components/admin/brand-ui";
 import {
@@ -68,7 +69,8 @@ const MAX_PDF_BYTES = 20 * 1024 * 1024;
 const rand = () => Math.random().toString(36).slice(2, 10);
 
 export default function DisplaySettingsPage({ params }: { params: { code: string } }) {
-  const code = params.code;
+  // קוד עם תווים מיוחדים מגיע מקודד בכתובת
+  const code = useMemo(() => { try { return decodeURIComponent(params.code); } catch { return params.code; } }, [params.code]);
   const supabase = useMemo(() => createClient(), []);
 
   const [deptId, setDeptId] = useState<string>("");
@@ -80,6 +82,10 @@ export default function DisplaySettingsPage({ params }: { params: { code: string
   const [loading, setLoading] = useState(true);
   const [saved, setSaved] = useState(false);
   const [notFound, setNotFound] = useState(false);
+  // תקלת חיבור בטעינה: לא מציגים הגדרות ברירת מחדל שאפשר לשמור מעל ההגדרות האמיתיות
+  const [loadFailed, setLoadFailed] = useState(false);
+  // ההגדרות כפי שהן שמורות — שומרים רק את מה שהשתנה בעמוד הזה
+  const savedSettings = useRef<DisplaySettings>(DEFAULT);
 
 
   const [media, setMedia] = useState<Media[]>([]);
@@ -100,13 +106,9 @@ export default function DisplaySettingsPage({ params }: { params: { code: string
 
   useEffect(() => {
     async function load() {
-      let dept: any = null;
-      const { data: byCode } = await supabase.from("departments").select("id, name, color").eq("code", code).maybeSingle();
-      if (byCode) dept = byCode;
-      else {
-        const { data: bySlug } = await supabase.from("departments").select("id, name, color").eq("slug", code).maybeSingle();
-        dept = bySlug;
-      }
+      const found = await supabase.from("departments").select("id, name, color").eq("code", code).maybeSingle();
+      if (found.error) { setLoadFailed(true); setLoading(false); return; }
+      const dept = found.data;
       if (!dept) { setNotFound(true); setLoading(false); return; }
 
       setDeptId(dept.id);
@@ -118,10 +120,13 @@ export default function DisplaySettingsPage({ params }: { params: { code: string
         supabase.from("department_media").select("id, media_url, media_type, display_order").eq("department_id", dept.id).eq("is_active", true).order("display_order", { ascending: true }),
       ]);
 
+      if (ss.error || md.error) { setLoadFailed(true); setLoading(false); return; }
       const ds = (ss.data?.display_settings ?? {}) as Record<string, any>;
       setRawDisplay(ds);
       // "רק הודעות" מפעם = בלי חדשות
-      setSettings({ ...DEFAULT, ...ds, show_notice: ds.show_notice !== false, show_ticker: (ds.show_ticker ?? true) !== false && ds.ticker_source !== "messages" });
+      const loaded: DisplaySettings = { ...DEFAULT, ...ds, show_notice: ds.show_notice !== false, show_ticker: (ds.show_ticker ?? true) !== false && ds.ticker_source !== "messages" };
+      savedSettings.current = loaded;
+      setSettings(loaded);
       setNotice((ds.notice ?? {}) as NoticeContent);
       setMedia(md.data ?? []);
       setLoading(false);
@@ -130,21 +135,24 @@ export default function DisplaySettingsPage({ params }: { params: { code: string
   }, [code, supabase]);
 
   /** מיזוג שינוי לתוך הגדרות המסך של מחלקה, בלי לדרוס הגדרות אחרות (הלוח, האייקונים…) */
-  async function mergeDisplay(departmentId: string, patch: Record<string, unknown>) {
-    const { data: cur } = await supabase.from("screen_settings").select("id, display_settings").eq("department_id", departmentId).maybeSingle();
-    const merged = { ...((cur?.display_settings as any) || {}), ...patch };
-    const res = cur?.id
-      ? await supabase.from("screen_settings").update({ display_settings: merged }).eq("id", cur.id)
-      : await supabase.from("screen_settings").insert({ department_id: departmentId, display_settings: merged });
-    if (!res.error && departmentId === deptId) setRawDisplay(merged);
-    return res.error;
+  async function mergeDisplay(departmentId: string, patch: Record<string, unknown>): Promise<{ message: string } | null> {
+    // קורא את ההגדרות העדכניות מהמסד, ממזג לתוכן רק את patch, ושומר. אם הקריאה נכשלה — לא נשמר כלום
+    const res = await patchDisplaySettings(supabase, departmentId, patch);
+    if (res.error || !res.settings) return { message: res.error ?? "שגיאה" };
+    if (departmentId === deptId) setRawDisplay(res.settings);
+    return null;
   }
 
   async function handleSaveSettings() {
-    // שומרים רק את המפתחות של הדף הזה
-    const managed = Object.fromEntries((Object.keys(DEFAULT) as (keyof DisplaySettings)[]).map(k => [k, settings[k]]));
-    const error = await mergeDisplay(deptId, { ...managed, ticker_source: "news" });
-    if (error) { alert("לא נשמר: " + error.message); return; }
+    // שומרים רק את מה שהשתנה בדף הזה מאז שנטען (מתגים שלא נגעו בהם לא חוזרים לערך ישן אם שונו בינתיים בעורך הלוח)
+    const changed = Object.fromEntries((Object.keys(DEFAULT) as (keyof DisplaySettings)[])
+      .filter(k => JSON.stringify(settings[k]) !== JSON.stringify(savedSettings.current[k])).map(k => [k, settings[k]]));
+    if (changed.show_ticker === true) changed.ticker_source = "news";
+    if (Object.keys(changed).length) {
+      const error = await mergeDisplay(deptId, changed);
+      if (error) { alert("לא נשמר: " + error.message); return; }
+      savedSettings.current = { ...settings };
+    }
     refreshDepartmentScreens(supabase, deptId, 0);
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
@@ -197,8 +205,12 @@ export default function DisplaySettingsPage({ params }: { params: { code: string
   }
 
   async function deleteMedia(id: string) {
-    await supabase.from("department_media").delete().eq("id", id);
+    const item = media.find(x => x.id === id);
+    const { error } = await supabase.from("department_media").delete().eq("id", id);
+    if (error) { setMediaMsg({ ok: false, text: "הקובץ לא נמחק: " + error.message }); return; }
     setMedia((m) => m.filter((x) => x.id !== id));
+    // גם הקובץ עצמו יורד מהאחסון (אחרת הוא נשאר שם לתמיד ותופס מקום)
+    if (item) removeStoredFile(supabase, item.media_url);
     refreshDepartmentScreens(supabase, deptId);
   }
 
@@ -266,7 +278,12 @@ export default function DisplaySettingsPage({ params }: { params: { code: string
   async function setShowNotice(on: boolean) {
     setSettings(prev => ({ ...prev, show_notice: on }));
     const error = await mergeDisplay(deptId, { show_notice: on });
-    if (error) { setNoticeMsg({ ok: false, text: "לא נשמר: " + error.message }); return; }
+    if (error) {
+      setSettings(prev => ({ ...prev, show_notice: !on })); // המתג חוזר למצב ששמור באמת
+      setNoticeMsg({ ok: false, text: "לא נשמר: " + error.message });
+      return;
+    }
+    savedSettings.current = { ...savedSettings.current, show_notice: on };
     refreshDepartmentScreens(supabase, deptId, 0);
   }
 
@@ -275,7 +292,12 @@ export default function DisplaySettingsPage({ params }: { params: { code: string
     setCopyAllAsk(false);
     setNoticeBusy(true);
     const clean: NoticeContent = { title: String(notice.title ?? "").trim(), text: String(notice.text ?? "").trim(), images: noticeImgs.slice(0, NOTICE_MAX_IMAGES) };
-    const { data: depts } = await supabase.from("departments").select("id");
+    const { data: depts, error: deptsError } = await supabase.from("departments").select("id");
+    if (deptsError || !depts?.length) {
+      setNoticeBusy(false);
+      setNoticeMsg({ ok: false, text: "המודעה לא נשמרה: רשימת המחלקות לא נטענה. בדקו את החיבור ונסו שוב." });
+      return;
+    }
     let ok = 0;
     for (const d of depts ?? []) {
       const error = await mergeDisplay(d.id, { notice: clean, show_notice: true });
@@ -292,6 +314,12 @@ export default function DisplaySettingsPage({ params }: { params: { code: string
   }
 
   if (loading) return <div dir="rtl" className="flex min-h-screen items-center justify-center"><p className="text-2xl text-slate-500">טוען...</p></div>;
+  if (loadFailed) return (
+    <div dir="rtl" className="flex min-h-screen flex-col items-center justify-center gap-4 p-6 text-center">
+      <p className="text-2xl text-slate-700">ההגדרות לא נטענו. בדקו את החיבור לאינטרנט.</p>
+      <button type="button" className="rounded-xl bg-emerald-700 px-5 py-2.5 font-semibold text-white" onClick={() => window.location.reload()}>ניסיון נוסף</button>
+    </div>
+  );
   if (notFound) return <div dir="rtl" className="flex min-h-screen items-center justify-center"><p className="text-2xl text-red-500">מחלקה לא נמצאה</p></div>;
 
   const hasNoticeContent = !!(String(notice.title ?? "").trim() || String(notice.text ?? "").trim() || noticeImgs.length);
@@ -456,7 +484,6 @@ export default function DisplaySettingsPage({ params }: { params: { code: string
                     board={weeklyBoardSettings(rawDisplay.weekly_board)}
                     topic={null}
                     menu={{}}
-                    messages={[]}
                     news={[]}
                     media={[]}
                     embeddedCu={cu}
@@ -472,6 +499,7 @@ export default function DisplaySettingsPage({ params }: { params: { code: string
             <Card className="rounded-2xl border-0 shadow-md">
               <CardContent className="p-6 space-y-3">
                 <h2 className="text-xl font-bold">העלאת תמונות ו-PDF</h2>
+                <p className="text-sm text-slate-500">עדיף להעלות תמונות. קובץ PDF לא מוצג בחלק מהטלוויזיות (המסך נשאר ריק) — אם זה קורה, מעלים צילום של העמוד כתמונה.</p>
                 <p className="text-sm text-slate-500">עד {MAX_MEDIA} קבצים. כל קובץ מוצג במסך כתצוגה בסבב. צילומים גדולים מוקטנים לבד.</p>
                 <label className={"flex cursor-pointer items-center gap-2 rounded-md border border-dashed px-4 py-3 hover:bg-slate-50 " + (isUploading ? "pointer-events-none opacity-60" : "")}>
                   {isUploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <ImageIcon className="h-5 w-5" />}
@@ -510,7 +538,7 @@ export default function DisplaySettingsPage({ params }: { params: { code: string
 
         <p className="text-center text-slate-400 text-sm">
           קישור למסך:{" "}
-          <a href={`/display/${code}`} target="_blank" className="text-emerald-600 underline">/display/{code}</a>
+          <a href={`/display/${code}?preview=1`} target="_blank" className="text-emerald-600 underline">/display/{code}</a>
         </p>
 
       </div>

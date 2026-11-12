@@ -8,10 +8,6 @@ import { israelDateISO, weekStartISO } from "@/lib/week"
 export const dynamic = "force-dynamic"
 export const revalidate = 0
 
-function genToken() {
-  return Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)
-}
-
 export default async function InstructorsPage({ searchParams }: { searchParams: Promise<{ add?: string; back?: string }> }) {
   const sp = await searchParams
   // חזרה רק לעריכת פעילות בלוח השבועי
@@ -19,7 +15,7 @@ export default async function InstructorsPage({ searchParams }: { searchParams: 
   const supabase = await createClient()
   // הפעילויות הקבועות, ועם תאריך — מהשבוע הזה והלאה (בלי ההיסטוריה). הכול בדפים של 1000 (המגבלה של שאילתה אחת)
   const fromDate = weekStartISO(israelDateISO())
-  const [activities, { data: instructorsData }, participants, { data: departments }, residents] = await Promise.all([
+  const [activities, { data: instructorsData, error: instructorsError }, participants, { data: departments, error: departmentsError }, residents] = await Promise.all([
     fetchAll<any>((a, b) => supabase.from("activities").select("id, title, day_of_week, start_time, activity_date, instructor_name, department_id, parent_id, departments(name)")
       .eq("is_active", true).not("instructor_name", "is", null).or(`activity_date.is.null,activity_date.gte.${fromDate}`)
       .order("start_time").order("id").range(a, b)),
@@ -29,35 +25,10 @@ export default async function InstructorsPage({ searchParams }: { searchParams: 
     fetchAll<any>((a, b) => supabase.from("residents").select("id, name, room_number, department_id, personal_activity, group_activity, leisure_activity").eq("is_active", true).order("id").range(a, b)),
   ])
 
-  // אוטו-יצירת רשומה (כולל view_token) לכל מפעיל מהפעילויות שעדיין אין לו
-  const existingNames = new Set((instructorsData || []).map((i: any) => cleanName(i.name ?? "")).filter(Boolean))
-  const namesFromActivities = Array.from(new Set(
-    (activities || []).map((a: any) => cleanName(a.instructor_name ?? "")).filter(Boolean)
-  )) as string[]
-  const missing = namesFromActivities.filter((n) => !existingNames.has(n))
-  let mergedInstructors = instructorsData || []
-  if (missing.length > 0) {
-    const rows = missing.map((name) => ({ name, view_token: genToken() }))
-    const { data: inserted } = await supabase
-      .from("instructors")
-      .insert(rows)
-      .select("id, name, phone, email, view_token")
-    if (inserted) mergedInstructors = [...mergedInstructors, ...inserted]
-  }
-
-  // השלמת view_token למפעילים קיימים שאין להם
-  const noToken = mergedInstructors.filter((i: any) => !i.view_token && i.id)
-  if (noToken.length > 0) {
-    await Promise.all(
-      noToken.map((i: any) =>
-        supabase.from("instructors").update({ view_token: genToken() }).eq("id", i.id)
-      )
-    )
-    const { data: refetched } = await supabase
-      .from("instructors")
-      .select("id, name, phone, email, view_token")
-    if (refetched) mergedInstructors = refetched
-  }
+  // רשומה (וקישור אישי) לכל מפעיל/ה שמופיע/ה בפעילות נוצרת במסד עצמו, כשהפעילות נשמרת —
+  // העמוד הזה רק מציג. (פעם הוא גם יצר רשומות חסרות, וכך מפעיל/ה שנמחק/ה חזר/ה עם קישור חדש.)
+  if (instructorsError || departmentsError) throw new Error((instructorsError ?? departmentsError)!.message)
+  const mergedInstructors = instructorsData || []
 
   // הרשומים לפעילות: שלה (ובשינוי לשבוע אחד — של הפעילות הקבועה), וגם מי שבכרטיס שלו/ה מסומנים
   // הפעילות או המפעיל/ה. רק דיירי המחלקה של הפעילות.

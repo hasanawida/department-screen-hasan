@@ -372,21 +372,6 @@
   }
 }
 
-/* Ticker animation */
-@keyframes ticker {
-  0% {
-    transform: translateX(0);
-  }
-  100% {
-    transform: translateX(-50%);
-  }
-}
-
-.animate-ticker {
-  animation: ticker 30s linear infinite;
-}
-
-
 /* הדפסה (דוחות): A4, רקע לבן, צבעים נשמרים */
 @media print {
   @page { size: A4; margin: 12mm 10mm; }

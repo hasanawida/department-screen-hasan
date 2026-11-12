@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { CalendarDays, Flame, MapPin, Star, User } from "lucide-react";
+import { Flame, MapPin, Star, User } from "lucide-react";
 import { Pin, BRAND } from "@/components/orientation/eshkolot-logo";
 import { DAY_NAMES, bigTextLevel, isManualActivity, nowMarks, shortDate, visibleActivities, withWeeklyTopic, type BoardActivity, type WeeklyBoardSettings } from "@/lib/week";
 import type { DayInfo, HolidayKind } from "@/lib/jewish-calendar";
@@ -185,7 +185,6 @@ function DayColumn({
                   {settings.show_instructor && a.instructor && <span><User aria-hidden="true" />{a.instructor}</span>}
                 </span>
               )}
-              {editable && a.fromCalendar && <CalendarDays className={styles.calIcon} aria-label="מהיומן" />}
             </>
           );
           return editable ? (

@@ -28,7 +28,13 @@ export default function TopicCard({ supabase, deptId, weekStart, onPreview }: {
   const reqId = useRef(0);
   const load = useCallback(async () => {
     const id = ++reqId.current;
-    const r = await resolveTopic(supabase, deptId, weekStart);
+    let r: ResolvedTopic;
+    try {
+      r = await resolveTopic(supabase, deptId, weekStart);
+    } catch {
+      if (id === reqId.current) setMsg("הנושא לא נטען. בדקו את החיבור ורעננו את העמוד.");
+      return;
+    }
     if (id !== reqId.current) return; // הגיעה תשובה ישנה (החליפו שבוע או מחלקה בינתיים)
     setRes(r);
     setForm(null);

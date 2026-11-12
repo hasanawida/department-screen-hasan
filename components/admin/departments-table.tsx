@@ -23,7 +23,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Edit, Trash2, Monitor, ExternalLink, Settings } from "lucide-react"
-import type { Department } from "@/lib/types"
+import { cleanDepartmentCode, departmentCodeProblem, departmentErrorText } from "@/lib/department-code"
+
+type Department = { id: string; name: string; code: string; color: string }
 import Link from "next/link"
 
 interface DepartmentsTableProps {
@@ -38,35 +40,48 @@ export function DepartmentsTable({ departments }: DepartmentsTableProps) {
   const [isDeleting, setIsDeleting] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
 
+  const [error, setError] = useState("")
+
   const handleDelete = async () => {
     if (!deleteId) return
     setIsDeleting(true)
+    setError("")
     const supabase = createClient()
-    await supabase.from("departments").delete().eq("id", deleteId)
-    setDeleteId(null)
+    const { error: deleteError } = await supabase.from("departments").delete().eq("id", deleteId)
     setIsDeleting(false)
+    // לא נמחקה (למשל כי יש בה דיירים) — החלון נשאר פתוח עם ההסבר
+    if (deleteError) { setError("המחלקה לא נמחקה: " + departmentErrorText(deleteError)); return }
+    setDeleteId(null)
     router.refresh()
   }
 
   const handleEdit = (dept: Department) => {
+    setError("")
     setEditingDept(dept)
     setEditForm({ name: dept.name, code: dept.code, color: dept.color })
   }
 
   const handleSaveEdit = async () => {
     if (!editingDept) return
+    setError("")
+    const name = editForm.name.trim()
+    const code = cleanDepartmentCode(editForm.code)
+    if (!name) { setError("צריך שם למחלקה"); return }
+    const problem = departmentCodeProblem(code)
+    if (problem) { setError(problem); return }
+    // הקוד הוא הכתובת של המסך: שינוי שלו מנתק את הטלוויזיות שפתוחות בכתובת הישנה
+    if (code !== editingDept.code && !window.confirm(
+      `שינוי הקוד משנה את הכתובת של המסך: /display/${code} במקום /display/${editingDept.code}.\n` +
+      "טלוויזיות שפתוחות בכתובת הישנה יפסיקו להציג את הלוח עד שיעדכנו בהן את הכתובת. להמשיך?")) return
     setIsSaving(true)
     const supabase = createClient()
-    await supabase
-      .from("departments")
-      .update({
-        name: editForm.name,
-        code: editForm.code,
-        color: editForm.color,
-      })
-      .eq("id", editingDept.id)
-    setEditingDept(null)
+    const patch: Record<string, unknown> = { name, code, color: editForm.color }
+    // שם חדש — התרגומים של השם הישן (למסך ההתמצאות) נמחקים, והשם יתורגם מחדש
+    if (name !== editingDept.name) Object.assign(patch, { name_ar: null, name_ru: null, name_en: null })
+    const { error: saveError } = await supabase.from("departments").update(patch).eq("id", editingDept.id)
     setIsSaving(false)
+    if (saveError) { setError("לא נשמר: " + departmentErrorText(saveError)); return }
+    setEditingDept(null)
     router.refresh()
   }
 
@@ -112,7 +127,7 @@ export function DepartmentsTable({ departments }: DepartmentsTableProps) {
                   <TableCell>
                     <div className="flex items-center gap-2">
                       {/* מסך */}
-                      <Link href={`/display/${dept.code}`} target="_blank">
+                      <Link href={`/display/${dept.code}?preview=1`} target="_blank">
                         <Button variant="outline" size="sm" className="gap-1">
                           <Monitor className="h-4 w-4" />
                           <ExternalLink className="h-3 w-3" />
@@ -150,14 +165,15 @@ export function DepartmentsTable({ departments }: DepartmentsTableProps) {
       </Card>
 
       {/* Delete Dialog */}
-      <Dialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
+      <Dialog open={!!deleteId} onOpenChange={() => { setDeleteId(null); setError("") }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>מחיקת מחלקה</DialogTitle>
             <DialogDescription>
-              האם אתה בטוח שברצונך למחוק מחלקה זו? פעולה זו תמחק גם את כל הפעילויות הקשורות.
+              למחוק את המחלקה? יחד איתה נמחקים כל הפעילויות שלה והגדרות המסך שלה. אי אפשר לבטל.
             </DialogDescription>
           </DialogHeader>
+          {error && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{error}</p>}
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setDeleteId(null)}>
               ביטול
@@ -174,7 +190,7 @@ export function DepartmentsTable({ departments }: DepartmentsTableProps) {
       </Dialog>
 
       {/* Edit Dialog */}
-      <Dialog open={!!editingDept} onOpenChange={() => setEditingDept(null)}>
+      <Dialog open={!!editingDept} onOpenChange={() => { setEditingDept(null); setError("") }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>עריכת מחלקה</DialogTitle>
@@ -192,7 +208,11 @@ export function DepartmentsTable({ departments }: DepartmentsTableProps) {
               <Input
                 value={editForm.code}
                 onChange={(e) => setEditForm({ ...editForm, code: e.target.value })}
+                dir="ltr"
               />
+              <p className="text-xs text-muted-foreground mt-1">
+                הקוד הוא הכתובת של המסך (<span dir="ltr">/display/{cleanDepartmentCode(editForm.code) || "…"}</span>). משנים אותו רק אם חייבים.
+              </p>
             </div>
             <div>
               <label className="text-sm font-medium">צבע</label>
@@ -211,6 +231,7 @@ export function DepartmentsTable({ departments }: DepartmentsTableProps) {
               </div>
             </div>
           </div>
+          {error && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{error}</p>}
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setEditingDept(null)}>
               ביטול

@@ -7,9 +7,10 @@ export const STAFF_ROLE_LABEL: Record<StaffRole, string> = { dietitian: "דיא�
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export async function roleForToken(supabase: SupabaseClient, token: string): Promise<StaffRole | null | "missing"> {
+/** התפקיד שהקישור שייך אליו, או null אם אין קישור כזה. זורק בתקלת חיבור — כדי שלא יוצג "הקישור לא קיים" על קישור תקין */
+export async function roleForToken(supabase: SupabaseClient, token: string): Promise<StaffRole | null> {
   if (!UUID.test(token)) return null;
   const { data, error } = await supabase.from("staff_links").select("role").eq("token", token).maybeSingle();
-  if (error) return /staff_links|relation|schema cache/i.test(error.message) ? "missing" : null;
+  if (error) throw new Error(error.message);
   return (data?.role as StaffRole) ?? null;
 }

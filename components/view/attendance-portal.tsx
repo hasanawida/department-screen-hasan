@@ -7,6 +7,7 @@ import { Check, ChevronLeft, ChevronRight, MapPin, Search, Users } from "lucide-
 import { createClient } from "@/lib/supabase/client";
 import { EshkolotLogo } from "@/components/orientation/eshkolot-logo";
 import { cleanName, matchesActivity, nameKey, similarNames } from "@/lib/participants";
+import { fetchAll } from "@/lib/reports";
 import {
   DAY_NAMES, activitiesByDay, addDaysISO, israelDateISO, shortDate, weekDatesISO, weekStartISO,
   type ActivityRow, type BoardActivity,
@@ -40,8 +41,8 @@ export default function AttendancePortal({ mode, name, departmentId }: {
   const [residents, setResidents] = useState<Resident[]>([]);
   const [registered, setRegistered] = useState<Record<string, string[]>>({});
   const [marks, setMarks] = useState<Mark[]>([]);
-  const [attendanceReady, setAttendanceReady] = useState(true);
   const [loadError, setLoadError] = useState(false);
+  const [saveError, setSaveError] = useState(false);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState<string | null>(null);
 
@@ -52,51 +53,76 @@ export default function AttendancePortal({ mode, name, departmentId }: {
     // מפעיל/ה: לפי השם — גם אם נכתב בפעילות עם רווח או גרש אחר
     q = mode === "instructor" ? q.not("instructor_name", "is", null) : q.eq("department_id", departmentId!).is("instructor_name", null);
     const { data: acts, error: actsErr } = await q;
-    setLoadError(!!actsErr);
+    if (actsErr) { setLoadError(true); return; } // משאירים את מה שכבר על המסך — לא מחליפים ברשימה ריקה
     const list = ((acts ?? []) as Row[]).filter(a => mode !== "instructor" || nameKey(cleanName(String((a as any).instructor_name ?? ""))) === nameKey(name));
     setRows(list);
 
     const deptIds = Array.from(new Set(list.map(a => a.department_id).filter(Boolean)));
     if (mode === "department" && departmentId && !deptIds.includes(departmentId)) deptIds.push(departmentId);
-    const [dp, rs, pr] = await Promise.all([
-      supabase.from("departments").select("id, name").in("id", deptIds.length ? deptIds : ["00000000-0000-0000-0000-000000000000"]),
-      supabase.from("residents").select("id, name, room_number, department_id, personal_activity, group_activity, leisure_activity").eq("is_active", true).in("department_id", deptIds.length ? deptIds : ["00000000-0000-0000-0000-000000000000"]).order("name"),
-      list.length ? supabase.from("activity_participants").select("activity_id, resident_id").in("activity_id", list.map(a => a.id)) : Promise.resolve({ data: [] as any[] }),
-    ]);
-    setDepts(Object.fromEntries((dp.data ?? []).map((d: any) => [d.id, d.name])));
-    setResidents((rs.data ?? []) as Resident[]);
-    const reg: Record<string, string[]> = {};
-    for (const p of (pr as any).data ?? []) (reg[p.activity_id] ??= []).push(String(p.resident_id));
-    setRegistered(reg);
+    // הרשומים: של הפעילות, ובשינוי לשבוע אחד — גם של הפעילות הקבועה שהוא מחליף
+    // (היא לא תמיד ברשימה: מחליף/ה לשבוע אחד רואה רק את השינוי, לא את הפעילות הקבועה של המפעיל/ה הקבוע/ה)
+    const regIds = Array.from(new Set(list.flatMap(a => [a.id, (a as { parent_id?: string | null }).parent_id]).filter((x): x is string => !!x)));
+    const none = ["00000000-0000-0000-0000-000000000000"];
+    try {
+      const [dp, rs, pr] = await Promise.all([
+        supabase.from("departments").select("id, name").in("id", deptIds.length ? deptIds : none),
+        fetchAll<Resident>((a, b) => supabase.from("residents").select("id, name, room_number, department_id, personal_activity, group_activity, leisure_activity")
+          .eq("is_active", true).in("department_id", deptIds.length ? deptIds : none).order("name").order("id").range(a, b)),
+        regIds.length
+          ? fetchAll<{ activity_id: string; resident_id: string }>((a, b) => supabase.from("activity_participants").select("activity_id, resident_id")
+              .in("activity_id", regIds).order("activity_id").order("resident_id").range(a, b))
+          : Promise.resolve([] as { activity_id: string; resident_id: string }[]),
+      ]);
+      if (dp.error) throw new Error(dp.error.message);
+      setDepts(Object.fromEntries((dp.data ?? []).map((d: any) => [d.id, d.name])));
+      setResidents(rs);
+      const reg: Record<string, string[]> = {};
+      for (const p of pr) (reg[p.activity_id] ??= []).push(String(p.resident_id));
+      setRegistered(reg);
+      setLoadError(false);
+    } catch {
+      setLoadError(true);
+    }
   }, [supabase, mode, name, departmentId, weekDates[0]]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ── הנוכחות של השבוע ── */
   const loadMarks = useCallback(async (ids: string[]) => {
     if (!ids.length) { setMarks([]); return; }
-    const { data, error } = await supabase.from("activity_attendance")
-      .select("activity_id, occurrence_date, resident_id, resident_name")
-      .in("activity_id", ids).gte("occurrence_date", weekDates[0]).lte("occurrence_date", weekDates[6]);
-    if (error) {
-      const missing = /activity_attendance|relation|schema cache/i.test(error.message);
-      setAttendanceReady(!missing);
-      if (!missing) setLoadError(true);
-      setMarks([]);
-      return;
+    try {
+      const data = await fetchAll<Mark>((a, b) => supabase.from("activity_attendance")
+        .select("activity_id, occurrence_date, resident_id, resident_name")
+        .in("activity_id", ids).gte("occurrence_date", weekDates[0]).lte("occurrence_date", weekDates[6])
+        .order("occurrence_date").order("id").range(a, b));
+      setMarks(data);
+    } catch {
+      // לא מוחקים את הסימונים שעל המסך בגלל תקלת רשת רגעית
+      setLoadError(true);
     }
-    setAttendanceReady(true);
-    setMarks((data ?? []) as Mark[]);
   }, [supabase, weekDates[0]]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { (async () => { setLoading(true); await loadBase(); setLoading(false); })(); }, [loadBase]);
 
   // שינויים של אחרים (מנהל, מפעיל אחר בטלפון אחר) — מתעדכנים לבד, גם רישום של דיירים וכרטיסי דיירים
+  // כל טבלה בערוץ משלה: אם אחת מהן לא משדרת שינויים, הערוץ שלה נכשל — והאחרות ממשיכות לעבוד.
+  // בנוסף מרעננים כל דקה וכשחוזרים לעמוד (טלפון שננעל, לשונית אחרת), כך שהעמוד מעודכן גם בלי שידור חי.
   useEffect(() => {
-    const ch = supabase.channel("attendance-portal")
+    const marksCh = supabase.channel("attendance-portal-marks")
       .on("postgres_changes" as any, { event: "*", schema: "public", table: "activity_attendance" }, () => loadMarks(weekIdsRef.current))
+      .subscribe();
+    const regCh = supabase.channel("attendance-portal-registrations")
       .on("postgres_changes" as any, { event: "*", schema: "public", table: "activity_participants" }, () => { loadBase(); })
+      .subscribe();
+    const resCh = supabase.channel("attendance-portal-residents")
       .on("postgres_changes" as any, { event: "*", schema: "public", table: "residents" }, () => { loadBase(); })
       .subscribe();
-    return () => { supabase.removeChannel(ch); };
+    const poll = setInterval(() => { if (document.visibilityState === "visible") loadMarks(weekIdsRef.current); }, 60_000);
+    const onVisible = () => { if (document.visibilityState === "visible") { loadBase(); loadMarks(weekIdsRef.current); } };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(poll);
+      document.removeEventListener("visibilitychange", onVisible);
+      supabase.removeChannel(marksCh); supabase.removeChannel(regCh); supabase.removeChannel(resCh);
+    };
   }, [supabase, loadMarks, loadBase]);
 
   /* ── המופעים של השבוע ── */
@@ -132,6 +158,7 @@ export default function AttendancePortal({ mode, name, departmentId }: {
           activity_id: o.id, activity_title: o.title, occurrence_date: o.dateISO, resident_id: r.id, resident_name: r.name, department_id: o.departmentId, marked_by: name,
         }, { onConflict: "activity_id,occurrence_date,resident_id" })
       : await supabase.from("activity_attendance").delete().eq("activity_id", o.id).eq("occurrence_date", o.dateISO).eq("resident_id", r.id);
+    setSaveError(!!res.error);
     if (res.error) loadMarks(weekIdsRef.current);
   }
 
@@ -143,6 +170,7 @@ export default function AttendancePortal({ mode, name, departmentId }: {
     const res = await supabase.from("activity_attendance").upsert(add.map(r => ({
       activity_id: o.id, activity_title: o.title, occurrence_date: o.dateISO, resident_id: r.id, resident_name: r.name, department_id: o.departmentId, marked_by: name,
     })), { onConflict: "activity_id,occurrence_date,resident_id" });
+    setSaveError(!!res.error);
     if (res.error) loadMarks(weekIdsRef.current);
   }
 
@@ -175,8 +203,8 @@ export default function AttendancePortal({ mode, name, departmentId }: {
           <span className="text-sm text-[#3F2F2D]/65">{loading ? "טוען…" : total ? `${total} פעילויות` : ""}</span>
         </div>
 
-        {!attendanceReady && (
-          <div className="mb-4 rounded-2xl bg-[#FDF0CC] p-4 text-[15px]">סימון הנוכחות עוד לא הופעל במערכת. מבקשים מהמנהל להריץ את עדכון מסד הנתונים.</div>
+        {saveError && (
+          <div className="mb-4 rounded-2xl bg-[#FDE8E1] p-4 text-[15px] font-semibold text-[#7a2e22]" role="alert">הסימון האחרון לא נשמר. בודקים את החיבור לאינטרנט ומסמנים שוב.</div>
         )}
 
         {loadError && (
@@ -198,7 +226,7 @@ export default function AttendancePortal({ mode, name, departmentId }: {
                 {list.map(o => {
                   const k = o.id + "@" + o.dateISO;
                   const m = marksFor(o);
-                  const canMark = o.dateISO <= today && attendanceReady;
+                  const canMark = o.dateISO <= today;
                   const isOpen = open === k;
                   const deptResidents = residents.filter(r => r.department_id === o.departmentId);
                   // הרשומים: מה שנשמר (בשינוי לשבוע אחד — של הפעילות הקבועה), וגם מי שבכרטיס שלו/ה מסומנים

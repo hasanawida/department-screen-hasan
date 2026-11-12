@@ -4,15 +4,20 @@
 // מחליף אותה — בדיוק כמו בלוח השבועי. הנוכחות נשמרת לפי פעילות ותאריך.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { activitiesByDay, addDaysISO, weekDatesISO, weekStartISO, type ActivityRow } from "./week";
+import { activitiesByDay, addDaysISO, israelDateISO, weekDatesISO, weekStartISO, type ActivityRow } from "./week";
+import { dayInfo, shabbatCity } from "./jewish-calendar";
 import { cleanName } from "./participants";
 
-/** קריאה בחלקים של 1000 שורות (המגבלה של Supabase לבקשה אחת) */
-export async function fetchAll<T>(build: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>): Promise<T[]> {
+/**
+ * קריאה בחלקים של 1000 שורות (המגבלה של Supabase לבקשה אחת). השאילתה חייבת לכלול order קבוע,
+ * אחרת שורות יכולות להופיע פעמיים או לחסור בין חלק לחלק.
+ * זורק אם אחת הקריאות נכשלה — דוח או רשימה חלקיים שנראים שלמים גרועים מהודעת שגיאה.
+ */
+export async function fetchAll<T>(build: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message?: string } | null }>): Promise<T[]> {
   const out: T[] = [];
   for (let i = 0; i < 100_000; i += 1000) {
     const { data, error } = await build(i, i + 999);
-    if (error || !data) break;
+    if (error || !data) throw new Error(error?.message || "הנתונים לא נטענו");
     out.push(...data);
     if (data.length < 1000) break;
   }
@@ -64,8 +69,12 @@ export function buildOccurrences(opts: {
   to: string;
   nowISO: string;
   nowHM: string;
+  /** שמות המחלקות — כדי לא לחשוב שמחלקה שסימנה נוכחות היא "מפעיל/ה" */
+  departmentNames?: string[];
 }): Occurrence[] {
   const { rows, marks, participants, from, to, nowISO, nowHM } = opts;
+  const notPeople = new Set((opts.departmentNames ?? []).map(n => cleanName(n)));
+  const city = shabbatCity(undefined);
   const byId = new Map(rows.map(r => [String(r.id), r]));
   const regs = new Map<string, string[]>();
   for (const p of participants) {
@@ -86,11 +95,20 @@ export function buildOccurrences(opts: {
     activitiesByDay(rows, ws).forEach((list, i) => {
       const date = dates[i];
       if (date < from || date > last) return;
+      // חג או ערב חג: הפעילויות הקבועות לא מתקיימות (כמו בלוח שבמסך) — רק מה שהוכנס לתאריך הזה
+      const holiday = dayInfo(date, city).noRegularActivities;
       for (const a of list) {
-        if (date === nowISO && a.start > nowHM) continue; // עוד לא התחילה
         const key = a.id + "|" + date;
-        seen.add(key);
         const row = byId.get(a.id);
+        // מה שלא נספר כ"פעילות שהתקיימה" — אלא אם כבר סומנה בו נוכחות:
+        if (!marksBy.has(key)) {
+          if (date === nowISO && a.start > nowHM) continue; // עוד לא התחילה
+          if (a.recurring && holiday) continue;
+          // פעילות קבועה לא נספרת בשבועות שלפני שהיא נוספה למערכת
+          const created = (row as { created_at?: string | null } | undefined)?.created_at;
+          if (a.recurring && created && date < israelDateISO(new Date(created))) continue;
+        }
+        seen.add(key);
         const reg = Array.from(new Set([...(regs.get(a.id) ?? []), ...(a.parentId ? regs.get(a.parentId) ?? [] : [])]));
         out.push({
           key, activityId: a.id, date, time: a.start, title: a.title, instructor: cleanName(a.instructor),
@@ -107,9 +125,13 @@ export function buildOccurrences(opts: {
     const m = ms[0];
     if (m.occurrence_date < from || m.occurrence_date > to) continue;
     const row = m.activity_id ? byId.get(m.activity_id) : undefined;
+    // המפעיל/ה: מהפעילות אם היא עוד קיימת. אם נמחקה — מי שסימן/ה, אבל רק אם זה לא שם של מחלקה
+    // (מדריכת תעסוקה מסמנת בשם המחלקה, וזו לא פעילות של מפעיל/ה)
+    const markedBy = cleanName(m.marked_by ?? "");
+    const instructor = row ? cleanName(row.instructor_name ?? "") : notPeople.has(markedBy) ? "" : markedBy;
     out.push({
       key, activityId: m.activity_id, date: m.occurrence_date, time: row ? String(row.start_time ?? "").slice(0, 5) : "",
-      title: row?.title ?? m.activity_title ?? "פעילות", instructor: cleanName(row?.instructor_name ?? m.marked_by ?? ""),
+      title: row?.title ?? m.activity_title ?? "פעילות", instructor,
       departmentId: row?.department_id ?? m.department_id, registered: [], removed: true,
       attended: ms.map(x => ({ id: x.resident_id, name: x.resident_name })),
     });
@@ -123,16 +145,16 @@ export async function loadAttendance(supabase: SupabaseClient, from: string, to:
   const acts = await fetchAll<Row>((a, b) => {
     let q = supabase.from("activities").select("*").eq("is_active", true);
     if (departmentId) q = q.eq("department_id", departmentId);
-    return q.range(a, b);
+    return q.order("id").range(a, b);
   });
   const marks = await fetchAll<AttendanceMark>((a, b) => {
     let q = supabase.from("activity_attendance")
       .select("activity_id, activity_title, occurrence_date, resident_id, resident_name, department_id, marked_by")
       .gte("occurrence_date", from).lte("occurrence_date", to);
     if (departmentId) q = q.eq("department_id", departmentId);
-    return q.range(a, b);
+    return q.order("id").range(a, b);
   });
   const participants = await fetchAll<{ activity_id: string; resident_id: string }>((a, b) =>
-    supabase.from("activity_participants").select("activity_id, resident_id").range(a, b));
+    supabase.from("activity_participants").select("activity_id, resident_id").order("activity_id").order("resident_id").range(a, b));
   return { acts, marks, participants };
 }

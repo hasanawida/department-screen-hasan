@@ -25,6 +25,10 @@ function weeksOfYear(year: number): string[] {
   return out;
 }
 
+/** מה שנשמר במסד משורה: נושא, תיאור ותמונה */
+const sigOf = (r: { title: string; description: string; image_url: string | null }) => JSON.stringify([r.title.trim(), r.description.trim(), r.image_url ?? null]);
+const EMPTY_SIG = JSON.stringify(["", "", null]);
+
 /** שורה מודבקת: "25.10 סתיו בגינה | שירים ועלים" או "2026-10-25<TAB>סתיו<TAB>תיאור" */
 function parseLine(line: string, year: number): Omit<Row, "id" | "image_url"> | null {
   const t = line.trim();
@@ -57,8 +61,11 @@ export default function AnnualTopics() {
   const [rows, setRows] = useState<Record<string, Row>>({});
   const [overrides, setOverrides] = useState<Override[]>([]);
   const [depts, setDepts] = useState<Record<string, string>>({});
-  const [missing, setMissing] = useState(false);
+  // התוכנית לא נטענה (תקלת חיבור): לא נותנים לערוך תוכנית "ריקה" — יציאה משדה ריק הייתה מוחקת נושא אמיתי
+  const [loadFailed, setLoadFailed] = useState(false);
   const [loading, setLoading] = useState(true);
+  // מה ששמור במסד לכל שבוע — כדי לשמור רק כשמשהו באמת השתנה
+  const savedSig = useRef<Record<string, string>>({});
   const [saving, setSaving] = useState<string | null>(null);
   const [msg, setMsg] = useState("");
   const [paste, setPaste] = useState("");
@@ -74,12 +81,13 @@ export default function AnnualTopics() {
       supabase.from("weekly_topics").select("id, week_start, title, image_url, department_id").eq("is_active", true).gte("week_start", thisWeek).order("week_start"),
       supabase.from("departments").select("id, name"),
     ]);
-    if (plan.error) setMissing(/annual_topics|relation|schema cache/i.test(plan.error.message));
+    if (plan.error) setLoadFailed(true);
     else {
-      setMissing(false);
+      setLoadFailed(false);
       const map: Record<string, Row> = {};
       for (const r of plan.data ?? []) map[r.week_start] = { id: r.id, week_start: r.week_start, title: r.title ?? "", description: r.description ?? "", image_url: r.image_url ?? null };
       setRows(map);
+      savedSig.current = Object.fromEntries(Object.values(map).map(r => [r.week_start, sigOf(r)]));
     }
     setOverrides((ov.data ?? []) as Override[]);
     setDepts(Object.fromEntries((dp.data ?? []).map((d: any) => [d.id, d.name])));
@@ -89,12 +97,20 @@ export default function AnnualTopics() {
   useEffect(() => { load(); }, [load]);
   useEffect(() => { if (!loading) currentRef.current?.scrollIntoView({ block: "center" }); }, [loading, year]);
 
-  const get = (ws: string): Row => rows[ws] ?? { week_start: ws, title: "", description: "", image_url: null };
-  const setLocal = (ws: string, patch: Partial<Row>) => setRows(r => ({ ...r, [ws]: { ...get(ws), ...patch } }));
+  const blank = (ws: string): Row => ({ week_start: ws, title: "", description: "", image_url: null });
+  const get = (ws: string): Row => rows[ws] ?? blank(ws);
+  // תמיד מהמצב העדכני: שמירה שמגיעה מאוחר (סיום העלאת תמונה) לא מחזירה טקסט שהוקלד בינתיים
+  const rowsRef = useRef(rows);
+  rowsRef.current = rows;
+  const setLocal = (ws: string, patch: Partial<Row>) => setRows(r => ({ ...r, [ws]: { ...(r[ws] ?? blank(ws)), ...patch } }));
 
   async function save(ws: string, patch?: Partial<Row>) {
-    const row = { ...get(ws), ...patch };
+    if (loadFailed) return;
+    const row = { ...(rowsRef.current[ws] ?? blank(ws)), ...patch };
     if (patch) setLocal(ws, patch);
+    // יציאה משדה בלי שינוי — לא שומרים (ובטח שלא מוחקים)
+    const sig = sigOf(row);
+    if (sig === (savedSig.current[ws] ?? EMPTY_SIG)) return;
     setSaving(ws);
     const empty = !row.title.trim() && !row.description.trim() && !row.image_url;
     const res = empty
@@ -103,6 +119,7 @@ export default function AnnualTopics() {
           week_start: ws, title: row.title.trim(), description: row.description.trim() || null, image_url: row.image_url, updated_at: new Date().toISOString(),
         }, { onConflict: "week_start" });
     setSaving(null);
+    if (!res.error) savedSig.current[ws] = sig;
     setMsg(res.error ? "לא נשמר: " + res.error.message : "נשמר");
   }
 
@@ -153,13 +170,14 @@ export default function AnnualTopics() {
                 className={"rounded-lg px-3 py-1.5 text-sm font-semibold " + (y === year ? "bg-[#3F2F2D] text-[#F6F2EE]" : "hover:bg-[#E3ECE7]")}>{y}</button>
             ))}
           </div>
-          <button type="button" className={btnGhost} onClick={() => setShowPaste(v => !v)} disabled={missing}>{showPaste ? "סגירת ההדבקה" : "הדבקת רשימה"}</button>
+          <button type="button" className={btnGhost} onClick={() => setShowPaste(v => !v)} disabled={loading || loadFailed}>{showPaste ? "סגירת ההדבקה" : "הדבקת רשימה"}</button>
         </>
       }
     >
-      {missing && (
-        <div className="mb-5 rounded-2xl border border-[#FAB822]/60 bg-[#FDF0CC] p-4 text-[15px]">
-          טבלת התוכנית השנתית עוד לא קיימת. מריצים פעם אחת את <b dir="ltr">scripts/012_topics_plan_attendance.sql</b> ב-Supabase.
+      {loadFailed && (
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#B56262]/40 bg-[#FDE8E1] p-4 text-[15px] text-[#7a2e22]" role="alert">
+          <span>התוכנית השנתית לא נטענה. בדקו את החיבור לאינטרנט. עד שהיא תיטען אי אפשר לערוך — כדי לא לדרוס את הנושאים שכבר כתובים.</span>
+          <button type="button" className="rounded-xl bg-white px-4 py-2 font-semibold text-[#7a2e22] ring-1 ring-[#B56262]/40" onClick={load}>ניסיון נוסף</button>
         </div>
       )}
       {msg && <p role="status" className="mb-4 text-sm font-semibold text-[#5A826F]">{msg}</p>}
@@ -200,9 +218,9 @@ export default function AnnualTopics() {
                             <span dir="ltr">{shortDate(ws)}–{shortDate(addDaysISO(ws, 6))}</span>
                             {isNow && <span className="mr-1.5 rounded-full bg-[#FAB822] px-1.5 py-0.5 text-[11px] font-bold">השבוע</span>}
                           </div>
-                          <input className={inputCls} value={r.title} placeholder="נושא השבוע" aria-label={"נושא לשבוע " + shortDate(ws)} disabled={missing}
+                          <input className={inputCls} value={r.title} placeholder="נושא השבוע" aria-label={"נושא לשבוע " + shortDate(ws)} disabled={loading || loadFailed}
                             onChange={e => setLocal(ws, { title: e.target.value })} onBlur={() => save(ws)} />
-                          <input className={inputCls} value={r.description} placeholder="משפט קצר (לא חובה)" aria-label={"תיאור לשבוע " + shortDate(ws)} disabled={missing}
+                          <input className={inputCls} value={r.description} placeholder="משפט קצר (לא חובה)" aria-label={"תיאור לשבוע " + shortDate(ws)} disabled={loading || loadFailed}
                             onChange={e => setLocal(ws, { description: e.target.value })} onBlur={() => save(ws)} />
                           <div className="flex items-center gap-1">
                             <ImagePicker supabase={supabase} url={r.image_url} compact onChange={url => save(ws, { image_url: url })} onError={setMsg} />

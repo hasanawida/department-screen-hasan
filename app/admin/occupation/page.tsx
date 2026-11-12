@@ -1,24 +1,35 @@
 // @ts-nocheck
 import { createClient } from "@/lib/supabase/server"
 import { OccupationList } from "@/components/admin/occupation-list"
+import { israelDateISO, weekStartISO } from "@/lib/week"
 
+// ימי השבוע כמו שהם נשמרים בפעילויות (שבת = ש')
 const DAY_ORDER: Record<string, number> = {
-  "א'": 0, "ב'": 1, "ג'": 2, "ד'": 3, "ה'": 4, "ו'": 5, "שבת": 6
+  "א'": 0, "ב'": 1, "ג'": 2, "ד'": 3, "ה'": 4, "ו'": 5, "ש'": 6, "שבת": 6
 }
+
+export const dynamic = "force-dynamic"
 
 export default async function OccupationPage() {
   const supabase = await createClient()
+  // הפעילויות הקבועות, ועם תאריך — מהשבוע הזה והלאה (בלי חד-פעמיות שכבר עברו)
+  const fromDate = weekStartISO(israelDateISO())
   const [
-    { data: departments },
-    { data: activities },
-    { data: participants },
-    { data: residents },
+    { data: departments, error: e1 },
+    { data: activities, error: e2 },
+    { data: participants, error: e3 },
+    { data: residents, error: e4 },
   ] = await Promise.all([
     supabase.from("departments").select("id, name, view_token").order("name"),
-    supabase.from("activities").select("id, title, day_of_week, start_time, activity_date, instructor_name, department_id").eq("is_active", true).is("instructor_name", null),
+    supabase.from("activities").select("id, title, day_of_week, start_time, activity_date, instructor_name, department_id").eq("is_active", true).is("instructor_name", null)
+      .or(`activity_date.is.null,activity_date.gte.${fromDate}`),
     supabase.from("activity_participants").select("activity_id, residents(id, name, room_number, personal_activity)"),
     supabase.from("residents").select("id, name, room_number, personal_activity, group_activity, department_id").eq("is_active", true).order("name"),
   ])
+
+  // תקלה בקריאה היא לא "אין מחלקות": עמוד התקלה מציע ניסיון נוסף
+  const failed = e1 ?? e2 ?? e3 ?? e4
+  if (failed) throw new Error(failed.message)
 
   const deptList = (departments || []).map(dept => ({
     id: dept.id,

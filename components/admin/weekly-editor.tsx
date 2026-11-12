@@ -9,7 +9,9 @@ import DepartmentDisplay, { type ViewKind } from "@/components/display/departmen
 import { insertActivities, updateActivity } from "@/lib/activities-db";
 import { Field, Toggle, inputCls, usePreviewCu } from "@/components/admin/brand-ui";
 import TopicCard from "@/components/admin/topic-card";
-import { ensureInstructors, refreshDepartmentScreens } from "@/lib/screens";
+import { refreshDepartmentScreens } from "@/lib/screens";
+import { createSaveQueue, patchDisplaySettings } from "@/lib/display-settings-db";
+import { fetchAll } from "@/lib/reports";
 import { cleanName, matchesActivity } from "@/lib/participants";
 import InstructorSelect, { resolveInstructorName } from "@/components/admin/instructor-select";
 import type { TopicData } from "@/lib/topics";
@@ -17,7 +19,7 @@ import { SHABBAT_CITIES, shabbatCity } from "@/lib/jewish-calendar";
 import { latestIconConfig, type IconConfig } from "@/lib/icon-config";
 import ActivityIconPicker from "@/components/admin/activity-icon-picker";
 import {
-  DAY_CODES, DAY_NAMES, activitiesByDay, addDaysISO, dayCodeIndex, dayIndexOf, displaySettings, israelDateISO, menuFromRows, menuNotesFromRows, shortDate,
+  DAY_CODES, DAY_NAMES, activitiesByDay, addDaysISO, dayCodeIndex, dayIndexOf, displaySettings, israelDateISO, menuFromRows, menuNotesFromRows, shortDate, toMinutes,
   weekDatesISO, weekStartISO, weeklyBoardSettings, viewStyle, clampScale, gridRows, formatSlots, parseSlots, slotLabel,
   ICON_SCALES, STYLED_VIEWS, TEXT_SCALE_MIN, TEXT_SCALE_STEP,
   type ActivityRow, type BoardActivity, type DisplaySettings, type MenuRow, type ViewStyle, type WeeklyBoardSettings,
@@ -34,9 +36,9 @@ type DeptResident = {
 /**
  * סוג הפעילות שנערכת:
  * new — חדשה; recurring — קבועה, חוזרת כל שבוע; weekcopy — שינוי לשבוע אחד של פעילות קבועה;
- * oneoff — רק בתאריך אחד; calendar — הגיעה מיומן Outlook
+ * oneoff — רק בתאריך אחד
  */
-type DraftKind = "new" | "recurring" | "weekcopy" | "oneoff" | "calendar";
+type DraftKind = "new" | "recurring" | "weekcopy" | "oneoff";
 type Draft = {
   id: string | null;            // null = פעילות חדשה
   kind: DraftKind;
@@ -49,7 +51,6 @@ type Draft = {
   location: string;
   instructor: string;
   repeat: boolean;              // לחדשה ולחד-פעמית: true = כל שבוע, false = רק בתאריך הזה
-  fromCalendar: boolean;
   parentId: string | null;
 };
 
@@ -70,8 +71,14 @@ export default function WeeklyEditor() {
   const [deptId, setDeptId] = useState<string | null>(null);
   const [weekOffset, setWeekOffset] = useState(0);
   const [rows, setRows] = useState<ActivityRow[]>([]);
-  const [settingsId, setSettingsId] = useState<string | null>(null);
   const [display, setDisplay] = useState<DisplaySettings>(displaySettings({}));
+  // ההגדרות כפי שהן שמורות במסד, ולאיזו מחלקה הן נטענו. שומרים רק מה שהשתנה לעומתן,
+  // ורק אחרי שההגדרות של המחלקה שעל המסך באמת נטענו (אחרת לחיצה מהירה שומרת הגדרות של מחלקה אחרת, או ברירות מחדל)
+  const savedDisplay = useRef<DisplaySettings>(displaySettings({}));
+  const [settingsFor, setSettingsFor] = useState<string | null>(null);
+  const saveQueue = useRef(createSaveQueue()).current;
+  const deptRef = useRef<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [previewTopic, setPreviewTopic] = useState<TopicData | null>(null);
   const [attendance, setAttendance] = useState<{ names: string[]; date: string } | null>(null);
   const [menuRows, setMenuRows] = useState<MenuRow[]>([]);
@@ -101,12 +108,13 @@ export default function WeeklyEditor() {
   const flash = useCallback((msg: string) => {
     setStatus(msg);
     if (statusTimer.current) clearTimeout(statusTimer.current);
-    statusTimer.current = setTimeout(() => setStatus(""), 2500);
+    statusTimer.current = setTimeout(() => setStatus(""), Math.max(2500, msg.length * 80));
   }, []);
 
   /* ── טעינה ── */
   useEffect(() => {
-    supabase.from("departments").select("id, name, code, color").order("name").then(({ data }) => {
+    supabase.from("departments").select("id, name, code, color").order("name").then(({ data, error }) => {
+      if (error) { setLoadError("רשימת המחלקות לא נטענה. בדקו את החיבור ורעננו את העמוד."); return; }
       const list = (data ?? []) as Dept[];
       setDepts(list);
       const wanted = search.get("dept");
@@ -136,24 +144,43 @@ export default function WeeklyEditor() {
     }
   }, [search]);
 
+  deptRef.current = deptId;
   const loadActivities = useCallback(async () => {
     if (!deptId) return;
-    const { data } = await supabase.from("activities").select("*").eq("department_id", deptId);
-    setRows((data ?? []) as ActivityRow[]);
+    try {
+      // בדפים של 1000 (המגבלה של שאילתה אחת), בסדר קבוע
+      const data = await fetchAll<ActivityRow>((a, b) => supabase.from("activities").select("*").eq("department_id", deptId).order("id").range(a, b));
+      if (deptRef.current !== deptId) return; // עברו מחלקה בינתיים — התשובה הזו כבר לא שייכת למסך
+      setRows(data);
+      setLoadError(null);
+    } catch {
+      // לוח שלא נטען הוא לא לוח ריק: משאירים מה שעל המסך ומודיעים
+      if (deptRef.current === deptId) setLoadError("הפעילויות לא נטענו. בדקו את החיבור ורעננו את העמוד.");
+    }
+  }, [supabase, deptId]);
+
+  const loadSettings = useCallback(async () => {
+    if (!deptId) return;
+    const { data, error } = await supabase.from("screen_settings").select("id, display_settings").eq("department_id", deptId).maybeSingle();
+    if (deptRef.current !== deptId) return;
+    if (error) { setLoadError("הגדרות המסך של המחלקה לא נטענו. בדקו את החיבור ורעננו את העמוד."); return; }
+    savedDisplay.current = displaySettings(data?.display_settings);
+    setDisplay(savedDisplay.current);
+    setSettingsFor(deptId);
   }, [supabase, deptId]);
 
   useEffect(() => {
     if (!deptId) return;
     setDraft(null);
+    setRows([]);
+    setSettingsFor(null);
+    setLoadError(null);
     loadActivities();
+    loadSettings();
     supabase.from("residents").select("id, name, room_number, personal_activity, group_activity, leisure_activity")
       .eq("department_id", deptId).eq("is_active", true).order("name")
-      .then(({ data }) => setResidents(((data ?? []) as DeptResident[]).sort((a, b) => a.name.localeCompare(b.name, "he"))));
-    supabase.from("screen_settings").select("id, display_settings").eq("department_id", deptId).maybeSingle().then(({ data }) => {
-      setSettingsId(data?.id ?? null);
-      setDisplay(displaySettings(data?.display_settings));
-    });
-  }, [supabase, deptId, loadActivities]);
+      .then(({ data }) => { if (deptRef.current === deptId) setResidents(((data ?? []) as DeptResident[]).sort((a, b) => a.name.localeCompare(b.name, "he"))); });
+  }, [supabase, deptId, loadActivities, loadSettings]);
 
   useEffect(() => {
     if (!deptId) return;
@@ -203,18 +230,36 @@ export default function WeeklyEditor() {
 
   /* ── הגדרות תצוגה (נשמרות מיד) ── */
   const saveDisplay = useCallback(async (next: DisplaySettings) => {
-    setDisplay(next);
     if (!deptId) return;
-    const { data: cur } = await supabase.from("screen_settings").select("id, display_settings").eq("department_id", deptId).maybeSingle();
-    // המודעה והאייקונים נערכים בעמודים אחרים — לא דורסים אותם בערך ישן מהעורך
-    const { notice: _notice, icons: _icons, ...mine } = next as DisplaySettings & { icons?: unknown };
-    const merged = { ...(cur?.display_settings ?? {}), ...mine };
-    const res = cur?.id
-      ? await supabase.from("screen_settings").update({ display_settings: merged }).eq("id", cur.id)
-      : await supabase.from("screen_settings").insert({ department_id: deptId, display_settings: merged });
-    if (res.error) flash("לא נשמר: " + res.error.message);
-    else { flash("נשמר"); refreshScreens(); }
-  }, [supabase, deptId, flash, refreshScreens]);
+    if (settingsFor !== deptId) { flash("ההגדרות של המחלקה עוד לא נטענו. נסו שוב בעוד רגע."); return; }
+    const forDept = deptId;
+    const same = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+    // שומרים רק את מה שהשתנה כאן. שאר ההגדרות (המודעה, האייקונים, ומה שנערך בעמוד הגדרות המסך)
+    // נקראות מחדש מהמסד בזמן השמירה ולא נדרסות בערך ישן מהעמוד הזה.
+    const before = savedDisplay.current as Record<string, unknown>;
+    const after = next as Record<string, unknown>;
+    const patch: Record<string, unknown> = {};
+    for (const k of Object.keys(after)) {
+      if (k === "notice" || k === "icons" || k === "weekly_board") continue;
+      if (!same(after[k], before[k])) patch[k] = after[k];
+    }
+    const oldBoard = weeklyBoardSettings(savedDisplay.current.weekly_board) as Record<string, unknown>;
+    const newBoard = weeklyBoardSettings(next.weekly_board) as Record<string, unknown>;
+    const boardPatch = Object.fromEntries(Object.keys(newBoard).filter(k => !same(newBoard[k], oldBoard[k])).map(k => [k, newBoard[k]]));
+    if (Object.keys(boardPatch).length) patch.weekly_board = boardPatch;
+    setDisplay(next);
+    if (!Object.keys(patch).length) return;
+    const res = await saveQueue(() => patchDisplaySettings(supabase, forDept, patch, ["weekly_board"]));
+    if (deptRef.current !== forDept) return;
+    if (res.error || !res.settings) {
+      flash("לא נשמר: " + (res.error ?? "שגיאה"));
+      setDisplay(savedDisplay.current); // חוזרים למה ששמור באמת
+      return;
+    }
+    savedDisplay.current = displaySettings(res.settings);
+    flash("נשמר");
+    refreshScreens();
+  }, [supabase, deptId, settingsFor, saveQueue, flash, refreshScreens]);
 
   const setBoard = (patch: Partial<WeeklyBoardSettings>) => saveDisplay({ ...display, weekly_board: { ...board, ...patch } });
 
@@ -224,10 +269,10 @@ export default function WeeklyEditor() {
     setView("weekly");
     setCopyDays([]);
     setRegQuery("");
-    const kind: DraftKind = a.fromCalendar ? "calendar" : a.parentId ? "weekcopy" : a.recurring ? "recurring" : "oneoff";
+    const kind: DraftKind = a.parentId && !a.recurring ? "weekcopy" : a.recurring ? "recurring" : "oneoff";
     setDraft({
       id: a.id, kind, title: a.title, dayIndex: a.dayIndex, originalDayIndex: a.dayIndex, start: a.start, end: a.end,
-      location: a.location, instructor: assignName ?? a.instructor, repeat: a.recurring, fromCalendar: a.fromCalendar, parentId: a.parentId,
+      location: a.location, instructor: assignName ?? a.instructor, repeat: a.recurring, parentId: a.parentId,
     });
   };
   const openNew = (dayIndex: number, start = "10:00", end = "") => {
@@ -236,7 +281,7 @@ export default function WeeklyEditor() {
     setCopyDays([]);
     setRegQuery("");
     setRegistered([]);
-    setDraft({ id: null, kind: "new", title: "", dayIndex, originalDayIndex: dayIndex, start, end, location: "", instructor: assignName ?? "", repeat: true, fromCalendar: false, parentId: null });
+    setDraft({ id: null, kind: "new", title: "", dayIndex, originalDayIndex: dayIndex, start, end, location: "", instructor: assignName ?? "", repeat: true, parentId: null });
   };
 
   /** שם המפעיל לשמירה: בלי רווחים מיותרים, ובכתיב של מפעיל שכבר קיים */
@@ -265,8 +310,7 @@ export default function WeeklyEditor() {
     const cur = (row.skip_dates ?? []).filter(Boolean);
     const next = remove ? cur.filter(d => d !== date) : Array.from(new Set([...cur, date])).sort();
     const res = await supabase.from("activities").update({ skip_dates: next }).eq("id", row.id);
-    if (res.error) return /skip_dates/.test(res.error.message) ? "צריך להריץ את scripts/012_topics_plan_attendance.sql ב-Supabase" : res.error.message;
-    return null;
+    return res.error?.message ?? null;
   };
 
   /** mode: "week" — רק לשבוע המוצג, "all" — לכל השבועות (לפעילות קבועה) */
@@ -274,6 +318,7 @@ export default function WeeklyEditor() {
     if (!draft || !deptId) return;
     if (!draft.title.trim()) { flash("צריך שם לפעילות"); return; }
     if (!/^\d{2}:\d{2}$/.test(draft.start)) { flash("צריך שעת התחלה"); return; }
+    if (draft.end && toMinutes(draft.end) <= toMinutes(draft.start)) { flash("שעת הסיום צריכה להיות אחרי שעת ההתחלה"); return; }
     setBusy(true);
     const original = draft.id ? rows.find(r => String(r.id) === draft.id) : undefined;
     let error: string | null = null;
@@ -300,35 +345,36 @@ export default function WeeklyEditor() {
       }
     } else {
       if (draft.kind === "recurring") weekly = true;
-      if (draft.kind === "weekcopy" || draft.kind === "calendar") weekly = false;
-      const patch: Record<string, unknown> = { ...rowFromDraft(draft, draft.dayIndex, weekly) };
-      if (original?.external_uid) patch.source = "override"; // מעכשיו היומן לא ידרוס את השינוי
-      error = (await updateActivity(supabase, draft.id!, patch)).error?.message ?? null;
+      if (draft.kind === "weekcopy") weekly = false;
+      const res = await updateActivity(supabase, draft.id!, { ...rowFromDraft(draft, draft.dayIndex, weekly) });
+      error = res.error?.message ?? (res.data?.length ? null : "הפעילות כבר לא קיימת (אולי נמחקה ממקום אחר). רעננו את העמוד.");
     }
+    if (error) { setBusy(false); flash("לא נשמר: " + error); return; }
 
-    if (!error && copyDays.length) {
+    // מכאן הפעילות עצמה כבר שמורה. אם אחד מהשלבים הבאים נכשל — מודיעים, אבל סוגרים את הטופס וטוענים מחדש,
+    // כדי שלחיצה נוספת על "שמירה" לא תיצור את אותה פעילות פעם שנייה.
+    let warning: string | null = null;
+    if (copyDays.length) {
       const copies = copyDays.filter(i => i !== draft.dayIndex).map(i => ({ ...rowFromDraft(draft, i, weekly), department_id: deptId, source: "manual" }));
       if (copies.length) {
         const res = await insertActivities(supabase, copies);
-        error = res.error?.message ?? null;
+        if (res.error) warning = "ההעתקה לימים הנוספים לא הצליחה (" + res.error.message + ")";
         createdIds.push(...(res.data ?? []).map((r: any) => String(r.id)));
       }
     }
-    if (!error && createdIds.length && registered.length) {
+    if (createdIds.length && registered.length) {
       const res = await supabase.from("activity_participants").upsert(
         createdIds.flatMap(activity_id => registered.map(resident_id => ({ activity_id, resident_id }))), { onConflict: "activity_id,resident_id" },
       );
-      if (res.error) error = "הפעילות נשמרה, אבל הרישום של הדיירים לא: " + res.error.message;
+      if (res.error) warning = (warning ? warning + ", וגם " : "") + "הרישום של הדיירים לא נשמר (" + res.error.message + ")";
     }
+    // רשומה וקישור אישי למפעיל/ה נוצרים במסד עצמו כשהפעילות נשמרת
     const instructorName = resolveInstructor(draft.instructor);
-    if (!error && instructorName) {
-      await ensureInstructors(supabase, [instructorName]); // קישור אישי למפעיל
-      if (!instructors.includes(instructorName)) setInstructors(list => [...list, instructorName]);
-    }
+    if (instructorName && !instructors.includes(instructorName)) setInstructors(list => [...list, instructorName]);
     setBusy(false);
-    if (error) { flash("לא נשמר: " + error); return; }
     flash(
-      assignName && instructorName === assignName ? `${assignName} שויך/ה לפעילות. אפשר לבחור עוד פעילות, או ״סיום השיוך״.`
+      warning ? "הפעילות נשמרה, אבל " + warning + ". פותחים את הפעילות ומשלימים."
+      : assignName && instructorName === assignName ? `${assignName} שויך/ה לפעילות. אפשר לבחור עוד פעילות, או ״סיום השיוך״.`
       : mode === "week" && draft.kind === "recurring" ? "נשמר לשבוע הזה בלבד" : copyDays.length ? "נשמר והועתק" : "נשמר"
     );
     setDraft(null);
@@ -339,6 +385,13 @@ export default function WeeklyEditor() {
   /** mode: "week" — רק השבוע, "all" — מכל השבועות, "restore" — ביטול שינוי שבועי וחזרה לפעילות הקבועה */
   const deleteDraft = async (mode: "week" | "all" | "restore" = "all") => {
     if (!draft?.id) return;
+    // מחיקה שאי אפשר להחזיר — רק אחרי אישור (ביטול לשבוע אחד וחזרה לקבוע אפשר לבטל, ולכן בלי שאלה)
+    if (mode === "all" && draft.kind !== "weekcopy") {
+      const ask = draft.kind === "recurring"
+        ? `למחוק את «${draft.title}» מכל השבועות? הרישום של הדיירים לפעילות יימחק יחד איתה.`
+        : `למחוק את «${draft.title}»?`;
+      if (!window.confirm(ask)) return;
+    }
     setBusy(true);
     const original = rows.find(r => String(r.id) === draft.id);
     let error: string | null = null;
@@ -352,8 +405,6 @@ export default function WeeklyEditor() {
       // מחיקה מכל השבועות: גם השינויים לשבועות הבאים נמחקים (מה שכבר עבר נשאר בהיסטוריה)
       error = (await supabase.from("activities").delete().eq("parent_id", draft.id).gte("activity_date", today)).error?.message ?? null;
       if (!error) error = (await supabase.from("activities").delete().eq("id", draft.id)).error?.message ?? null;
-    } else if (original?.external_uid) {
-      error = (await updateActivity(supabase, draft.id, { is_active: false, source: "override" })).error?.message ?? null; // היומן לא יחזיר אותה
     } else {
       error = (await supabase.from("activities").delete().eq("id", draft.id)).error?.message ?? null;
     }
@@ -479,7 +530,7 @@ export default function WeeklyEditor() {
       copy[draft.dayIndex] = [...copy[draft.dayIndex], {
         id: draft.id ?? "__draft", title: draft.title || "פעילות חדשה", start: draft.start, end: draft.end,
         location: draft.location, instructor: draft.instructor, dayIndex: draft.dayIndex as BoardActivity["dayIndex"],
-        date: draft.repeat ? null : weekDates[draft.dayIndex], recurring: draft.repeat, fromCalendar: draft.fromCalendar, parentId: draft.parentId,
+        date: draft.repeat ? null : weekDates[draft.dayIndex], recurring: draft.repeat, parentId: draft.parentId,
       }].sort((a, b) => a.start.localeCompare(b.start));
     }
     return copy;
@@ -490,6 +541,7 @@ export default function WeeklyEditor() {
   const calendarCount = visibleRows.filter(r => r.external_uid && r.activity_date && r.activity_date >= weekDates[0] && r.activity_date <= weekDates[6]).length;
 
   if (!dept) {
+    if (loadError) return <div dir="rtl" className="m-10 rounded-2xl border border-[#B56262]/40 bg-[#FDE8E1] p-5 text-lg text-[#7a2e22]" role="alert">{loadError}</div>;
     return <div dir="rtl" className="p-10 text-lg text-slate-500">{depts.length ? "בוחרים מחלקה…" : "טוען…"}</div>;
   }
 
@@ -516,7 +568,8 @@ export default function WeeklyEditor() {
         </div>
 
         <div className="ms-auto flex items-center gap-2">
-          {status && <span className="max-w-[28rem] truncate rounded-full bg-[#E3ECE7] px-3 py-1.5 text-sm font-semibold text-[#3F2F2D]" role="status">{status}</span>}
+          {loadError && <span className="max-w-[34rem] rounded-full bg-[#FDE8E1] px-3 py-1.5 text-sm font-semibold text-[#7a2e22]" role="alert">{loadError}</span>}
+          {status && <span className="max-w-[40rem] rounded-full bg-[#E3ECE7] px-3 py-1.5 text-sm font-semibold text-[#3F2F2D]" role="status" title={status}>{status}</span>}
           <Link href="/admin/calendar"
             className="inline-flex items-center gap-2 rounded-full border border-[#5A826F]/40 bg-white px-4 py-2 text-sm font-semibold text-[#5A826F] hover:bg-[#E3ECE7]">
             <CalendarDays className="h-4 w-4" /> יומן
@@ -583,7 +636,6 @@ export default function WeeklyEditor() {
               topic={previewTopic}
               menu={menuFromRows(menuRows)}
               menuNotes={menuNotesFromRows(menuRows)}
-              messages={[]}
               news={["כאן יופיעו כותרות החדשות של N12"]}
               media={[]}
               embeddedCu={cu}
@@ -623,12 +675,6 @@ export default function WeeklyEditor() {
                 <button onClick={() => setDraft(null)} aria-label="סגירה" className="rounded-full p-1.5 hover:bg-[#E3ECE7]"><X className="h-4 w-4" /></button>
               </div>
 
-              {draft.fromCalendar && (
-                <p className="mb-4 rounded-xl bg-[#E3ECE7] p-3 text-sm leading-relaxed">
-                  <CalendarDays className="me-1 inline h-4 w-4 align-[-3px] text-[#5A826F]" />
-                  הפעילות הגיעה מהיומן. שינוי כאן נשמר במערכת, והיומן לא ידרוס אותו.
-                </p>
-              )}
               {draft.kind === "recurring" && (
                 <p className="mb-4 rounded-xl bg-[#F6F2EE] p-3 text-sm leading-relaxed">
                   <Repeat className="me-1 inline h-4 w-4 align-[-3px] text-[#5A826F]" />
@@ -645,7 +691,7 @@ export default function WeeklyEditor() {
                 <Field label="שם הפעילות">
                   <input autoFocus value={draft.title} onChange={e => setDraft({ ...draft, title: e.target.value })} className={inputCls} placeholder="למשל: ערב שירה" />
                 </Field>
-                {board.show_icons !== false && draft.title.trim() && (
+                {viewStyle(display, board, "weekly").icons > 0 && draft.title.trim() && (
                   <Field label="אייקון">
                     <ActivityIconPicker supabase={supabase} title={draft.title} config={iconConfig} onSaved={setIconConfig} />
                   </Field>

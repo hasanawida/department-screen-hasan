@@ -6,39 +6,41 @@ import {
   type ActivityRow, type MenuRow,
 } from "./week";
 import { getN12Headlines } from "./news";
-import { syncCalendarsIfStale } from "./calendar-sync";
 import { resolveTopic } from "./topics";
 import type { DepartmentDisplayProps } from "@/components/display/department-display";
 import { latestIconConfig } from "./icon-config";
 
 export async function loadDepartmentDisplay(supabase: SupabaseClient, code: string): Promise<DepartmentDisplayProps | null> {
-  const { data: department } = await supabase.from("departments").select("id, name, code, color").eq("code", code).maybeSingle();
+  const dep = await supabase.from("departments").select("id, name, code, color").eq("code", code).maybeSingle();
+  // תקלה בקריאה היא לא "אין מחלקה כזו". זורקים — והמסך מציג דף המתנה ומנסה שוב לבד.
+  // (פעם זה החזיר null, המסך עבר לדף 404 ונשאר תקוע שם גם אחרי שהתקלה עברה.)
+  if (dep.error) throw new Error("departments: " + dep.error.message);
+  const department = dep.data;
   if (!department) return null;
-
-  // יומני Outlook — מסונכרנים לכל היותר פעם ברבע שעה
-  await syncCalendarsIfStale(supabase);
 
   const today = israelDateISO();
   const weekStart = weekStartISO(today);
   const weekDates = weekDatesISO(weekStart);
 
   const [acts, ss, media, topic, menuRows, physio, allSettings] = await Promise.all([
-    supabase.from("activities").select("*").eq("department_id", department.id).eq("is_active", true),
+    // הקבועות (בלי תאריך) ושל השבוע הזה בלבד — בלי כל הפעילויות החד-פעמיות מהעבר, שרק מצטברות עם הזמן
+    supabase.from("activities").select("*").eq("department_id", department.id).eq("is_active", true)
+      .or(`activity_date.is.null,and(activity_date.gte.${weekStart},activity_date.lte.${weekDates[6]})`),
     supabase.from("screen_settings").select("display_settings, media_url, media_type").eq("department_id", department.id).maybeSingle(),
     supabase.from("department_media").select("media_url, media_type").eq("department_id", department.id).eq("is_active", true).order("display_order", { ascending: true }).limit(10),
     resolveTopic(supabase, department.id, weekStart),
     supabase.from("weekly_menus").select("week_start, day_index, meal, items").eq("week_start", weekStart),
-    // מי מהמחלקה מוזמן היום לפיזיותרפיה (אם הטבלה עוד לא קיימת — פשוט ריק)
+    // מי מהמחלקה מוזמן היום לפיזיותרפיה
     supabase.from("physio_appointments").select("*").eq("appt_date", today).eq("department_id", department.id).order("start_time"),
     // הגדרות האייקונים משותפות לכל המחלקות — לוקחים את העדכנית ביותר
     supabase.from("screen_settings").select("display_settings"),
   ]);
+  // אותו דבר כאן: עדיף דף המתנה לחצי דקה מאשר לוח ריק ("אין פעילויות היום") שנראה אמיתי
+  const failed = acts.error ?? ss.error ?? media.error ?? menuRows.error ?? physio.error ?? allSettings.error;
+  if (failed) throw new Error("display data: " + failed.message);
 
   const settings = displaySettings(ss.data?.display_settings);
   const board = weeklyBoardSettings(settings.weekly_board);
-
-  // ההודעות החשובות הוסרו (יש מסך מודעה)
-  const messages: string[] = [];
 
   const mediaList = (media.data ?? []).map((m: any) => ({ url: m.media_url, type: m.media_type || "image" }));
   if (mediaList.length === 0 && ss.data?.media_url) mediaList.push({ url: ss.data.media_url, type: ss.data.media_type || "image" });
@@ -55,10 +57,9 @@ export async function loadDepartmentDisplay(supabase: SupabaseClient, code: stri
     topic: topic.topic ? { title: topic.topic.title, description: topic.topic.description ?? "", image_url: topic.topic.image_url } : null,
     menu: menuFromRows((menuRows.data ?? []) as MenuRow[]),
     menuNotes: menuNotesFromRows((menuRows.data ?? []) as MenuRow[]),
-    messages,
     news,
     media: mediaList,
-    physio: (physio.error ? [] : physio.data ?? []).map((r: any) => ({
+    physio: (physio.data ?? []).map((r: any) => ({
       id: String(r.id),
       time: String(r.start_time).slice(0, 5),
       end: r.end_time ? String(r.end_time).slice(0, 5) : null,

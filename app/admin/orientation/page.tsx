@@ -1,40 +1,38 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
-import { v4 as uuidv4 } from "uuid";
+import { useEffect, useMemo, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 import { PageShell } from "@/components/admin/brand-ui";
 import ScreensPanel, { type ScreenItem } from "@/components/admin/screens-panel";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-);
 
 const langLabels: Record<string, string> = {
   he: "עב׳", ar: "ערב׳", ru: "רוס׳", en: "אנג׳",
 };
 
 export default function AdminOrientationPage() {
+  // הלקוח של הניהול (עם ההתחברות של המנהל/ת), כמו בשאר עמודי הניהול
+  const supabase = useMemo(() => createClient(), []);
   const [departments, setDepartments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   async function loadDepartments() {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("departments")
       .select("id, name, code, color, view_token, orientation_settings, created_at")
       .order("created_at", { ascending: true });
 
+    setLoadError(!!error);
     if (data) {
-      // לכל מחלקה קישור משלה למסך ההתמצאות
+      // לכל מחלקה קישור משלה למסך ההתמצאות (נוצר במסד כשהמחלקה נוצרת; כאן רק השלמה למחלקה ישנה שחסר לה)
       for (const dept of data) {
         if (!dept.view_token) {
-          const newToken = uuidv4();
-          await supabase.from("departments").update({ view_token: newToken }).eq("id", dept.id);
-          dept.view_token = newToken;
+          const newToken = crypto.randomUUID();
+          const res = await supabase.from("departments").update({ view_token: newToken }).eq("id", dept.id);
+          if (!res.error) dept.view_token = newToken;
         }
       }
-      setDepartments(data);
+      setDepartments(data.filter(d => !!d.view_token));
     }
     setLoading(false);
   }
@@ -49,7 +47,7 @@ export default function AdminOrientationPage() {
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, []);
+  }, [supabase]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const items: ScreenItem[] = departments.map(dept => {
     const langs: string[] = Array.isArray(dept.orientation_settings?.languages)
@@ -75,6 +73,8 @@ export default function AdminOrientationPage() {
     >
       {loading
         ? <p className="rounded-2xl bg-white p-6 text-center text-[#3F2F2D]/60">טוען…</p>
+        : loadError && items.length === 0
+          ? <p role="alert" className="rounded-2xl bg-[#FDE8E1] p-6 text-center text-[#7a2e22]">רשימת המחלקות לא נטענה. בדקו את החיבור ורעננו את העמוד.</p>
         : items.length === 0
           ? <p className="rounded-2xl bg-white p-6 text-center text-[#3F2F2D]/60">אין מחלקות עדיין</p>
           : <ScreensPanel kind="orientation" items={items} />}

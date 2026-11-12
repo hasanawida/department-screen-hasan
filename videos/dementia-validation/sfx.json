@@ -615,5 +615,32 @@
   "f": "mixkit_3109.mp3",
   "at": "word:l53:5",
   "g": -17
+ },
+ {
+  "f": "mixkit_music_1081.mp3",
+  "at": "scene:s16+0.0",
+  "from": 71.95,
+  "fi": 1.2,
+  "g": -14
+ },
+ {
+  "f": "mixkit_1104.mp3",
+  "at": "line-end:o1+0.47",
+  "g": -19
+ },
+ {
+  "f": "mixkit_1104.mp3",
+  "at": "word:o2:6-0.25",
+  "g": -19
+ },
+ {
+  "f": "mixkit_1104.mp3",
+  "at": "line-end:o2+0.1",
+  "g": -19
+ },
+ {
+  "f": "mixkit_1104.mp3",
+  "at": "word:o3:4-0.15",
+  "g": -19
  }
 ]

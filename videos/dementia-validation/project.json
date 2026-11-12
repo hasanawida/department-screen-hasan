@@ -290,6 +290,17 @@
     "type": "crossfade",
     "dur": 0.7
    }
+  },
+  {
+   "id": "s16",
+   "file": "scenes/s16_booklet.js",
+   "lines": [
+    "o1",
+    "o2",
+    "o3",
+    "o4"
+   ],
+   "minDur": 0
   }
  ],
  "images": {
@@ -315,6 +326,13 @@
   "ottrix": "assets/ottrix/logo_dark.png",
   "ottrix_mark": "assets/ottrix/mark_dark.png",
   "h0": "assets/h0_mother.jpg",
-  "h1": "assets/h1_kids.jpg"
+  "h1": "assets/h1_kids.jpg",
+  "p232": "assets/booklet/p232.jpg",
+  "p217": "assets/booklet/p217.jpg",
+  "p223": "assets/booklet/p223.jpg",
+  "p238": "assets/booklet/p238.jpg",
+  "p10": "assets/booklet/p10.jpg",
+  "s15last": "assets/booklet/s15_last.jpg",
+  "ottrix_h": "assets/ottrix/ottrix_h_ondark.png"
  }
 }

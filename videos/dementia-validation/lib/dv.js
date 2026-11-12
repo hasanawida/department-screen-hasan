@@ -3,7 +3,7 @@
 import { caption } from './ui.js';
 /* every scene after the opening: the OTTRIX mark (watermark, top-left) + the spoken line */
 export const cap = (ctx, t) => { mark(ctx); caption(ctx, t, { skip: /^c/ }); };
-function mark(ctx) {
+export function mark(ctx) {
   const im = ctx.img('ottrix_mark'); if (!im) return;
   const { X } = ctx, s = 66, h = s * im.height / im.width;
   X.save(); X.globalAlpha = 0.9; X.shadowColor = 'rgba(0,0,0,0.45)'; X.shadowBlur = 10; X.drawImage(im, 46, 150, s, h); X.restore();

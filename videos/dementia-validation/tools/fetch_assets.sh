@@ -1,5 +1,5 @@
 #!/bin/bash
-# Downloads the external assets the project needs: Hebrew fonts (Google Fonts, OFL) and Mixkit sound effects.
+# Downloads the external assets the project needs: Hebrew fonts (Google Fonts, OFL), Mixkit sound effects and Mixkit music.
 set -e
 cd "$(dirname "$0")/.."
 mkdir -p fonts sfx
@@ -9,7 +9,9 @@ get_font() { # family weight file
 }
 for w in 400 700 800 900; do get_font Heebo $w Heebo-$w.ttf; done
 for w in 500 700 900; do get_font Rubik $w Rubik-$w.ttf; done
-for id in 1461 1474 1482 1489 2232 2356 3109 494 498; do
+for id in 1104 1461 1474 1482 1489 2232 2356 3109 494 498; do
   curl -s -o "sfx/mixkit_$id.mp3" "https://assets.mixkit.co/active_storage/sfx/$id/$id-preview.mp3"
 done
+# outro music: Mixkit "We'll Be Okay" (#1081), Mixkit Stock Music Free License
+curl -s -o "sfx/mixkit_music_1081.mp3" "https://assets.mixkit.co/music/1081/1081.mp3"
 echo "assets ready"

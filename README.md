@@ -65,7 +65,11 @@ npm run dev
 
 ## פריסה
 
-כל דחיפה ל-`main` ב-GitHub נפרסת ל-Vercel. שינויים במסד הנתונים מריצים ב-Supabase ← SQL Editor
+כל דחיפה ל-`main` ב-GitHub נפרסת ל-Vercel — כל עוד החיבור בין השניים תקין (Vercel ← Settings ← Git;
+אם כתוב שם "Project Link not found" לוחצים Reconnect). כשדחיפה לא נפרסת לבד, פורסים ידנית:
+Vercel ← Deployments ← התפריט "..." ← Create Deployment ← `main`.
+
+שינויים במסד הנתונים מריצים ב-Supabase ← SQL Editor
 (הקבצים בתיקיית `scripts/`, לפי הסדר; בראש כל קובץ כתוב מה הוא עושה ומתי להריץ אותו).
 
 לפני דחיפה: `npm run typecheck` ו-`npm run build`.

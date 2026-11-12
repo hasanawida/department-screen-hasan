@@ -38,7 +38,10 @@ async function translateDepartmentName(
       },
       body: JSON.stringify({
         model: "claude-haiku-5-5",
-        max_tokens: 200,
+        // במודל הזה "חשיבה" דולקת כברירת מחדל ונספרת בתוך max_tokens: עם 200 התקציב נגמר על החשיבה
+        // לפני שנכתב התרגום, ולכן שמות של מחלקות חדשות נשארו בעברית. לתרגום של שם אין בה צורך.
+        thinking: { type: "disabled" },
+        max_tokens: 1000,
         messages: [{
           role: "user",
           content: `Translate this Hebrew nursing home department name to Arabic, Russian, and English.
@@ -57,7 +60,7 @@ Hebrew name: "${nameHe}"`,
       .join("\n");
     const names = parseTranslatedNames(text);
     // שומרים רק תרגום מלא (שלוש השפות); תשובה חלקית או שגויה לא נשמרת במקום השם
-    if (!names) return failed(`אין בתשובה שלושה שמות: ${text.slice(0, 200) || "(בלי טקסט)"}`);
+    if (!names) return failed(`אין בתשובה שלושה שמות (stop_reason: ${data?.stop_reason ?? "?"}): ${text.slice(0, 200) || "(בלי טקסט)"}`);
     const { error } = await supabase.from("departments").update(names).eq("id", deptId);
     if (error) console.warn(`[orientation] התרגום של "${nameHe}" לא נשמר: ${error.message}`);
     lastFailure.delete(deptId);

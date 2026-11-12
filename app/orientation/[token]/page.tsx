@@ -3,17 +3,29 @@ import { notFound } from "next/navigation";
 import { createAnonServerClient } from "@/lib/supabase/anon-server";
 import OrientationScreenWrapper from "@/components/orientation/orientation-screen-wrapper";
 import { orientationColor } from "@/lib/orientation-color";
+import { parseTranslatedNames, type TranslatedNames } from "@/lib/orientation-names";
 
 // תמיד הנתונים העדכניים מהמסד (בלי המטמון של Next) — אחרת שינוי שם של מחלקה לא מגיע למסך
 export const fetchCache = "force-no-store";
 const supabase = createAnonServerClient();
 
+// מחלקה שהתרגום שלה נכשל לא נשלחת שוב לתרגום בכל טעינה של המסך — רק פעם בשעה (לכל שרת)
+const lastFailure = new Map<string, number>();
+const RETRY_AFTER_MS = 60 * 60 * 1000;
+
 async function translateDepartmentName(
   deptId: string,
   nameHe: string,
-): Promise<{ name_ar: string; name_ru: string; name_en: string }> {
+): Promise<TranslatedNames> {
   const hebrew = { name_ar: nameHe, name_ru: nameHe, name_en: nameHe };
   if (!process.env.ANTHROPIC_API_KEY) return hebrew;
+  if (Date.now() - (lastFailure.get(deptId) ?? 0) < RETRY_AFTER_MS) return hebrew;
+  // הסיבה נרשמת ביומן של השרת (Vercel ← Logs), כדי שאפשר יהיה לראות למה שם נשאר בעברית
+  const failed = (reason: string) => {
+    lastFailure.set(deptId, Date.now());
+    console.warn(`[orientation] תרגום שם המחלקה "${nameHe}" נכשל: ${reason}`);
+    return hebrew;
+  };
   try {
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -30,24 +42,28 @@ async function translateDepartmentName(
         messages: [{
           role: "user",
           content: `Translate this Hebrew nursing home department name to Arabic, Russian, and English.
+If the name is a personal name or is already written in Latin letters, keep it as a name (transliterate it) instead of translating its meaning.
 Return ONLY a JSON object with keys: name_ar, name_ru, name_en.
 No explanation, no markdown, just the JSON.
 Hebrew name: "${nameHe}"`,
         }],
       }),
     });
-    if (!response.ok) return hebrew;
+    if (!response.ok) return failed(`השירות ענה ${response.status}: ${(await response.text()).slice(0, 200)}`);
     const data = await response.json();
-    const text = data.content?.[0]?.text ?? "{}";
-    const parsed = JSON.parse(text.replace(/```json|```/g, "").trim());
-    const clean = (v: unknown) => (typeof v === "string" ? v.trim().slice(0, 80) : "");
-    const names = { name_ar: clean(parsed.name_ar), name_ru: clean(parsed.name_ru), name_en: clean(parsed.name_en) };
+    // כל קטעי הטקסט בתשובה (לא רק הראשון), ומתוכם אובייקט ה-JSON — גם כשיש סביבו הסבר או גדר קוד
+    const text = (Array.isArray(data?.content) ? data.content : [])
+      .map((block: any) => (block?.type === "text" && typeof block.text === "string" ? block.text : ""))
+      .join("\n");
+    const names = parseTranslatedNames(text);
     // שומרים רק תרגום מלא (שלוש השפות); תשובה חלקית או שגויה לא נשמרת במקום השם
-    if (!names.name_ar || !names.name_ru || !names.name_en) return hebrew;
-    await supabase.from("departments").update(names).eq("id", deptId);
+    if (!names) return failed(`אין בתשובה שלושה שמות: ${text.slice(0, 200) || "(בלי טקסט)"}`);
+    const { error } = await supabase.from("departments").update(names).eq("id", deptId);
+    if (error) console.warn(`[orientation] התרגום של "${nameHe}" לא נשמר: ${error.message}`);
+    lastFailure.delete(deptId);
     return names;
-  } catch {
-    return hebrew;
+  } catch (e) {
+    return failed(e instanceof Error ? e.message : String(e));
   }
 }
 

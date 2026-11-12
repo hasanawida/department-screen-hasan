@@ -1,7 +1,7 @@
 # קרדיטים ורישוי
 
 ## תמונות
-- כל הצילומים וההדמיות (מוח, רקמה, תמונת המשפחה הישנה) נוצרו ב-AI (Higgsfield · Google Nano Banana Pro) לצורך המחשה. אלה לא מטופלים או מטפלים אמיתיים. אותם מטופל ומטפלת כמו בסרטון ההליכון (`../walker-transfer`).
+- כל הצילומים וההדמיות (מוח, רקמה, תמונת המשפחה הישנה, האמא ליד הדלת ותמונת הילדים בגן) נוצרו ב-AI (Higgsfield · Google Nano Banana Pro) לצורך המחשה. אלה לא מטופלים או מטפלים אמיתיים. אותם מטופל ומטפלת כמו בסרטון ההליכון (`../walker-transfer`).
 - הדמיית הרקמה בתלת-ממד (תאי עצב, אותות, רבדים, סבכים) — קוד פרוצדורלי ב-three.js (`lib/neuro3d.js`).
 
 ## צלילים
@@ -10,7 +10,10 @@
 - **Kenney** — Impact Sounds, Interface Sounds — CC0: https://kenney.nl/assets
 
 ## קריינות
-- Microsoft Edge neural TTS — `he-IL-AvriNeural` (קריין) ו-`he-IL-HilaNeural` (המטפלת), ‎-12%, נבדק בתמלול חוזר (`ivrit-ai/whisper-large-v3-turbo-ct2`).
+- קול קריינית וקול המטפלת: Higgsfield text-to-speech (מנוע ElevenLabs), קולות שנבחרו ואושרו בהאזנה. תזמון המילים ובדיקת ההגייה בתמלול חוזר (`ivrit-ai/whisper-large-v3-turbo-ct2`).
+
+## מיתוג
+- לוגו OTTRIX — כפי שסופק לפרויקט; צבעי הסרטון לפי לוח הצבעים של המותג.
 
 ## גופנים
 - Heebo, Rubik — SIL Open Font License 1.1.

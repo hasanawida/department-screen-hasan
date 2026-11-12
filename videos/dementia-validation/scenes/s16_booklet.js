@@ -102,7 +102,7 @@ MOTION.scene({
       // keep the top (watermark) and the bottom (captions) readable over the light pages
       const kp = at(t, T0 + 0.3, T0 + 1.0);
       const top = X.createLinearGradient(0, 0, 0, 240); top.addColorStop(0, `rgba(10,44,52,${0.85 * kp * (1 - kE)})`); top.addColorStop(1, 'rgba(10,44,52,0)'); X.fillStyle = top; X.fillRect(0, 0, 1080, 240);
-      const bot = X.createLinearGradient(0, 1190, 0, 1920); bot.addColorStop(0, 'rgba(10,44,52,0)'); bot.addColorStop(0.3, `rgba(10,44,52,${0.78 * kp * (1 - kE)})`); bot.addColorStop(1, `rgba(10,44,52,${0.95 * kp * (1 - kE)})`); X.fillStyle = bot; X.fillRect(0, 1190, 1080, 730);
+      const bot = X.createLinearGradient(0, 1150, 0, 1920); bot.addColorStop(0, 'rgba(10,44,52,0)'); bot.addColorStop(0.12, `rgba(10,44,52,${0.94 * kp * (1 - kE)})`); bot.addColorStop(1, `rgba(10,44,52,${0.97 * kp * (1 - kE)})`); X.fillStyle = bot; X.fillRect(0, 1150, 1080, 770);
     }
 
     // ── end card ──

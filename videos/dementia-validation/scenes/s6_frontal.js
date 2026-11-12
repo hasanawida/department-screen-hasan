@@ -15,7 +15,7 @@ MOTION.scene({
     X.save(); X.globalAlpha = kF * (1 - 0.55 * dmg * (1 - flick)); drawPhoto(ctx, X, 'b3', K); X.restore();
     shade(ctx, X, { topH: 430 });
     const [px, py] = [(PFC[0] - 420) * K.s + 420, (PFC[1] - 930) * K.s + 930];
-    glow(ctx, X, px, py, 230, '245,194,107', kF * 0.5 * (1 - dmg * 0.6));
+    glow(ctx, X, px, py, 230, '242,163,58', kF * 0.5 * (1 - dmg * 0.6));
     tag(ctx, X, px, py, 560, 1300, 'קליפה קדם-מצחית', at(t, w('l18', 7).s, w('l18', 9).e) * (1 - at(t, w('l19', 0).s - 0.3, w('l19', 0).s)), { color: P.hi, size: 46 });
     // the three jobs
     const jobs = [['שוקל', w('l19', 2).s], ['מסיק מסקנות', w('l19', 3).s], ['עוצר תגובות', w('l19', 5).s]];

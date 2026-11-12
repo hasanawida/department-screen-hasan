@@ -14,7 +14,7 @@ MOTION.scene({
     if (kM > 0) {
       X.save(); X.globalAlpha = kM * 0.8; X.setLineDash([2, 18]); X.lineCap = 'round'; X.strokeStyle = P.hi; X.lineWidth = 9;
       X.beginPath(); X.moveTo(690, 560); X.quadraticCurveTo(640, 520, 590, 545); X.stroke(); X.restore();
-      glow(ctx, X, 450, 560, 260, '245,194,107', kM * 0.35 * (1 - grey));
+      glow(ctx, X, 450, 560, 260, '242,163,58', kM * 0.35 * (1 - grey));
       polaroid(ctx, X, 450, 560, 220, -0.06 + 0.01 * Math.sin(t * 0.8), kM, { filter: grey > 0 ? `grayscale(${grey}) brightness(${1 - 0.35 * grey})` : undefined });
     }
     headline(ctx, t, 'ערב בבית האבות', 540, 300, { size: 92, times: [w('l1', 0).s, w('l1', 1).s, w('l1', 2).s], out: w('l2', 6).s - 0.5 });

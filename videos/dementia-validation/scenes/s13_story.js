@@ -17,13 +17,13 @@ MOTION.scene({
     bubble(ctx, X, t, 'c5', 360, 920, { x: 540, y: 600 });
     // he tells, remembers — the old kitchen floats up
     const kM = at(t, w('l46', 0).s, w('l46', 2).e) * (1 - at(t, tR - 0.3, tR + 0.4));
-    glow(ctx, X, 760, 560, 300, '245,194,107', 0.4 * kM); polaroid(ctx, X, 760, 560, 250, 0.05, kM);
+    glow(ctx, X, 760, 560, 300, '242,163,58', 0.4 * kM); polaroid(ctx, X, 760, 560, 250, 0.05, kM);
     pill(ctx, X, 330, 600, 'מקשיבים לו', at(t, w('l46', 4).s, w('l46', 5).e) * (1 - at(t, tR - 0.3, tR + 0.4)), { color: P.acc, size: 44 });
     // heard → weaker, ignored → stronger
     if (kR > 0) {
       X.save(); X.globalAlpha = kR;
       const row = (y, txt, col, up, t0) => { const k = at(t, t0, t0 + 0.6, 'expoOut'); if (k <= 0) return;
-        X.save(); X.globalAlpha *= k; X.fillStyle = 'rgba(11,22,38,0.85)'; X.strokeStyle = col; X.lineWidth = 3; X.beginPath(); X.roundRect(110, y - 90, 860, 180, 30); X.fill(); X.stroke();
+        X.save(); X.globalAlpha *= k; X.fillStyle = 'rgba(10,44,52,0.85)'; X.strokeStyle = col; X.lineWidth = 3; X.beginPath(); X.roundRect(110, y - 90, 860, 180, 30); X.fill(); X.stroke();
         ctx.text(X, txt, 900, y + 18, { family: 'display', weight: 900, size: 52, color: P.ink, dir: 'rtl', align: 'right' });
         const ax = 200, h = 60 * ctx.E.cubicOut(k); X.strokeStyle = col; X.fillStyle = col; X.lineWidth = 12; X.lineCap = 'round';
         X.beginPath(); X.moveTo(ax, y + (up ? h : -h)); X.lineTo(ax, y - (up ? h : -h)); X.stroke();

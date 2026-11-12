@@ -11,8 +11,8 @@ MOTION.scene({
     // title card over the calm photo
     const kT = 1 - at(t, t1, t1 + 0.8);
     if (kT > 0) {
-      drawPhoto(ctx, X, 'd6', kb({ s: 1.12, cx: 540, cy: 900 })); X.fillStyle = 'rgba(11,22,38,0.78)'; X.fillRect(0, 0, 1080, 1920);
-      glow(ctx, X, 540, 520, 420, '46,196,182', 0.35 * at(t, w('l40', 2).s, w('l40', 3).e));
+      drawPhoto(ctx, X, 'd6', kb({ s: 1.12, cx: 540, cy: 900 })); X.fillStyle = 'rgba(10,44,52,0.78)'; X.fillRect(0, 0, 1080, 1920);
+      glow(ctx, X, 540, 520, 420, '43,196,178', 0.35 * at(t, w('l40', 2).s, w('l40', 3).e));
       headline(ctx, t, 'הדרך הרביעית', 540, 330, { size: 64, t0: w('l40', 0).s, out: t1, color: P.mut });
       headline(ctx, t, 'שיטת התיקוף', 540, 500, { size: 128, t0: w('l40', 2).s, out: t1, color: P.acc });
       sub(ctx, t, 'Validation · נעמי פייל', 540, 600, { t0: w('l40', 7).s, out: t1, size: 46, color: P.ink });

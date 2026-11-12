@@ -1,5 +1,5 @@
-// s0 — opening card (no narration): the title in glossy 3D gold letters with a light sweep, then the purpose of the video.
-// The Autrix logo sits above the title when its image ('autrix') is in the project.
+// s0 — opening card (no narration): the OTTRIX logo, the title in glossy 3D letters (white, brand-teal sides) with a light
+// sweep, then the purpose of the video.
 import { goldText, BRAND } from '../lib/brand.js';
 const PX = 100;                                                     // px per world unit at the text plane
 MOTION.scene({
@@ -23,15 +23,15 @@ MOTION.scene({
     const T = u => t0 + u;
     // background: deep navy with a warm glow + drifting gold dust
     X.fillStyle = P.bg; X.fillRect(0, 0, ctx.W, ctx.H);
-    const g = X.createRadialGradient(540, 960, 60, 540, 960, 1100); g.addColorStop(0, 'rgba(245,194,107,0.16)'); g.addColorStop(1, 'rgba(245,194,107,0)'); X.fillStyle = g; X.fillRect(0, 0, ctx.W, ctx.H);
+    const g = X.createRadialGradient(540, 960, 60, 540, 960, 1100); g.addColorStop(0, 'rgba(43,196,178,0.16)'); g.addColorStop(1, 'rgba(43,196,178,0)'); X.fillStyle = g; X.fillRect(0, 0, ctx.W, ctx.H);
     X.save(); X.globalCompositeOperation = 'lighter';
-    for (const p of this.dust) { const y = (p.y - (t - t0) * p.sp + 1920) % 1920, a = 0.25 + 0.25 * Math.sin(t * 2 + p.ph); X.fillStyle = `rgba(246,203,92,${a * at(t, T(0.2), T(1.2))})`; X.beginPath(); X.arc(p.x, y, p.s, 0, 6.283); X.fill(); }
+    for (const [j, p] of this.dust.entries()) { const y = (p.y - (t - t0) * p.sp + 1920) % 1920, a = 0.25 + 0.25 * Math.sin(t * 2 + p.ph); X.fillStyle = (j % 3 ? 'rgba(43,196,178,' : 'rgba(242,163,58,') + (a * at(t, T(0.2), T(1.2))) + ')'; X.beginPath(); X.arc(p.x, y, p.s, 0, 6.283); X.fill(); }
     X.restore();
-    // Autrix logo (if supplied)
-    const logo = ctx.img('autrix');
+    // OTTRIX logo (dark-background version)
+    const logo = ctx.img('ottrix');
     if (logo) {
-      const kl = at(t, T(0.15), T(0.8), 'cubicOut'), w = 420, h = w * logo.height / logo.width;
-      X.save(); X.globalAlpha = kl; X.translate(540, 470); X.scale(0.92 + 0.08 * kl, 0.92 + 0.08 * kl); X.drawImage(logo, -w / 2, -h / 2, w, h); X.restore();
+      const kl = at(t, T(0.15), T(0.8), 'cubicOut'), w = 760, h = w * logo.height / logo.width;
+      X.save(); X.globalAlpha = kl; X.translate(540, 430); X.scale(0.92 + 0.08 * kl, 0.92 + 0.08 * kl); X.drawImage(logo, -w / 2, -h / 2, w, h); X.restore();
     }
     // 3D gold title
     const ys = [800, 1010];
@@ -46,7 +46,7 @@ MOTION.scene({
     this.st.draw(X);
     // divider + the purpose statement (white), word by word
     const kd = at(t, T(2.0), T(2.6), 'cubicInOut');
-    if (kd > 0) { const lg = X.createLinearGradient(240, 0, 840, 0); lg.addColorStop(0, 'rgba(242,193,78,0)'); lg.addColorStop(0.5, 'rgba(242,193,78,0.9)'); lg.addColorStop(1, 'rgba(242,193,78,0)'); X.fillStyle = lg; X.fillRect(540 - 300 * kd, 1155, 600 * kd, 3); }
+    if (kd > 0) { const lg = X.createLinearGradient(240, 0, 840, 0); lg.addColorStop(0, 'rgba(242,163,58,0)'); lg.addColorStop(0.35, 'rgba(242,163,58,0.9)'); lg.addColorStop(0.65, 'rgba(43,196,178,0.9)'); lg.addColorStop(1, 'rgba(43,196,178,0)'); X.fillStyle = lg; X.fillRect(540 - 300 * kd, 1155, 600 * kd, 3); }
     if (!this.lays) this.lays = BRAND.statement.map(l => ctx.text.layout(X, l, { family: 'body', weight: 700, size: 54, maxWidth: 940, lineHeight: 1.4 }));
     let wi = 0;
     this.lays.forEach((lay, li) => { const w0 = wi; wi += lay.words.length;

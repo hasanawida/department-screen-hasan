@@ -1,7 +1,13 @@
 // lib/dv.js — helpers for this video: captions without the caregiver cues, glows, the alarm and calm signals,
 // the old family photo ("polaroid"), step chips, emotion waves, the trust meter and a simple loop icon.
 import { caption } from './ui.js';
-export const cap = (ctx, t) => caption(ctx, t, { skip: /^c/ });
+/* every scene after the opening: the OTTRIX mark (watermark, top-left) + the spoken line */
+export const cap = (ctx, t) => { mark(ctx); caption(ctx, t, { skip: /^c/ }); };
+function mark(ctx) {
+  const im = ctx.img('ottrix_mark'); if (!im) return;
+  const { X } = ctx, s = 66, h = s * im.height / im.width;
+  X.save(); X.globalAlpha = 0.9; X.shadowColor = 'rgba(0,0,0,0.45)'; X.shadowBlur = 10; X.drawImage(im, 46, 150, s, h); X.restore();
+}
 
 export function glow(ctx, X, x, y, r, rgb, k) {
   if (k <= 0.01) return;
@@ -20,7 +26,7 @@ export function alarm(ctx, X, t, x, y, k, o = {}) {
 /* calm: slow breathing teal glow + one slow ring */
 export function calm(ctx, X, t, x, y, k, o = {}) {
   if (k <= 0.01) return; const r = o.r || 80, b = 0.5 + 0.5 * Math.sin(t * 1.6);
-  glow(ctx, X, x, y, r * (2.2 + 0.4 * b), '46,196,182', k * (0.55 + 0.25 * b));
+  glow(ctx, X, x, y, r * (2.2 + 0.4 * b), '43,196,178', k * (0.55 + 0.25 * b));
   X.save(); X.strokeStyle = ctx.P.acc; X.lineWidth = 4; const ph = ctx.fract(t * 0.35); X.globalAlpha = k * (1 - ph) * 0.8;
   X.beginPath(); X.arc(x, y, r * (0.8 + 1.2 * ph), 0, 6.283); X.stroke(); X.restore();
 }
@@ -65,7 +71,7 @@ export function meter(ctx, X, label, x, y, w, v, k, o = {}) {
   if (k <= 0.01) return; const { P } = ctx, h = 34;
   X.save(); X.globalAlpha *= k;
   ctx.text(X, label, x + w / 2, y - 26, { family: 'display', weight: 900, size: 52, color: P.ink, dir: 'rtl', align: 'right' });
-  X.fillStyle = 'rgba(11,22,38,0.85)'; X.strokeStyle = 'rgba(242,246,250,0.5)'; X.lineWidth = 3;
+  X.fillStyle = 'rgba(10,44,52,0.85)'; X.strokeStyle = 'rgba(242,246,250,0.5)'; X.lineWidth = 3;
   X.beginPath(); X.roundRect(x - w / 2, y, w, h, h / 2); X.fill(); X.stroke();
   const col = v > 0.6 ? P.acc : v > 0.35 ? P.hi : P.clay, fw = Math.max(h, w * v);
   X.fillStyle = col; X.beginPath(); X.roundRect(x + w / 2 - fw, y, fw, h, h / 2); X.fill();   // fills from the right (RTL)

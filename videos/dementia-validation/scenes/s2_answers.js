@@ -33,7 +33,7 @@ MOTION.scene({
         X.beginPath(); X.roundRect(x - pw / 2, y, pw, ph, 28); X.save(); X.clip();
         const im = ctx.img(img); X.drawImage(im, (540 - 270) * im.width / 1080, 380 * im.height / 1920, 540 * im.width / 1080, 1280 * im.height / 1920, x - pw / 2, y, pw, ph);
         const kx = at(t, w('l6', 4).s + i * 0.25, w('l6', 7).e);
-        if (kx > 0) { X.fillStyle = `rgba(11,22,38,${0.45 * kx})`; X.fillRect(x - pw / 2, y, pw, ph); }
+        if (kx > 0) { X.fillStyle = `rgba(10,44,52,${0.45 * kx})`; X.fillRect(x - pw / 2, y, pw, ph); }
         X.restore();
         X.strokeStyle = 'rgba(242,246,250,0.35)'; X.lineWidth = 3; X.stroke();
         ctx.text(X, label, x, y + ph + 70, { family: 'display', weight: 900, size: 52, color: P.ink, dir: 'rtl' });
@@ -50,7 +50,7 @@ MOTION.scene({
       X.save(); X.globalAlpha = kIn * (1 - at(t, tHead, tHead + 0.8)); drawPhoto(ctx, X, 'd0', kb({ s: 1 + 1.6 * z, cx: 736, cy: 600, dx: (540 - 736) * z, dy: (800 - 600) * z })); shade(ctx, X); X.restore();
       const kH = at(t, tHead, tHead + 0.8);
       if (kH > 0) { const zz = at(t, tHead, sc.end + 0.6, 'sineInOut'); X.save(); X.globalAlpha = kH; drawPhoto(ctx, X, 'b0', kb({ s: 1 + 0.35 * zz, cx: 623, cy: 812, dx: (540 - 623) * zz, dy: (860 - 812) * zz })); X.restore();
-        glow(ctx, X, 540 + (623 - 540) * (1 - zz), 860 + (812 - 860) * (1 - zz), 220, '46,196,182', kH * at(t, w('l6', 13).s, w('l6', 13).e)); }
+        glow(ctx, X, 540 + (623 - 540) * (1 - zz), 860 + (812 - 860) * (1 - zz), 220, '43,196,178', kH * at(t, w('l6', 13).s, w('l6', 13).e)); }
       headline(ctx, t, 'למה?', 540, 300, { size: 110, t0: w('l6', 10).s, out: w('l6', 12).s, color: P.hi });
       headline(ctx, t, 'למוח', 540, 300, { size: 110, t0: w('l6', 13).s, color: P.acc });
     }

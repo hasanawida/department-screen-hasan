@@ -19,12 +19,12 @@ export function drawPhoto(ctx, X, name, K, o = {}) {
 /* readability: darken top (titles) and bottom (captions); dim = extra overall darkening for the overlay layer */
 export function shade(ctx, X, o = {}) {
   const top = X.createLinearGradient(0, 0, 0, o.topH ?? 560);
-  top.addColorStop(0, 'rgba(11,22,38,0.92)'); top.addColorStop(0.6, 'rgba(11,22,38,0.55)'); top.addColorStop(1, 'rgba(11,22,38,0)');
+  top.addColorStop(0, 'rgba(10,44,52,0.92)'); top.addColorStop(0.6, 'rgba(10,44,52,0.55)'); top.addColorStop(1, 'rgba(10,44,52,0)');
   X.fillStyle = top; X.fillRect(0, 0, ctx.W, o.topH ?? 560);
   const bot = X.createLinearGradient(0, 1250, 0, 1920);
-  bot.addColorStop(0, 'rgba(11,22,38,0)'); bot.addColorStop(0.45, 'rgba(11,22,38,0.6)'); bot.addColorStop(1, 'rgba(11,22,38,0.92)');
+  bot.addColorStop(0, 'rgba(10,44,52,0)'); bot.addColorStop(0.45, 'rgba(10,44,52,0.6)'); bot.addColorStop(1, 'rgba(10,44,52,0.92)');
   X.fillStyle = bot; X.fillRect(0, 1250, ctx.W, 670);
-  if (o.dim) { X.fillStyle = `rgba(11,22,38,${0.5 * o.dim})`; X.fillRect(0, 0, ctx.W, ctx.H); }
+  if (o.dim) { X.fillStyle = `rgba(10,44,52,${0.5 * o.dim})`; X.fillRect(0, 0, ctx.W, ctx.H); }
 }
 function mixHex(a, b, k) { const p = s => [1, 3, 5].map(i => parseInt(s.slice(i, i + 2), 16)); const A = p(a), B = p(b); return `rgb(${A.map((v, i) => Math.round(v + (B[i] - v) * k)).join(',')})`; }
 export function loadColor(ctx, l) { const P = ctx.P; return l < 0.5 ? mixHex(P.acc, P.hi, l * 2) : mixHex(P.hi, P.clay, (l - 0.5) * 2); }
@@ -35,7 +35,7 @@ export function spine(ctx, X, pts, k, o = {}) {
   const info = ctx.pathInfo(pts), N = 17, load = o.load || 0, sc = o.scale || 1, a = o.alpha ?? 1;
   X.save(); X.globalAlpha *= a;
   // glow channel
-  ctx.drawPath(X, pts, k, { width: 34 * sc, color: load > 0.5 ? 'rgba(229,72,77,0.28)' : 'rgba(46,196,182,0.25)' });
+  ctx.drawPath(X, pts, k, { width: 34 * sc, color: load > 0.5 ? 'rgba(229,72,77,0.28)' : 'rgba(43,196,178,0.25)' });
   const n = Math.floor(N * k + 0.0001);
   for (let i = 0; i < n; i++) {
     const l = info.len * (i + 0.5) / N, [x, y] = info.at(l), [x2, y2] = info.at(Math.min(info.len, l + 2)), ang = Math.atan2(y2 - y, x2 - x);
@@ -56,7 +56,7 @@ export function spine(ctx, X, pts, k, o = {}) {
 export function heat(ctx, X, x, y, r, k) {
   if (k <= 0.01) return;
   const g = X.createRadialGradient(x, y, 0, x, y, r);
-  g.addColorStop(0, `rgba(229,72,77,${0.78 * k})`); g.addColorStop(0.45, `rgba(245,194,107,${0.45 * k})`); g.addColorStop(1, 'rgba(245,194,107,0)');
+  g.addColorStop(0, `rgba(229,72,77,${0.78 * k})`); g.addColorStop(0.45, `rgba(242,163,58,${0.45 * k})`); g.addColorStop(1, 'rgba(242,163,58,0)');
   X.save(); X.globalCompositeOperation = 'screen'; X.fillStyle = g; X.beginPath(); X.arc(x, y, r, 0, 6.283); X.fill(); X.restore();
 }
 /* circular lens showing another photo; focus = {x, y, s} in that photo's 1080x1920 space */
@@ -92,7 +92,7 @@ export function pill(ctx, X, x, y, text, k, o = {}) {
   X.save(); X.font = ctx.font(o.family || 'body', o.weight || 800, size); X.direction = 'rtl'; const w = X.measureText(text).width; X.restore();
   const a = o.align || 'center', x0 = a === 'center' ? x - w / 2 : a === 'right' ? x - w : x;
   X.save(); X.globalAlpha *= Math.min(1, k * 1.5); X.translate(0, (1 - ctx.E.cubicOut(k)) * 18);
-  X.fillStyle = o.bg || 'rgba(11,22,38,0.82)'; X.beginPath(); X.roundRect(x0 - 22, y - size * 0.82, w + 44, size * 1.42, size * 0.71); X.fill();
+  X.fillStyle = o.bg || 'rgba(10,44,52,0.82)'; X.beginPath(); X.roundRect(x0 - 22, y - size * 0.82, w + 44, size * 1.42, size * 0.71); X.fill();
   if (o.border !== false) { X.strokeStyle = o.border || col; X.lineWidth = 3; X.stroke(); }
   ctx.text(X, text, x0 + w / 2, y + size * 0.3, { family: o.family || 'body', weight: o.weight || 800, size, color: col, dir: 'rtl' });
   X.restore();
@@ -114,7 +114,7 @@ export function stepper(ctx, X, cur, k = 1, o = {}) {
   X.save(); X.globalAlpha *= k; X.translate(0, (1 - k) * -30);
   ST.forEach((s, i) => {
     const cx = x0 - i * (w + gap), on = i + 1 === cur, done = i + 1 < cur;
-    X.fillStyle = on ? P.acc : 'rgba(11,22,38,0.7)'; X.strokeStyle = on ? P.acc : done ? 'rgba(46,196,182,0.6)' : 'rgba(138,155,176,0.45)'; X.lineWidth = 3;
+    X.fillStyle = on ? P.acc : 'rgba(10,44,52,0.7)'; X.strokeStyle = on ? P.acc : done ? 'rgba(43,196,178,0.6)' : 'rgba(138,155,176,0.45)'; X.lineWidth = 3;
     X.beginPath(); X.roundRect(cx - w / 2, y - 34, w, 68, 34); X.fill(); X.stroke();
     const r = n > 4 ? 18 : 22, nx = cx + w / 2 - r - 12;
     X.fillStyle = on ? P.bg : done ? P.acc : P.mut; X.beginPath(); X.arc(nx, y, r, 0, 6.283); X.fill();
@@ -130,10 +130,10 @@ export function shake(ctx, t, t0, amp = 14, decay = 7) { if (t < t0) return [0, 
 export function spotlight(ctx, X, y0, y1, k) {
   if (k <= 0.01) return;
   const f = 40, a = 0.62 * k;
-  X.save(); X.fillStyle = `rgba(11,22,38,${a})`;
+  X.save(); X.fillStyle = `rgba(10,44,52,${a})`;
   X.fillRect(0, 0, ctx.W, Math.max(0, y0 - f)); X.fillRect(0, y1 + f, ctx.W, ctx.H - y1 - f);
-  let g = X.createLinearGradient(0, y0 - f, 0, y0); g.addColorStop(0, `rgba(11,22,38,${a})`); g.addColorStop(1, 'rgba(11,22,38,0)'); X.fillStyle = g; X.fillRect(0, y0 - f, ctx.W, f);
-  g = X.createLinearGradient(0, y1, 0, y1 + f); g.addColorStop(0, 'rgba(11,22,38,0)'); g.addColorStop(1, `rgba(11,22,38,${a})`); X.fillStyle = g; X.fillRect(0, y1, ctx.W, f);
+  let g = X.createLinearGradient(0, y0 - f, 0, y0); g.addColorStop(0, `rgba(10,44,52,${a})`); g.addColorStop(1, 'rgba(10,44,52,0)'); X.fillStyle = g; X.fillRect(0, y0 - f, ctx.W, f);
+  g = X.createLinearGradient(0, y1, 0, y1 + f); g.addColorStop(0, 'rgba(10,44,52,0)'); g.addColorStop(1, `rgba(10,44,52,${a})`); X.fillStyle = g; X.fillRect(0, y1, ctx.W, f);
   X.restore();
 }
 
@@ -141,7 +141,7 @@ export function spotlight(ctx, X, y0, y1, k) {
 /* hide the edges of a photo drawn smaller than the frame (renders on a navy studio background) */
 export function feather(ctx, X, K, k = 1, f = 150) {
   if (k <= 0) return;
-  const [x0, y0] = mapper(K)([0, 0]), [x1, y1] = mapper(K)([1080, 1920]), c = a => `rgba(11,22,38,${a * k})`;
+  const [x0, y0] = mapper(K)([0, 0]), [x1, y1] = mapper(K)([1080, 1920]), c = a => `rgba(10,44,52,${a * k})`;
   X.save(); X.fillStyle = c(1);
   X.fillRect(0, 0, ctx.W, Math.max(0, y0)); X.fillRect(0, y1, ctx.W, ctx.H - y1); X.fillRect(0, 0, Math.max(0, x0), ctx.H); X.fillRect(x1, 0, ctx.W - x1, ctx.H);
   const side = (ax, ay, bx, by, rx, ry, rw, rh) => { const g = X.createLinearGradient(ax, ay, bx, by); g.addColorStop(0, c(1)); g.addColorStop(1, c(0)); X.fillStyle = g; X.fillRect(rx, ry, rw, rh); };
@@ -159,7 +159,7 @@ export function bubble(ctx, X, t, id, ax, ay, o = {}) {
   const size = o.size || 52, lay = ctx.text.layout(X, str, { family: 'body', weight: 800, size, maxWidth: o.maxWidth || 760, lineHeight: 1.28 });
   const bw = lay.width + 80, bh = lay.lines.length * lay.lh + 54, bx = o.x ?? 540, by = o.y ?? 560;
   X.save(); X.globalAlpha *= k; X.translate(0, (1 - k) * 20);
-  X.fillStyle = 'rgba(245,194,107,0.96)'; X.beginPath(); X.roundRect(bx - bw / 2, by - bh / 2, bw, bh, 34); X.fill();
+  X.fillStyle = 'rgba(242,163,58,0.96)'; X.beginPath(); X.roundRect(bx - bw / 2, by - bh / 2, bw, bh, 34); X.fill();
   X.beginPath(); X.moveTo(bx + (o.tailDx ?? 0) - 26, by + bh / 2 - 2); X.lineTo(ax, ay); X.lineTo(bx + (o.tailDx ?? 0) + 26, by + bh / 2 - 2); X.closePath(); X.fill();
   const words = L.words, aligned = words.length === toks.length;
   ctx.text.drawLayout(X, lay, bx, by - bh / 2 + 27 + size * 0.95, { color: ctx.P.bg, perWord: i => { const s = aligned ? words[i].s : L.start + (L.end - L.start) * i / toks.length; return { alpha: 0.3 + 0.7 * ctx.at(t, s - 0.08, s + 0.12) }; } });
@@ -172,7 +172,7 @@ export function checklist(ctx, X, t, rows, x, y, o = {}) {
     const k = ctx.at(t, t0, t0 + 0.5, 'expoOut'); if (k <= 0) return;
     const yy = y + i * gap;
     X.save(); X.globalAlpha *= k; X.translate((1 - k) * 40, 0);
-    X.fillStyle = 'rgba(11,22,38,0.82)'; X.strokeStyle = ok ? 'rgba(46,196,182,0.6)' : 'rgba(229,72,77,0.6)'; X.lineWidth = 3;
+    X.fillStyle = 'rgba(10,44,52,0.82)'; X.strokeStyle = ok ? 'rgba(43,196,178,0.6)' : 'rgba(229,72,77,0.6)'; X.lineWidth = 3;
     X.beginPath(); X.roundRect(x - (o.w || 900) / 2, yy - 44, o.w || 900, 82, 24); X.fill(); X.stroke();
     X.restore();
     X.save(); X.globalAlpha *= k; ctx.text(X, txt, x + (o.w || 900) / 2 - 100, yy + size * 0.34, { family: 'body', weight: 800, size, color: ctx.P.ink, dir: 'rtl', align: 'right', maxWidth: (o.w || 900) - 140 }); X.restore();
@@ -188,7 +188,7 @@ export function checklist(ctx, X, t, rows, x, y, o = {}) {
 export function heatGood(ctx, X, x, y, r, k) {
   if (k <= 0.01) return;
   const g = X.createRadialGradient(x, y, 0, x, y, r);
-  g.addColorStop(0, `rgba(46,196,182,${0.75 * k})`); g.addColorStop(0.5, `rgba(120,220,160,${0.4 * k})`); g.addColorStop(1, 'rgba(120,220,160,0)');
+  g.addColorStop(0, `rgba(43,196,178,${0.75 * k})`); g.addColorStop(0.5, `rgba(120,220,160,${0.4 * k})`); g.addColorStop(1, 'rgba(120,220,160,0)');
   X.save(); X.globalCompositeOperation = 'screen'; X.fillStyle = g; X.beginPath(); X.arc(x, y, r, 0, 6.283); X.fill(); X.restore();
 }
 

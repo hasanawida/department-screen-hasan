@@ -7,12 +7,12 @@
  "beatsPerBar": 4,
  "beatOffset": 0,
  "palette": {
-  "bg": "#0B1626",
+  "bg": "#0A2C34",
   "ink": "#F2F6FA",
-  "acc": "#2EC4B6",
+  "acc": "#2BC4B2",
   "clay": "#E5484D",
-  "hi": "#F5C26B",
-  "mut": "#8A9BB0"
+  "hi": "#F2A33A",
+  "mut": "#8FA6AB"
  },
  "fonts": {
   "display": "Rubik",
@@ -310,6 +310,8 @@
   "d6": "assets/d6_center.jpg",
   "d7": "assets/d7_eyelevel.jpg",
   "d8": "assets/d8_story.jpg",
-  "d9": "assets/d9_tea.jpg"
+  "d9": "assets/d9_tea.jpg",
+  "ottrix": "assets/ottrix/logo_dark.png",
+  "ottrix_mark": "assets/ottrix/mark_dark.png"
  }
 }

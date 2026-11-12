@@ -11,7 +11,7 @@ MOTION.scene({
     const K = kb({ s: 1.04 + 0.05 * at(t, sc.start, sc.end), cx: 540, cy: 900 });
     drawPhoto(ctx, X, 'd11', K); X.save(); X.globalAlpha = kT; drawPhoto(ctx, X, 'd10', K); X.restore(); shade(ctx, X);
     const a = [400, 800], b = [690, 790];
-    waves(ctx, X, t, a, b, at(t, w('l27', 8).s, w('l27', 10).e) * (1 - kT), '46,196,182');
+    waves(ctx, X, t, a, b, at(t, w('l27', 8).s, w('l27', 10).e) * (1 - kT), '43,196,178');
     waves(ctx, X, t * 1.6, a, b, at(t, w('l28', 7).s - 0.2, w('l28', 9).e), '229,72,77');
     pill(ctx, X, 330, 640, 'רגוע', at(t, w('l27', 10).s, w('l27', 10).s + 0.4) * (1 - kT), { color: P.acc, size: 42 });
     pill(ctx, X, 330, 640, 'לחוץ', at(t, w('l28', 4).s, w('l28', 4).s + 0.4), { color: P.clay, size: 42 });

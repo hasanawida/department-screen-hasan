@@ -25,7 +25,7 @@ MOTION.scene({
     const kS = at(t, tStudy, tStudy + 0.7) * (1 - at(t, tEnd, tEnd + 0.6));
     if (kS > 0) {
       X.save(); X.globalAlpha = kS;
-      X.fillStyle = 'rgba(11,22,38,0.92)'; X.fillRect(0, 0, 1080, 1920);
+      X.fillStyle = 'rgba(10,44,52,0.92)'; X.fillRect(0, 0, 1080, 1920);
       ctx.text(X, 'אוניברסיטת איווה', 540, 300, { family: 'display', weight: 900, size: 78, color: P.ink, dir: 'rtl' });
       ctx.text(X, 'מטופלים עם אלצהיימר צפו בקטעי סרטים עצובים', 540, 380, { family: 'body', weight: 600, size: 40, color: P.mut, dir: 'rtl' });
       const gx0 = 150, gx1 = 930, gy0 = 1240, gy1 = 560;               // time runs right→left (RTL): 0 at the right
@@ -45,7 +45,7 @@ MOTION.scene({
       pill(ctx, X, 540, 470, 'עד חצי שעה', at(t, w('l25', 17).s, w('l25', 19).e), { color: P.hi, size: 46 });
       X.restore();
     }
-    if (t > tEnd) { const k = at(t, tEnd, tEnd + 0.7); X.save(); X.fillStyle = `rgba(11,22,38,${0.78 * k})`; X.fillRect(0, 0, 1080, 1920); X.restore(); }
+    if (t > tEnd) { const k = at(t, tEnd, tEnd + 0.7); X.save(); X.fillStyle = `rgba(10,44,52,${0.78 * k})`; X.fillRect(0, 0, 1080, 1920); X.restore(); }
     headline(ctx, t, 'הרגש נשאר', 540, 300, { size: 104, t0: w('l22', 8).s, out: w('l23', 0).s - 0.2, color: P.hi });
     headline(ctx, t, 'מערכת האזעקה', 540, 300, { size: 96, t0: w('l23', 4).s, out: tStudy - 0.3, color: P.clay });
     // memory erased — feeling stays

@@ -84,7 +84,7 @@ export function tag(ctx, X, ax, ay, lx, ly, label, k, o = {}) {
     const w = X.measureText(label).width; X.restore();
     const px = left ? lx - 16 - w : lx + 16, py = ly;
     X.save(); X.globalAlpha *= kt;
-    X.fillStyle = o.bg || 'rgba(11,22,38,0.78)'; X.beginPath(); X.roundRect(px - 16, py - size * 0.78, w + 32, size * 1.32, 14); X.fill();
+    X.fillStyle = o.bg || 'rgba(10,44,52,0.78)'; X.beginPath(); X.roundRect(px - 16, py - size * 0.78, w + 32, size * 1.32, 14); X.fill();
     X.strokeStyle = col; X.lineWidth = 2; X.globalAlpha *= 0.6; X.stroke(); X.globalAlpha /= 0.6;
     ctx.text(X, label, px + w / 2, py + size * 0.32 + (1 - kt) * 14, { family: 'body', weight: 800, size, color: o.textColor || P.ink, dir: 'rtl' });
     X.restore();
@@ -114,7 +114,7 @@ export function bg(ctx, X, o = {}) {
   const { P } = ctx;
   X.fillStyle = P.bg; X.fillRect(0, 0, ctx.W, ctx.H);
   const g = X.createRadialGradient(o.cx ?? 540, o.cy ?? 900, 40, o.cx ?? 540, o.cy ?? 900, o.r ?? 1100);
-  g.addColorStop(0, o.glow || 'rgba(46,196,182,0.10)'); g.addColorStop(1, 'rgba(46,196,182,0)');
+  g.addColorStop(0, o.glow || 'rgba(43,196,178,0.10)'); g.addColorStop(1, 'rgba(43,196,178,0)');
   X.fillStyle = g; X.fillRect(0, 0, ctx.W, ctx.H);
 }
 

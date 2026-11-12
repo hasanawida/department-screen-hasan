@@ -30,7 +30,7 @@ export function buildTissue(ctx) {
     }
     g.computeVertexNormals(); return g;
   }
-  const neuronMat = () => new T.MeshStandardMaterial({ color: 0xB890E6, emissive: 0x5B2E92, emissiveIntensity: 0.55, roughness: 0.38, metalness: 0, transparent: true, opacity: 1 });
+  const neuronMat = () => new T.MeshStandardMaterial({ color: 0xBFEDE6, emissive: 0x16707F, emissiveIntensity: 0.55, roughness: 0.38, metalness: 0, transparent: true, opacity: 1 });
   const cells = NEURONS.map((n, i) => {
     const g = new T.Group(), c = V(n), mat = neuronMat(); g.position.copy(c); root.add(g);
     // soma: displaced sphere, slightly pyramidal
@@ -75,7 +75,7 @@ export function buildTissue(ctx) {
   });
 
   // axons + boutons + plaques
-  const axonMat = () => new T.MeshStandardMaterial({ color: 0x9C7BD0, emissive: 0x4A2A7A, emissiveIntensity: 0.5, roughness: 0.4, transparent: true });
+  const axonMat = () => new T.MeshStandardMaterial({ color: 0x8FD3CB, emissive: 0x0F5A62, emissiveIntensity: 0.5, roughness: 0.4, transparent: true });
   const plaqueMat = new T.MeshStandardMaterial({ color: 0xC08A3E, emissive: 0x6A3C0C, emissiveIntensity: 0.45, roughness: 0.92 });
   // smooth lumpy blob (indexed sphere → smooth normals)
   function blob(rr, k) {
@@ -94,7 +94,7 @@ export function buildTissue(ctx) {
     const m1 = axonMat(), m2 = axonMat();
     const s1 = seg(0, blocked ? U_STOP : 1, m1); root.add(s1);
     const s2 = blocked ? seg(U_STOP, 1, m2) : null; if (s2) root.add(s2);
-    const bMat = new T.MeshStandardMaterial({ color: 0x7FF0E6, emissive: 0x2EC4B6, emissiveIntensity: 0.8, roughness: 0.3, transparent: true });
+    const bMat = new T.MeshStandardMaterial({ color: 0x7FF0E6, emissive: 0x2BC4B2, emissiveIntensity: 0.8, roughness: 0.3, transparent: true });
     const bouton = new T.Mesh(new T.SphereGeometry(0.1, 20, 14), bMat); bouton.position.copy(curve.getPointAt(1)); root.add(bouton);
     if (blocked) {                                        // plaque cluster sitting on the axon
       const at = curve.getPointAt(U_STOP), grp = new T.Group(); grp.position.copy(at); root.add(grp); const blobs = [];
@@ -122,11 +122,11 @@ export function buildTissue(ctx) {
   // ambient motes
   const NM = 260, mp = new Float32Array(NM * 3), mseed = [];
   for (let k = 0; k < NM; k++) mseed.push([rnd(-4, 4), rnd(-6.5, 6.5), rnd(-6, 2.5), rnd(0, 6.28)]);
-  const motes = new T.Points(new T.BufferGeometry(), new T.PointsMaterial({ color: 0x8C7BC9, size: 0.035, transparent: true, opacity: 0.55, depthWrite: false }));
+  const motes = new T.Points(new T.BufferGeometry(), new T.PointsMaterial({ color: 0x7FBFB8, size: 0.035, transparent: true, opacity: 0.55, depthWrite: false }));
   motes.geometry.setAttribute('position', new T.BufferAttribute(mp, 3)); root.add(motes);
 
-  const grey = new T.Color(0x4A4658), lav = new T.Color(0xB890E6), tmpM = new T.Matrix4(), tmpV = new T.Vector3(), tmpC = new T.Color();
-  const teal = [0.55 * 3.2, 1.0 * 3.2, 0.95 * 3.2], red = [3.2, 0.5, 0.45];
+  const grey = new T.Color(0x4A5658), lav = new T.Color(0xBFEDE6), tmpM = new T.Matrix4(), tmpV = new T.Vector3(), tmpC = new T.Color();
+  const teal = [1.0 * 3.4, 0.68 * 3.4, 0.25 * 3.4], red = [3.2, 0.45, 0.4];   // signals glow in brand orange
 
   function update(t, s) {
     const S = Object.assign({ pulse: 1, plaque: 0, tangle: 0, block: 0, cut: 0, die: 0 }, s);
@@ -186,5 +186,5 @@ export function tissueLights(ctx, st) {
   st.add(new T.HemisphereLight(0xdfe4ff, 0x2a1840, 1.7));
   const k = new T.DirectionalLight(0xffffff, 2.4); k.position.set(3, 5, 6); st.add(k);
   const rim = new T.DirectionalLight(0x7fe8ff, 1.4); rim.position.set(-4, -2, -5); st.add(rim);
-  st.scene.fog = new T.Fog(0x0B1626, 9, 24);
+  st.scene.fog = new T.Fog(0x0A2C34, 9, 24);
 }

@@ -9,7 +9,7 @@ MOTION.scene({
     const { X, P, at, wordTime: w } = ctx, sc = ctx.scene;
     const tF = w('l53', 0).s - 0.4, kF = at(t, tF, tF + 0.9);
     drawPhoto(ctx, X, 'd9', kb({ s: 1.1 + 0.05 * at(t, sc.start, sc.end), cx: 540, cy: 1100 }));
-    X.fillStyle = `rgba(11,22,38,${0.8 + 0.12 * kF})`; X.fillRect(0, 0, 1080, 1920);
+    X.fillStyle = `rgba(10,44,52,${0.8 + 0.12 * kF})`; X.fillRect(0, 0, 1080, 1920);
     const kL = 1 - kF;
     if (kL > 0) {
       X.save(); X.globalAlpha = kL;
@@ -19,7 +19,7 @@ MOTION.scene({
       headline(ctx, t, 'לסיכום', 540, 300, { size: 100, t0: w('l51', 0).s, out: tF - 0.2 });
     }
     if (kF > 0) {
-      glow(ctx, X, 540, 860, 520, '46,196,182', 0.3 * kF);
+      glow(ctx, X, 540, 860, 520, '43,196,178', 0.3 * kF);
       headline(ctx, t, 'הזיכרון שלו נמחק.', 540, 700, { size: 92, t0: w('l53', 0).s, color: P.mut });
       headline(ctx, t, 'הרגש שלו —', 540, 880, { size: 112, t0: w('l53', 3).s, color: P.ink });
       headline(ctx, t, 'בידיים שלנו.', 540, 1030, { size: 124, t0: w('l53', 5).s, color: P.acc });

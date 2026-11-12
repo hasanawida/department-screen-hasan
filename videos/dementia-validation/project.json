@@ -79,8 +79,8 @@
    "id": "s0",
    "file": "scenes/s0_brand.js",
    "lines": [],
-   "duration": 6.2,
-   "minDur": 6.2
+   "duration": 7.6,
+   "minDur": 7.6
   },
   {
    "id": "s1",
@@ -292,11 +292,6 @@
   }
  ],
  "images": {
-  "brand_pin0": "assets/brand/pin0.png",
-  "brand_pin1": "assets/brand/pin1.png",
-  "brand_pin2": "assets/brand/pin2.png",
-  "brand_wordmark": "assets/brand/wordmark.png",
-  "brand_tagline": "assets/brand/tagline.png",
   "b0": "assets/b0_head.jpg",
   "b1": "assets/b1_brain.jpg",
   "b2": "assets/b2_atrophy.jpg",

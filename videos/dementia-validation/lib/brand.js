@@ -1,11 +1,10 @@
-// lib/brand.js — opening card: the Eshkolot logo (official vector parts) + glossy 3D gold Hebrew lettering.
+// lib/brand.js — opening card: glossy 3D gold Hebrew title + the purpose statement (+ the Autrix logo when supplied).
 import { Font } from 'three/addons/loaders/FontLoader.js';
 import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
 import FONT from './brand_font.js';
 export const BRAND = {
-  kicker: 'חטיבת טכנולוגיה',
-  title: 'בית אבות אשכולות אורנים',
-  lines: ['למידה בדרך שונה ואחרת', 'לזקנה איכותית ובטוחה'],
+  lines: ['כלים להתמודדות', 'עם דמנציה'],
+  statement: ['הסרטון נועד להעלות מודעות', 'ולתת כלים לתקשורת נכונה', 'עם חולי דמנציה', 'ולהתמודדות עם המצב.'],
 };
 const rtl = s => [...s].reverse().join('');          // three lays glyphs out left→right; Hebrew has no joining, so reversing is enough
 /* 3D gold text mesh, centred on its bounding box */

@@ -86,9 +86,10 @@
    "id": "s1",
    "file": "scenes/s1_door.js",
    "lines": [
-    "l1",
-    "l2",
-    "l3"
+    "h1",
+    "h2",
+    "h3",
+    "h4"
    ],
    "transition": {
     "type": "crossfade",
@@ -312,6 +313,8 @@
   "d8": "assets/d8_story.jpg",
   "d9": "assets/d9_tea.jpg",
   "ottrix": "assets/ottrix/logo_dark.png",
-  "ottrix_mark": "assets/ottrix/mark_dark.png"
+  "ottrix_mark": "assets/ottrix/mark_dark.png",
+  "h0": "assets/h0_mother.jpg",
+  "h1": "assets/h1_kids.jpg"
  }
 }

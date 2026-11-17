@@ -11,8 +11,8 @@ export function orientationColor(c: string | null | undefined): string {
   return v;
 }
 
-/** גוון בהיר של הצבע (לרקע הלילה): ערבוב עם לבן */
-export function orientationTint(hex: string, keep = 0.16): string {
+/** גוון בהיר של הצבע (לרקע הלילה): ערבוב עם לבן. 0.3 ולא פחות — גוון בהיר יותר נעלם בטלוויזיות שמציגות כל גוון קרוב ללבן כלבן */
+export function orientationTint(hex: string, keep = 0.3): string {
   const v = orientationColor(hex).slice(1);
   const ch = [0, 2, 4].map(i => parseInt(v.slice(i, i + 2), 16));
   const mixed = ch.map(c => Math.round(255 - (255 - c) * keep));

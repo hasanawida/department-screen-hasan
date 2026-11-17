@@ -4,16 +4,44 @@
    תמיד במסך אחד, לרוחב או לאורך, בלי גלילה.
    ───────────────────────────────────────────────────────────── */
 
+/* ── בסיס עצמאי למסכים ──
+   הסטרימרים מריצים דפדפן מובנה ישן (Chrome 91). הוא לא מכיר @layer, ולכן כל האיפוס הכללי של האתר
+   (שיושב בתוך @layer) לא נטען בו: בלי box-sizing, עם שוליים של הדפדפן ועם גובה שורה אחר —
+   והטקסט גלש מהמשבצות. האיפוס הזה שייך למסך עצמו ולא תלוי באיפוס הכללי.
+   :where = בלי משקל, כך שכל כלל בקובץ גובר עליו. */
+:where(.stage),
+:where(.stage) *,
+:where(.stage) ::before,
+:where(.stage) ::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  border: 0 solid;
+}
+:where(.stage) { line-height: 1.5; -webkit-text-size-adjust: 100%; -webkit-tap-highlight-color: transparent; }
+:where(.stage) :where(h1, h2, h3, h4, h5, h6) { font-size: inherit; font-weight: inherit; }
+:where(.stage) :where(a) { color: inherit; text-decoration: inherit; }
+:where(.stage) :where(b, strong) { font-weight: bolder; }
+:where(.stage) :where(small) { font-size: 80%; }
+:where(.stage) :where(ol, ul, menu) { list-style: none; }
+:where(.stage) :where(img, svg, video, canvas, audio, iframe, embed, object) { display: block; vertical-align: middle; }
+:where(.stage) :where(img, video) { max-width: 100%; height: auto; }
+:where(.stage) :where(button, input, select, optgroup, textarea) { font: inherit; letter-spacing: inherit; color: inherit; border-radius: 0; background-color: transparent; opacity: 1; }
+:where(.stage) :where(table) { text-indent: 0; border-color: inherit; border-collapse: collapse; }
+
 .stage {
   --ink: #3f2f2d;        /* חום-בורדו של הלוגו — ערכים */
   --paper: #f6f2ee;      /* קרם — רקע */
   --sage: #5a826f;       /* מרווה — כותרות קטנות */
   --sun: #fab822;
   --coral: #f6977e;
-  --sun-tint: #fdf0cc;
-  --coral-tint: #fde8e1;
-  --sage-tint: #e3ece7;
-  --hair: rgba(63, 47, 45, 0.12);
+  /* גוונים בהירים — חזקים מספיק גם לטלוויזיה: טלוויזיות רבות "שורפות" כל גוון קרוב ללבן ללבן אחד,
+     ואז רקע, כרטיס לבן ופס בהיר נראים אותו דבר. לכן הגוונים כהים יותר, ולכרטיסים הלבנים יש קו מתאר. */
+  --sun-tint: #fce8ad;
+  --coral-tint: #f5c8ba;
+  --sage-tint: #c8dccf;
+  --hair: rgba(63, 47, 45, 0.2);
+  --line: #c9bdb0;
 
   /* --cu: גודל הקנבס (קבוע למסך). --u: גודל התוכן (מוקטן אוטומטית אם משהו לא נכנס) */
   --fit: 1;
@@ -272,6 +300,7 @@
   min-height: 0;
   margin: 0;
   background: #fff;
+  box-shadow: inset 0 0 0 max(1px, calc(var(--cu) * 0.22)) var(--line);
   border-radius: calc(var(--u) * 3.4);
   padding: calc(var(--u) * 1) calc(var(--u) * 4);
   display: grid;

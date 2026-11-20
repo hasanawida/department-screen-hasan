@@ -1,6 +1,7 @@
 // שמירה וטעינה של הגדרות האייקונים (משותפות לכל המחלקות, בתוך display_settings.icons)
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { signalScreens } from "./screen-signals";
 import { latestIconConfig, type IconConfig } from "./icon-config";
 import { patchDisplaySettings } from "./display-settings-db";
 
@@ -18,7 +19,8 @@ export type IconSaveResult = { error: string | null; saved: IconConfig | null };
 
 /**
  * שומר את ההגדרות בכל המחלקות. בכל מחלקה מתעדכן רק המפתח icons (שאר ההגדרות שלה לא נוגעים בהן).
- * המסכים מקבלים את השינוי ברענון הקבוע שלהם (עד 5 דקות) — בלי לטעון מחדש את כל הטלוויזיות בבית.
+ * המסכים מקבלים אות ומרעננים רק את הנתונים תוך שניות — בלי לטעון מחדש את כל הטלוויזיות בבית
+ * (ואם האות לא הגיע — ברענון הקבוע שלהם, עד 5 דקות).
  */
 export async function saveIconConfig(supabase: SupabaseClient, config: IconConfig): Promise<IconSaveResult> {
   const icons: IconConfig = { ...config, updated_at: new Date().toISOString() };
@@ -28,6 +30,7 @@ export async function saveIconConfig(supabase: SupabaseClient, config: IconConfi
   const results = await Promise.all(depts.data.map((d: { id: string }) => patchDisplaySettings(supabase, String(d.id), { icons })));
   const failed = results.filter(r => r.error).length;
   if (failed === results.length) return { error: "לא נשמר: " + results[0].error, saved: null };
+  signalScreens(supabase);
   // נשמר בחלק מהמחלקות: המסכים לוקחים את הגרסה העדכנית ביותר, כך שהשינוי תקף — אבל כדאי לשמור שוב
   if (failed) return { error: `נשמר, אבל ב-${failed} מחלקות לא התעדכן. כדאי לשמור שוב.`, saved: icons };
   return { error: null, saved: icons };

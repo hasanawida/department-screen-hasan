@@ -179,7 +179,7 @@ export default function IconsManager() {
       if (configRef.current === mine) { applyParts(parts); setDirty(!!error); }
     }
     if (error) flash(error, true);
-    else flash(changedElsewhere ? "נשמר, יחד עם שינויים שנעשו בינתיים ממקום אחר. יופיע במסכים בתוך כמה דקות." : "נשמר. יופיע במסכים בתוך כמה דקות.");
+    else flash(changedElsewhere ? "נשמר, יחד עם שינויים שנעשו בינתיים ממקום אחר. יופיע במסכים בתוך כמה שניות." : "נשמר. יופיע במסכים בתוך כמה שניות.");
   }, [config, supabase, applyParts]);
 
   /* ── סוג חדש ── */

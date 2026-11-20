@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import DepartmentDisplay, { type ViewKind } from "@/components/display/department-display";
 import { latestIconConfig, menuLinePhotos, type IconConfig } from "@/lib/icon-config";
 import { updateIconConfig } from "@/lib/icon-config-db";
+import { signalScreens } from "@/lib/screen-signals";
 import DishIconPicker from "@/components/admin/dish-icon-picker";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { dishImage, dishKey, dishLabel } from "@/lib/dishes";
@@ -68,7 +69,7 @@ export default function MenuEditor() {
     setIconConfig(c => ({ ...c, menu_lines: { today: on, week: on } }));
     const { error, saved } = await updateIconConfig(supabase, cfg => ({ ...cfg, menu_lines: { today: on, week: on } }));
     setIconConfig(saved ?? before);
-    setLinesMsg(error ?? "נשמר. יופיע במסכים בתוך כמה דקות.");
+    setLinesMsg(error ?? "נשמר. יופיע במסכים בתוך כמה שניות.");
     setTimeout(() => setLinesMsg(null), 4000);
   }
   // שכפול לשבועות הבאים
@@ -133,10 +134,13 @@ export default function MenuEditor() {
     if (error) failed.current.set(id, { week, d, meal });
     else {
       failed.current.delete(id);
+      const weeks = [week];
       for (const [fid, f] of Array.from(failed.current.entries())) {
         const again = await upsertCell(f.week, f.d, f.meal, latest.current.get(fid) ?? "");
-        if (!again.error) failed.current.delete(fid);
+        if (!again.error) { failed.current.delete(fid); weeks.push(f.week); }
       }
+      // המסכים מתעדכנים תוך שניות (ולא רק ברענון הקבוע שלהם)
+      signalScreens(supabase, weeks);
     }
     setSave(failed.current.size ? "error" : "saved");
   }
@@ -145,10 +149,12 @@ export default function MenuEditor() {
   useEffect(() => {
     const id = setInterval(async () => {
       if (!failed.current.size) return;
+      const weeks: string[] = [];
       for (const [fid, f] of Array.from(failed.current.entries())) {
         const again = await upsertCell(f.week, f.d, f.meal, latest.current.get(fid) ?? "");
-        if (!again.error) failed.current.delete(fid);
+        if (!again.error) { failed.current.delete(fid); weeks.push(f.week); }
       }
+      if (weeks.length) signalScreens(supabase, weeks);
       setSave(failed.current.size ? "error" : "saved");
     }, 15_000);
     return () => clearInterval(id);
@@ -177,6 +183,7 @@ export default function MenuEditor() {
       setSave("error");
       return;
     }
+    signalScreens(supabase, [weekStart]);
     setSave(failed.current.size ? "error" : "saved");
     setCopied(meal);
     setTimeout(() => setCopied(c => (c === meal ? null : c)), 2000);
@@ -202,6 +209,7 @@ export default function MenuEditor() {
     }
     const res = await supabase.from("weekly_menus").upsert(rows, { onConflict: "week_start,day_index,meal" });
     if (res.error) { setSave("error"); setCopyMsg("ההעתקה לא הצליחה. בדקו את החיבור ונסו שוב."); return; }
+    signalScreens(supabase, [weekStart]);
     setSave(failed.current.size ? "error" : "saved");
     load();
   }
@@ -224,6 +232,7 @@ export default function MenuEditor() {
     const { error } = await supabase.from("weekly_menus").upsert(rows, { onConflict: "week_start,day_index,meal" });
     setFwdBusy(false);
     if (error) { setFwdMsg("השכפול לא הצליח. בדקו את החיבור ונסו שוב."); return; }
+    signalScreens(supabase, targets);
     setFwdMsg(
       `שוכפל ל-${targets.length === 1 ? "שבוע אחד" : `${targets.length} שבועות`}: ` +
       targets.map(w => shortDate(w) + "–" + shortDate(addDaysISO(w, 6))).join(", ") + "." +

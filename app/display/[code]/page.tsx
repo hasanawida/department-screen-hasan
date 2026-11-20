@@ -15,7 +15,7 @@ export default async function DisplayPage({ params }: { params: Promise<{ code: 
 
   return (
     <>
-      <DisplayRuntime departmentId={data.department.id} />
+      <DisplayRuntime departmentId={data.department.id} watchMenu />
       <ScreenHeartbeat kind="department" departmentId={data.department.id} />
       <DepartmentDisplay {...data} />
     </>

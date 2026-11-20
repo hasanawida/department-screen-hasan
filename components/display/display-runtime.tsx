@@ -3,8 +3,9 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
-import { israelDateISO } from "@/lib/week";
+import { israelDateISO, weekStartISO } from "@/lib/week";
 import { registerScreenWorker, safeReload, serverReady } from "@/lib/screen-recovery";
+import { SCREENS_CHANNEL, SCREENS_REFRESH, type ScreensRefreshPayload } from "@/lib/screen-signals";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -16,14 +17,18 @@ const supabase = createClient(
  * - מרענן את הנתונים מהשרת כל כמה דקות (פעילויות, תפריט, חדשות, יומן)
  * - מרענן מיד כשמתחלף היום
  * - "רענון מסך" מהניהול (force_refresh) טוען מחדש את הדף
+ * - watchMenu: שינוי בתפריט של השבוע (או בתמונות של המנות והפעילויות) מגיע תוך שניות —
+ *   מרעננים רק את הנתונים, בלי לטעון מחדש את הדף
  *
  * כל רענון נעשה רק אחרי בדיקה שהשרת זמין. כשאין רשת — הלוח הקיים נשאר על המסך,
  * והרענון מנסה שוב כל דקה עד שהוא מצליח.
  */
-export default function DisplayRuntime({ departmentId, refreshMinutes = 5, watchTable }: {
+export default function DisplayRuntime({ departmentId, refreshMinutes = 5, watchTable, watchMenu = false }: {
   departmentId?: string;
   refreshMinutes?: number;
   watchTable?: string;
+  /** מסך שמציג את התפריט: מתעדכן תוך שניות כשהתפריט של השבוע משתנה */
+  watchMenu?: boolean;
 }) {
   const router = useRouter();
 
@@ -42,6 +47,15 @@ export default function DisplayRuntime({ departmentId, refreshMinutes = 5, watch
       behind = !ok;
       if (ok) router.refresh();
     };
+
+    // כמה שינויים ברצף (למשל דיאטנית שכותבת את התפריט) — רענון אחד, שתי שניות אחרי השינוי האחרון
+    let soon: ReturnType<typeof setTimeout> | null = null;
+    const refreshSoon = () => {
+      if (soon) clearTimeout(soon);
+      soon = setTimeout(() => { soon = null; refresh(); }, 2000);
+    };
+    // שינוי בתפריט של שבוע אחר (הדיאטנית מכינה את השבוע הבא) — לא נוגע במסך
+    const shownWeek = (week: unknown) => typeof week !== "string" || week === weekStartISO(israelDateISO());
 
     let day = israelDateISO();
     const refreshId = setInterval(refresh, refreshMinutes * 60 * 1000);
@@ -68,6 +82,24 @@ export default function DisplayRuntime({ departmentId, refreshMinutes = 5, watch
           .subscribe(),
       );
     }
+    if (watchMenu) {
+      channels.push(
+        // שינוי בטבלת התפריט
+        supabase
+          .channel("display-menu-" + (departmentId ?? "screen"))
+          .on("postgres_changes" as any, { event: "*", schema: "public", table: "weekly_menus" },
+            (payload: any) => { if (shownWeek(payload.new?.week_start ?? payload.old?.week_start)) refreshSoon(); })
+          .subscribe(),
+        // אות מעמוד העריכה (התפריט, תמונות של מנות ופעילויות) — עובד גם כשהטבלה לא משודרת
+        supabase
+          .channel(SCREENS_CHANNEL)
+          .on("broadcast" as any, { event: SCREENS_REFRESH }, (msg: any) => {
+            const weeks = (msg?.payload as ScreensRefreshPayload | undefined)?.weeks;
+            if (!Array.isArray(weeks) || weeks.some(w => shownWeek(w))) refreshSoon();
+          })
+          .subscribe(),
+      );
+    }
     if (watchTable) {
       channels.push(
         supabase
@@ -79,6 +111,7 @@ export default function DisplayRuntime({ departmentId, refreshMinutes = 5, watch
 
     return () => {
       stopped = true;
+      if (soon) clearTimeout(soon);
       clearInterval(refreshId);
       clearInterval(minuteId);
       document.removeEventListener("click", goFullscreen);
@@ -87,7 +120,7 @@ export default function DisplayRuntime({ departmentId, refreshMinutes = 5, watch
       document.body.style.background = "";
       channels.forEach(c => supabase.removeChannel(c));
     };
-  }, [router, departmentId, refreshMinutes, watchTable]);
+  }, [router, departmentId, refreshMinutes, watchTable, watchMenu]);
 
   return null;
 }

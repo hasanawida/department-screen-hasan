@@ -1,6 +1,6 @@
 "use client";
 
-// דף להדפסה ולשיתוף: לוח הפעילויות או התפריט של שבוע, באותו עיצוב של המסך, על דף A4 לרוחב.
+// דף להדפסה ולשיתוף: לוח הפעילויות או התפריט של שבוע, באותו עיצוב של המסך, על דף A4 או A3 לרוחב.
 // במסך רואים את הדף (מוקטן לגודל החלון) עם כפתורים: הדפסה, הורדה (PDF או תמונה), שליחה בוואטסאפ ובמייל,
 // ומעבר בין שבועות. בהדפסה — רק הדף.
 
@@ -9,7 +9,7 @@ import { FileDown, ImageDown, Loader2, Mail, MessageCircle, Printer, X } from "l
 import DepartmentDisplay, { type DepartmentDisplayProps, type ViewKind } from "@/components/display/department-display";
 import { addDaysISO, shortDate } from "@/lib/week";
 import { canvasBlob, snapshotCanvas } from "@/lib/snapshot";
-import { jpegToPdf } from "@/lib/pdf-from-jpeg";
+import { A3_LANDSCAPE, A4_LANDSCAPE, jpegToPdf } from "@/lib/pdf-from-jpeg";
 import { canShareFile, copyImage, mailLinks, pasteKeys, safeFileName, saveBlob } from "@/lib/share-file";
 
 // A4 לרוחב עם שוליים של 6 מ"מ (רוב המדפסות לא מדפיסות עד הקצה): נשארים 285×198 מ"מ.
@@ -20,8 +20,14 @@ const PAPER_H = 196 * MM;
 // אותה יחידה שהמסך מחשב לחלון בגודל הזה
 const CU = Math.min(PAPER_H / 100, (0.5625 * PAPER_W) / 100);
 
-const PRINT_CSS = `
-@page { size: A4 landscape; margin: 6mm; }
+// גודל הדף בהדפסה. A3 הוא בדיוק A4 מוגדל פי √2 (אותו יחס בין הצלעות), ולכן מדפיסים את אותו דף — מוגדל.
+// על המסך הדף נראה אותו דבר בשני הגדלים
+type Paper = "A4" | "A3";
+const PAPERS: Paper[] = ["A4", "A3"];
+const PAPER_KEY = "print-paper";
+
+const printCss = (paper: Paper) => `
+@page { size: ${paper} landscape; margin: 6mm; }
 html, body { background: #e9e3dc; }
 .print-root * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
 .print-root { min-height: 100vh; padding: 12px; font-family: "Rubik", "Assistant", system-ui, sans-serif; color: #3f2f2d; overflow-x: clip; }
@@ -35,6 +41,10 @@ html, body { background: #e9e3dc; }
 .print-btn:disabled { opacity: .55; cursor: progress; }
 .print-btn-main { background: #3f2f2d; color: #f6f2ee; border-color: #3f2f2d; }
 .print-btn-main:hover { background: #2c201f; }
+.print-size { display: inline-flex; align-items: center; gap: 2px; background: #fff; border: 1px solid rgba(63,47,45,.15); border-radius: 999px; padding: 3px; font-size: 14px; }
+.print-size span { padding: 0 8px 0 6px; color: rgba(63,47,45,.7); font-weight: 600; }
+.print-size button { border: 0; border-radius: 999px; padding: 5px 12px; font: inherit; font-weight: 700; background: transparent; color: #3f2f2d; cursor: pointer; }
+.print-size button[aria-pressed="true"] { background: #3f2f2d; color: #f6f2ee; }
 .print-btn-wa { background: #e6f4ea; border-color: #b7dcc3; }
 .print-btn-wa:hover { background: #d3ecdb; }
 .print-tip { width: 100%; font-size: 13px; color: rgba(63,47,45,.65); margin: 0; }
@@ -54,7 +64,7 @@ html, body { background: #e9e3dc; }
   .print-root { padding: 0 !important; min-height: 0 !important; }
   .print-toolbar, .print-empty { display: none !important; }
   .print-scaler { width: auto !important; height: auto !important; margin: 0 !important; }
-  .print-paper { transform: none !important; box-shadow: none !important; }
+  .print-paper { transform: none !important; box-shadow: none !important; margin: 0 auto !important;${paper === "A3" ? ` zoom: ${Math.SQRT2};` : ""} }
 }
 `;
 
@@ -115,6 +125,16 @@ export default function PrintSheet({ data, view, title, heading, shareWhat, hide
     return () => window.removeEventListener("resize", fit);
   }, []);
 
+  // גודל הדף — נשמר בדפדפן לפעם הבאה
+  const [paper, setPaperState] = useState<Paper>("A4");
+  useEffect(() => {
+    try { if (localStorage.getItem(PAPER_KEY) === "A3") setPaperState("A3"); } catch { /* בלי זיכרון בדפדפן */ }
+  }, []);
+  const setPaper = (p: Paper) => {
+    setPaperState(p);
+    try { localStorage.setItem(PAPER_KEY, p); } catch { /* */ }
+  };
+
   // נפתח עם ?auto=1 — חלון ההדפסה נפתח לבד, אחרי שהתמונות נטענו והכתב הותאם לדף
   useEffect(() => {
     if (!autoPrint || emptyText) return;
@@ -136,20 +156,25 @@ export default function PrintSheet({ data, view, title, heading, shareWhat, hide
   const prepare = useCallback((): Promise<Files> => {
     if (!filesRef.current) {
       const job = (async (): Promise<Files> => {
-        const paper = paperRef.current;
-        if (!paper) throw new Error("no paper");
+        const sheet = paperRef.current;
+        if (!sheet) throw new Error("no paper");
         // הגופן, התמונות, והתאמת הכתב לדף (שרצה שוב אחרי שהגופן נטען)
         await document.fonts?.ready;
-        await imagesLoaded(paper, 5000);
+        await imagesLoaded(sheet, 5000);
         await sleep(400);
         const phone = !!window.matchMedia?.("(pointer: coarse)").matches;
-        const canvas = await snapshotCanvas(paper, {
-          scale: phone ? 2 : 2.5,
+        // ב-A3 הדף גדול יותר, ולכן צריך יותר פיקסלים כדי שיהיה חד
+        const big = paper === "A3";
+        const canvas = await snapshotCanvas(sheet, {
+          scale: phone ? (big ? 2.5 : 2) : (big ? 3.5 : 2.5),
           background: "#ffffff",
           rootStyle: { transform: "none", "box-shadow": "none", margin: "0" },
         });
         const jpg = await canvasBlob(canvas, "image/jpeg", 0.9);
-        const pdf = jpegToPdf(new Uint8Array(await jpg.arrayBuffer()), canvas.width, canvas.height, { title: subject });
+        const pdf = jpegToPdf(new Uint8Array(await jpg.arrayBuffer()), canvas.width, canvas.height, {
+          title: subject,
+          page: big ? A3_LANDSCAPE : A4_LANDSCAPE,
+        });
         // PNG — להעתקה ללוח (וואטסאפ במחשב). במחשב מכינים אותו כבר עכשיו, כדי שההעתקה תהיה מיידית
         let png: Promise<Blob> | null = phone ? null : canvasBlob(canvas, "image/png");
         png?.catch(() => { png = null; });
@@ -159,10 +184,10 @@ export default function PrintSheet({ data, view, title, heading, shareWhat, hide
       job.then(f => { if (filesRef.current === job) readyRef.current = f; }, () => { if (filesRef.current === job) filesRef.current = null; });
     }
     return filesRef.current;
-  }, [subject]);
+  }, [subject, paper]);
 
-  // שבוע אחר / מחלקה אחרת — הקבצים הקודמים כבר לא נכונים
-  useEffect(() => () => { filesRef.current = null; readyRef.current = null; }, [subject]);
+  // שבוע אחר / מחלקה אחרת / גודל דף אחר — הקבצים הקודמים כבר לא נכונים
+  useEffect(() => () => { filesRef.current = null; readyRef.current = null; }, [subject, paper]);
 
   // מכינים את הקבצים ברקע כשהדף נפתח, כך שהכפתורים עובדים מיד
   useEffect(() => {
@@ -203,8 +228,11 @@ export default function PrintSheet({ data, view, title, heading, shareWhat, hide
     fallback();
   };
 
+  // ה-PDF בגודל הדף שנבחר; ב-A3 זה כתוב גם בשם הקובץ
+  const pdfName = `${fileBase}${paper === "A3" ? " (A3)" : ""}.pdf`;
+
   const download = (kind: "pdf" | "jpg") => withFiles(kind, f => {
-    const name = `${fileBase}.${kind}`;
+    const name = kind === "pdf" ? pdfName : `${fileBase}.jpg`;
     saveBlob(kind === "pdf" ? f.pdf : f.jpg, name);
     setNote({ text: `הקובץ "${name}" ירד (לתיקיית ההורדות).` });
   });
@@ -239,7 +267,7 @@ export default function PrintSheet({ data, view, title, heading, shareWhat, hide
   });
 
   const email = () => withFiles("email", async f => {
-    const name = `${fileBase}.pdf`;
+    const name = pdfName;
     const mail = mailLinks(subject, mailBody);
     const viaDownload = () => {
       saveBlob(f.pdf, name);
@@ -266,7 +294,7 @@ export default function PrintSheet({ data, view, title, heading, shareWhat, hide
 
   return (
     <div className="print-root" dir="rtl">
-      <style dangerouslySetInnerHTML={{ __html: PRINT_CSS }} />
+      <style dangerouslySetInnerHTML={{ __html: printCss(paper) }} />
 
       <div className="print-toolbar">
         <h1>{heading} · <bdi dir="ltr">{range}</bdi></h1>
@@ -277,6 +305,12 @@ export default function PrintSheet({ data, view, title, heading, shareWhat, hide
             <button type="button" className="print-btn print-btn-main" onClick={() => window.print()}>
               <Printer aria-hidden="true" /> הדפסה
             </button>
+            <div className="print-size" role="group" aria-label="גודל דף">
+              <span>דף</span>
+              {PAPERS.map(p => (
+                <button key={p} type="button" aria-pressed={paper === p} onClick={() => setPaper(p)}>{p}</button>
+              ))}
+            </div>
             <button type="button" className="print-btn" disabled={busy !== null} aria-busy={busy === "pdf"} onClick={() => download("pdf")}>
               {icon("pdf", FileDown)} הורדת PDF
             </button>
@@ -291,7 +325,7 @@ export default function PrintSheet({ data, view, title, heading, shareWhat, hide
             </button>
           </div>
         )}
-        {!emptyText && <p className="print-tip">בחלון ההדפסה: גודל דף A4, לרוחב. ההדפסה, ההורדה והשליחה — בדיוק כמו שרואים כאן.</p>}
+        {!emptyText && <p className="print-tip">בחלון ההדפסה: גודל דף {paper}, לרוחב. ההדפסה, ההורדה והשליחה — בדיוק כמו שרואים כאן.</p>}
         {note && (
           <div className={"print-note" + (note.error ? " print-note-err" : "")} role="status">
             <span className="print-note-text">{note.text}</span>

@@ -10,7 +10,10 @@ import { resolveTopic } from "./topics";
 import type { DepartmentDisplayProps } from "@/components/display/department-display";
 import { latestIconConfig } from "./icon-config";
 
-export async function loadDepartmentDisplay(supabase: SupabaseClient, code: string): Promise<DepartmentDisplayProps | null> {
+/** אפשרויות: שבוע אחר (להדפסה), ובלי מה שלא מודפס (חדשות, תמונות, פיזיותרפיה) */
+export type LoadOptions = { weekStart?: string; forPrint?: boolean };
+
+export async function loadDepartmentDisplay(supabase: SupabaseClient, code: string, opts: LoadOptions = {}): Promise<DepartmentDisplayProps | null> {
   const dep = await supabase.from("departments").select("id, name, code, color").eq("code", code).maybeSingle();
   // תקלה בקריאה היא לא "אין מחלקה כזו". זורקים — והמסך מציג דף המתנה ומנסה שוב לבד.
   // (פעם זה החזיר null, המסך עבר לדף 404 ונשאר תקוע שם גם אחרי שהתקלה עברה.)
@@ -19,18 +22,21 @@ export async function loadDepartmentDisplay(supabase: SupabaseClient, code: stri
   if (!department) return null;
 
   const today = israelDateISO();
-  const weekStart = weekStartISO(today);
+  const weekStart = weekStartISO(opts.weekStart && /^\d{4}-\d{2}-\d{2}$/.test(opts.weekStart) ? opts.weekStart : today);
   const weekDates = weekDatesISO(weekStart);
+  const print = !!opts.forPrint;
 
   const [acts, ss, media, topic, menuRows, physio, allSettings] = await Promise.all([
     // הקבועות (בלי תאריך) ושל השבוע הזה בלבד — בלי כל הפעילויות החד-פעמיות מהעבר, שרק מצטברות עם הזמן
     supabase.from("activities").select("*").eq("department_id", department.id).eq("is_active", true)
       .or(`activity_date.is.null,and(activity_date.gte.${weekStart},activity_date.lte.${weekDates[6]})`),
     supabase.from("screen_settings").select("display_settings, media_url, media_type").eq("department_id", department.id).maybeSingle(),
+    print ? Promise.resolve({ data: [] as any[], error: null }) :
     supabase.from("department_media").select("media_url, media_type").eq("department_id", department.id).eq("is_active", true).order("display_order", { ascending: true }).limit(10),
     resolveTopic(supabase, department.id, weekStart),
     supabase.from("weekly_menus").select("week_start, day_index, meal, items").eq("week_start", weekStart),
     // מי מהמחלקה מוזמן היום לפיזיותרפיה
+    print ? Promise.resolve({ data: [] as any[], error: null }) :
     supabase.from("physio_appointments").select("*").eq("appt_date", today).eq("department_id", department.id).order("start_time"),
     // הגדרות האייקונים משותפות לכל המחלקות — לוקחים את העדכנית ביותר
     supabase.from("screen_settings").select("display_settings"),
@@ -46,7 +52,7 @@ export async function loadDepartmentDisplay(supabase: SupabaseClient, code: stri
   if (mediaList.length === 0 && ss.data?.media_url) mediaList.push({ url: ss.data.media_url, type: ss.data.media_type || "image" });
 
   // מחלקה שבחרה בעבר "רק הודעות" — כלומר בלי חדשות, ולכן אין בה שורת רצה
-  const news = settings.show_ticker && settings.ticker_source !== "messages" ? (await getN12Headlines()).map(n => n.title) : [];
+  const news = !print && settings.show_ticker && settings.ticker_source !== "messages" ? (await getN12Headlines()).map(n => n.title) : [];
 
   return {
     department: { id: department.id, name: department.name, color: department.color },
@@ -67,6 +73,24 @@ export async function loadDepartmentDisplay(supabase: SupabaseClient, code: stri
       note: r.note,
       attended: r.attended ?? null,
     })),
+    iconConfig: latestIconConfig(allSettings.data as { display_settings?: unknown }[] | null),
+  };
+}
+
+/** התפריט של שבוע (משותף לכל המחלקות), להדפסה */
+export async function loadWeekMenu(supabase: SupabaseClient, week?: string) {
+  const weekStart = weekStartISO(week && /^\d{4}-\d{2}-\d{2}$/.test(week) ? week : israelDateISO());
+  const [menuRows, allSettings] = await Promise.all([
+    supabase.from("weekly_menus").select("week_start, day_index, meal, items").eq("week_start", weekStart),
+    supabase.from("screen_settings").select("display_settings"),
+  ]);
+  const failed = menuRows.error ?? allSettings.error;
+  if (failed) throw new Error("menu data: " + failed.message);
+  return {
+    weekStart,
+    weekDates: weekDatesISO(weekStart),
+    menu: menuFromRows((menuRows.data ?? []) as MenuRow[]),
+    menuNotes: menuNotesFromRows((menuRows.data ?? []) as MenuRow[]),
     iconConfig: latestIconConfig(allSettings.data as { display_settings?: unknown }[] | null),
   };
 }

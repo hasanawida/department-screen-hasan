@@ -270,6 +270,13 @@ export default function MenuEditor() {
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <SaveChip state={save} />
+          {/* הדפסת התפריט של השבוע שמוצג, על דף A4 (אחרי שמה שנכתב נשמר) */}
+          {save === "saving" || weekEmpty || loading ? (
+            <span className={btnGhost + " cursor-not-allowed opacity-50"} aria-disabled="true"
+              title={save === "saving" ? "רגע — שומר את מה שנכתב" : "אין עדיין תפריט לשבוע הזה"}>הדפסה</span>
+          ) : (
+            <a className={btnGhost} href={`/print/menu?week=${weekStart}&auto=1`} target="_blank" rel="noopener">הדפסה</a>
+          )}
           <button type="button" className={btnGhost} onClick={() => { setFwdOpen(o => !o); setFwdMsg(""); setFwdSel([]); }} disabled={loading || loadFailed || weekEmpty} aria-expanded={fwdOpen}>
             שכפול לשבועות הבאים
           </button>

@@ -42,6 +42,8 @@ export type DepartmentDisplayProps = {
   iconConfig?: IconConfig;
   /** בעורך: לחיצה על פעילות בלוח השבועי */
   editor?: { selectedId?: string | null; onSelect: (a: BoardActivity) => void; onAdd: (dayIndex: number, start?: string, end?: string) => void };
+  /** הדפסה: בכותרת — מה מודפס ולאיזה שבוע (במקום השעון), בלי הדגשת היום/עכשיו ובלי שורת רצה */
+  print?: { title: string; range: string; hideDepartment?: boolean };
 };
 
 export type ViewKind = "weekly" | "daily" | "notice" | "physio" | "menuToday" | "menu" | "media";
@@ -65,15 +67,18 @@ function useNow() {
 }
 
 export default function DepartmentDisplay(props: DepartmentDisplayProps) {
-  const { department, weekDates, days, settings, board, topic, menu, news, media, embeddedCu, fixedView, editor } = props;
+  const { department, weekDates, days, settings, topic, menu, news, media, embeddedCu, fixedView, editor, print } = props;
+  // בהדפסה: בלי לעמעם ימים שעברו
+  const board = print ? { ...props.board, dim_past_days: false } : props.board;
   const menuNotes = props.menuNotes ?? [];
   const physio = props.physio ?? [];
   const now = useNow();
 
   const todayISO = now ? israelDateISO(now) : "";
-  const todayIndex = weekDates.indexOf(todayISO);
+  // בהדפסה אין "היום" ו"עכשיו" — הדף נשאר על הקיר כל השבוע
+  const todayIndex = print ? -1 : weekDates.indexOf(todayISO);
   const hm = now ? israelTimeHM(now) : "";
-  const nowMinutes = now ? toMinutes(hm) : -1;
+  const nowMinutes = now && !print ? toMinutes(hm) : -1;
 
   const hasMenu = Object.values(menu).some(d => Object.values(d ?? {}).some(l => (l?.length ?? 0) > 0));
   const todayHasMenu = todayIndex >= 0 && Object.values(menu[todayIndex] ?? {}).some(l => (l?.length ?? 0) > 0);
@@ -133,14 +138,18 @@ export default function DepartmentDisplay(props: DepartmentDisplayProps) {
         {/* כותרת */}
         <header className={styles.header}>
           <EshkolotLogo className={styles.logo} />
-          <span className={styles.rule} aria-hidden="true" />
-          <div className={styles.dept}>
-            <span className={styles.label}>מחלקה</span>
-            <span className={styles.deptName}>
-              <span className={styles.dot} style={{ backgroundColor: department.color || BRAND.sage }} aria-hidden="true" />
-              {department.name}
-            </span>
-          </div>
+          {!print?.hideDepartment && (
+            <>
+              <span className={styles.rule} aria-hidden="true" />
+              <div className={styles.dept}>
+                <span className={styles.label}>מחלקה</span>
+                <span className={styles.deptName}>
+                  <span className={styles.dot} style={{ backgroundColor: department.color || BRAND.sage }} aria-hidden="true" />
+                  {department.name}
+                </span>
+              </div>
+            </>
+          )}
 
           {kindsInRotation.length > 1 && !fixedView && (
             <nav className={styles.views} aria-label="מה מוצג">
@@ -150,10 +159,17 @@ export default function DepartmentDisplay(props: DepartmentDisplayProps) {
             </nav>
           )}
 
-          <div className={styles.when} style={kindsInRotation.length > 1 && !fixedView ? undefined : { marginInlineStart: "auto" }}>
-            <span className={styles.whenDate}>{dateText}</span>
-            <span className={styles.whenClock}>{hm}</span>
-          </div>
+          {print ? (
+            <div className={styles.when} style={{ marginInlineStart: "auto" }}>
+              <span className={styles.whenDate}>{print.title}</span>
+              <span className={styles.whenClock}><bdi dir="ltr">{print.range}</bdi></span>
+            </div>
+          ) : (
+            <div className={styles.when} style={kindsInRotation.length > 1 && !fixedView ? undefined : { marginInlineStart: "auto" }}>
+              <span className={styles.whenDate}>{dateText}</span>
+              <span className={styles.whenClock}>{hm}</span>
+            </div>
+          )}
         </header>
 
         {/* תצוגה */}
@@ -191,7 +207,7 @@ export default function DepartmentDisplay(props: DepartmentDisplayProps) {
           )}
 
           {view.kind === "menu" && (
-            <WeeklyMenu menu={menu} weekDates={weekDates} todayIndex={todayIndex} notes={menuNotes} allDays={!!fixedView}
+            <WeeklyMenu menu={menu} weekDates={weekDates} todayIndex={todayIndex} notes={menuNotes} allDays={!!fixedView && !print}
               look={viewStyle(settings, board, "menu")} />
           )}
 
@@ -205,7 +221,7 @@ export default function DepartmentDisplay(props: DepartmentDisplayProps) {
         </main>
 
         {/* שורת רצה */}
-        {settings.show_ticker && settings.ticker_source !== "messages" && tickerItems.length > 0 ? (
+        {!print && settings.show_ticker && settings.ticker_source !== "messages" && tickerItems.length > 0 ? (
           <footer className={styles.ticker} aria-label="חדשות">
             <div className={styles.tickerViewport}>
               <div className={styles.tickerTrack} style={{ "--ticker-duration": tickerDuration } as React.CSSProperties}>

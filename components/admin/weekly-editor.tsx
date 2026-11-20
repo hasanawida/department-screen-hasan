@@ -574,10 +574,10 @@ export default function WeeklyEditor() {
             className="inline-flex items-center gap-2 rounded-full border border-[#5A826F]/40 bg-white px-4 py-2 text-sm font-semibold text-[#5A826F] hover:bg-[#E3ECE7]">
             <CalendarDays className="h-4 w-4" /> יומן
           </Link>
-          {/* הדפסת הלוח של השבוע שמוצג כאן, על דף A4 */}
-          <a href={`/print/board/${encodeURIComponent(dept.code)}?week=${weekStart}&auto=1`} target="_blank" rel="noopener"
+          {/* הלוח של השבוע שמוצג כאן על דף A4: הדפסה, הורדה (PDF/תמונה), שליחה בוואטסאפ ובמייל */}
+          <a href={`/print/board/${encodeURIComponent(dept.code)}?week=${weekStart}`} target="_blank" rel="noopener"
             className="inline-flex items-center gap-2 rounded-full border border-[#5A826F]/40 bg-white px-4 py-2 text-sm font-semibold text-[#5A826F] hover:bg-[#E3ECE7]">
-            <Printer className="h-4 w-4" /> הדפסה
+            <Printer className="h-4 w-4" /> הדפסה ושליחה
           </a>
           <Link href={"/display/" + dept.code} target="_blank"
             className="inline-flex items-center gap-2 rounded-full bg-[#3F2F2D] px-4 py-2 text-sm font-semibold text-[#F6F2EE] hover:bg-[#3F2F2D]/90">

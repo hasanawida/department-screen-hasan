@@ -10,11 +10,15 @@ export const FILL_MIN = 0.5;
 
 /** גובה התוכן בפועל בתוך האלמנט (גם כשהוא קטן מהאלמנט) */
 function contentHeight(el: HTMLElement) {
-  const top = el.getBoundingClientRect().top;
-  let bottom = top;
+  const box = el.getBoundingClientRect();
+  let bottom = box.top;
   for (const child of Array.from(el.children)) bottom = Math.max(bottom, child.getBoundingClientRect().bottom);
+  // המדידה על המסך מושפעת מהקטנה של אלמנט עוטף (transform: scale — למשל דף ההדפסה בטלפון),
+  // והגובה הפנוי (clientHeight) לא. לכן מחזירים את הגובה במידות של הלוח עצמו, בלי ההקטנה
+  const k = el.offsetHeight > 0 ? box.height / el.offsetHeight : 1;
+  const shrink = Math.abs(k - 1) < 0.01 ? 1 : k;
   const pb = parseFloat(getComputedStyle(el).paddingBottom) || 0;
-  return bottom - top + pb;
+  return (bottom - box.top) / shrink + pb;
 }
 
 /**

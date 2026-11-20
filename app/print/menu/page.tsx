@@ -3,9 +3,9 @@ import { loadWeekMenu } from "@/lib/department-data";
 import { displaySettings, weeklyBoardSettings } from "@/lib/week";
 import PrintSheet from "@/components/print/print-sheet";
 
-// הדפסת התפריט השבועי (משותף לכל המחלקות): /print/menu?week=YYYY-MM-DD
+// הדפסה, הורדה ושליחה של התפריט השבועי (משותף לכל המחלקות): /print/menu?week=YYYY-MM-DD
 export const dynamic = "force-dynamic";
-export const metadata = { title: "הדפסת תפריט שבועי" };
+export const metadata = { title: "תפריט שבועי — הדפסה ושליחה" };
 
 export default async function PrintMenuPage({ searchParams }: { searchParams: Promise<{ week?: string; auto?: string }> }) {
   const sp = await searchParams;
@@ -30,6 +30,7 @@ export default async function PrintMenuPage({ searchParams }: { searchParams: Pr
       view="menu"
       title="תפריט שבועי"
       heading="תפריט שבועי"
+      shareWhat="התפריט השבועי"
       hideDepartment
       basePath="/print/menu"
       autoPrint={sp.auto === "1"}

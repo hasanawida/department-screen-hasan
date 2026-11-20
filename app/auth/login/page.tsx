@@ -3,7 +3,7 @@
 import { useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { EshkolotLogo, Pin, BRAND } from '@/components/orientation/eshkolot-logo'
+import { EshkolotLogo, EshkolotMark } from '@/components/orientation/eshkolot-logo'
 
 const inputCls =
   'h-12 w-full rounded-xl border border-[#3F2F2D]/15 bg-white px-4 text-base text-[#3F2F2D] outline-none placeholder:text-[#3F2F2D]/40 focus:border-[#5A826F] focus:ring-2 focus:ring-[#5A826F]/25'
@@ -77,9 +77,8 @@ function LoginForm() {
 
       {/* צד מותג */}
       <div className="relative hidden overflow-hidden bg-[#E3ECE7] md:block" aria-hidden="true">
-        <Pin color={BRAND.sage} className="absolute right-[18%] top-[14%] w-[34%]" />
-        <Pin color={BRAND.sun} className="absolute right-[8%] top-[44%] w-[26%]" />
-        <Pin color={BRAND.coral} className="absolute right-[40%] top-[50%] w-[24%]" />
+        {/* הסמל עצמו, בגדול — בדיוק כמו בלוגו (העליונה למטה, שתי התחתונות למעלה) */}
+        <EshkolotMark className="absolute right-[15%] top-[10%] h-[58%] w-[70%]" />
         <p className="absolute bottom-10 right-10 left-10 text-2xl font-bold leading-snug text-[#375044]">
           מה שקורה היום במחלקה,<br />על המסך, בגדול וברור.
         </p>

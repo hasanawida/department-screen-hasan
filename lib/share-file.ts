@@ -1,5 +1,7 @@
 // שמירה ושליחה של קובץ שנוצר בדפדפן: הורדה, העתקה של תמונה (להדבקה בוואטסאפ או במייל),
-// ושליחה דרך תפריט השיתוף של הטלפון.
+// ושליחה דרך תפריט השיתוף של המכשיר.
+// אתר לא יכול לצרף קובץ בעצמו למייל או לוואטסאפ שהוא פותח (הגבלה של הדפדפנים) — הקובץ עובר רק דרך
+// תפריט השיתוף של המכשיר, הדבקה (Ctrl+V) או צירוף ידני של קובץ שירד.
 
 /** הורדה של הקובץ למכשיר (לתיקיית ההורדות) */
 export function saveBlob(blob: Blob, name: string) {
@@ -15,18 +17,39 @@ export function saveBlob(blob: Blob, name: string) {
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
+/** טלפון או טאבלט (מסך מגע) */
+export function isPhone(): boolean {
+  return typeof window !== "undefined" && !!window.matchMedia?.("(pointer: coarse)").matches;
+}
+
+/** ספארי, וכל דפדפן באייפון ובאייפד */
+export function isApple(): boolean {
+  return typeof navigator !== "undefined" && /apple/i.test(navigator.vendor || "");
+}
+
 /**
- * טלפון או טאבלט שיכול לשלוח את הקובץ דרך תפריט השיתוף של המכשיר (וואטסאפ, מייל...).
- * במחשב לא משתמשים בזה: שם תפריט השיתוף של Windows לא מכיר את וואטסאפ ברשת או Gmail.
+ * מה נשלח לתפריט השיתוף של המכשיר. באייפון ובספארי — רק הקובץ: כשיש איתו גם טקסט, וואטסאפ ואפליקציות נוספות
+ * מוותרות על הקובץ ומקבלות רק את הטקסט (באג ידוע של WebKit). באנדרואיד ובמחשב — הקובץ עם ההודעה.
  */
-export function canShareFile(file: File): boolean {
+export function fileShareData(file: File, text: string, title?: string): ShareData {
+  if (isApple()) return { files: [file] };
+  return title ? { files: [file], text, title } : { files: [file], text };
+}
+
+/** האם תפריט השיתוף של המכשיר (טלפון, Windows, מק) יכול לקבל את הקובץ */
+export function canShareFiles(data: ShareData): boolean {
   if (typeof navigator === "undefined" || typeof navigator.share !== "function" || typeof navigator.canShare !== "function") return false;
-  if (!window.matchMedia?.("(pointer: coarse)").matches) return false;
   try {
-    return navigator.canShare({ files: [file] });
+    return navigator.canShare(data);
   } catch {
     return false;
   }
+}
+
+/** קישורים שפותחים את וואטסאפ עם הודעה כתובה — בוחרים שיחה, וההודעה כבר בתיבה */
+export function whatsappLinks(text: string) {
+  const t = encodeURIComponent(text);
+  return { web: `https://web.whatsapp.com/send?text=${t}`, app: `whatsapp://send?text=${t}` };
 }
 
 /**

@@ -8,9 +8,9 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { FileDown, ImageDown, Loader2, Mail, MessageCircle, Printer, X } from "lucide-react";
 import DepartmentDisplay, { type DepartmentDisplayProps, type ViewKind } from "@/components/display/department-display";
 import { addDaysISO, shortDate } from "@/lib/week";
-import { canvasBlob, snapshotCanvas } from "@/lib/snapshot";
+import { canvasBlob, shrinkCanvas, snapshotCanvas } from "@/lib/snapshot";
 import { A3_LANDSCAPE, A4_LANDSCAPE, jpegToPdf } from "@/lib/pdf-from-jpeg";
-import { canShareFile, copyImage, mailLinks, pasteKeys, safeFileName, saveBlob } from "@/lib/share-file";
+import { canShareFiles, copyImage, fileShareData, isPhone, mailLinks, pasteKeys, safeFileName, saveBlob, whatsappLinks } from "@/lib/share-file";
 
 // A4 לרוחב עם שוליים של 6 מ"מ (רוב המדפסות לא מדפיסות עד הקצה): נשארים 285×198 מ"מ.
 // הדף קצת קטן מזה (284×196), כדי שעיגול של פיקסל לא ידחוף אותו לדף שני
@@ -48,9 +48,15 @@ html, body { background: #e9e3dc; }
 .print-btn-wa { background: #e6f4ea; border-color: #b7dcc3; }
 .print-btn-wa:hover { background: #d3ecdb; }
 .print-tip { width: 100%; font-size: 13px; color: rgba(63,47,45,.65); margin: 0; }
-.print-note { width: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; background: #fff; border: 1px solid #b7dcc3; border-radius: 16px; padding: 10px 14px; font-size: 15px; }
+.print-note { width: 100%; display: flex; align-items: flex-start; gap: 10px; background: #fff; border: 1px solid #b7dcc3; border-radius: 16px; padding: 12px 16px; font-size: 15px; }
 .print-note-err { background: #fdf0ee; border-color: #f0c6bd; }
-.print-note-text { flex: 1 1 280px; font-weight: 600; }
+.print-note-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.print-note-text { margin: 0; font-weight: 700; }
+.print-note-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.print-steps-title { margin: 2px 0 0; font-weight: 600; color: rgba(63,47,45,.75); }
+.print-steps { margin: 0; padding-inline-start: 22px; display: flex; flex-direction: column; gap: 6px; line-height: 1.6; }
+.print-steps li > span { margin-inline-end: 8px; }
+.print-steps .print-btn { margin-inline-end: 6px; margin-block: 2px; vertical-align: middle; }
 .print-note .print-btn { padding: 6px 14px; font-size: 14px; }
 .print-note-x { border: 0; background: none; color: rgba(63,47,45,.6); padding: 4px; cursor: pointer; display: inline-flex; }
 .print-note-x svg { width: 18px; height: 18px; }
@@ -71,10 +77,14 @@ html, body { background: #e9e3dc; }
 /** הקבצים של הדף: תמונה (לוואטסאפ ולהורדה) ו-PDF (להורדה ולמייל) */
 type Files = { jpg: Blob; pdf: Blob; png: () => Promise<Blob> };
 type Action = "pdf" | "jpg" | "whatsapp" | "email";
+/** כפתור בתוך הודעה: קישור או פעולה */
+type NoteAction = { label: string; href?: string; newTab?: boolean; run?: () => void; strong?: boolean };
 type Note = {
   text: string;
-  links?: Array<{ label: string; href: string; newTab?: boolean }>;
-  extra?: { label: string; run: () => void };
+  actions?: NoteAction[];
+  /** צעדים ממוספרים (למשל: פותחים את וואטסאפ ← בוחרים שיחה ← מדביקים) */
+  stepsTitle?: string;
+  steps?: Array<{ text: string; actions?: NoteAction[] }>;
   error?: boolean;
 };
 
@@ -175,10 +185,11 @@ export default function PrintSheet({ data, view, title, heading, shareWhat, hide
           title: subject,
           page: big ? A3_LANDSCAPE : A4_LANDSCAPE,
         });
-        // PNG — להעתקה ללוח (וואטסאפ במחשב). במחשב מכינים אותו כבר עכשיו, כדי שההעתקה תהיה מיידית
-        let png: Promise<Blob> | null = phone ? null : canvasBlob(canvas, "image/png");
+        // PNG — להעתקה ולהדבקה (וואטסאפ ומייל במחשב), בגודל סביר. במחשב מכינים אותו כבר עכשיו, כדי שההעתקה תהיה מיידית
+        const encodePng = () => canvasBlob(shrinkCanvas(canvas, 2200), "image/png");
+        let png: Promise<Blob> | null = phone ? null : encodePng();
         png?.catch(() => { png = null; });
-        return { jpg, pdf, png: () => (png ??= canvasBlob(canvas, "image/png")) };
+        return { jpg, pdf, png: () => (png ??= encodePng()) };
       })();
       filesRef.current = job;
       job.then(f => { if (filesRef.current === job) readyRef.current = f; }, () => { if (filesRef.current === job) filesRef.current = null; });
@@ -237,57 +248,120 @@ export default function PrintSheet({ data, view, title, heading, shareWhat, hide
     setNote({ text: `הקובץ "${name}" ירד (לתיקיית ההורדות).` });
   });
 
+  // ההודעה שנשלחת עם התמונה בוואטסאפ
+  const caption = `${shareWhat} לשבוע ${range}`;
+
+  /** כפתור ששולח דרך תפריט השיתוף של המחשב (Windows, מק) — האפליקציה מקבלת את הקובץ מצורף */
+  const sheetAction = (label: string, data: ShareData): NoteAction => ({
+    label,
+    strong: true,
+    run: () => {
+      navigator.share(data).then(() => setNote({ text: "הקובץ עבר לאפליקציה ✓" }), () => undefined);
+    },
+  });
+
   const whatsapp = () => withFiles("whatsapp", async f => {
     const name = `${fileBase}.jpg`;
-    const web = { label: "פתיחת WhatsApp Web", href: "https://web.whatsapp.com/", newTab: true };
-    const viaDownload = () => {
-      saveBlob(f.jpg, name);
-      setNote({ text: `התמונה "${name}" ירדה. בוואטסאפ פתחו את השיחה או הקבוצה, לחצו על המהדק (צירוף) ובחרו אותה.`, links: [web] });
-    };
-    // טלפון: תפריט השיתוף של המכשיר, ובו וואטסאפ — התמונה נשלחת כמו שהיא
     const file = new File([f.jpg], name, { type: "image/jpeg" });
-    if (canShareFile(file)) {
-      try { await navigator.share({ files: [file] }); } catch (e) { shareFailed(e, viaDownload); }
+    const data = fileShareData(file, caption);
+    const wa = whatsappLinks(caption);
+    const phoneFallback = () => {
+      saveBlob(f.jpg, name);
+      setNote({
+        text: `התמונה "${name}" ירדה לטלפון — עכשיו שולחים אותה:`,
+        steps: [
+          { text: "פותחים את וואטסאפ ובוחרים את השיחה או הקבוצה — ההודעה כבר כתובה", actions: [{ label: "פתיחת וואטסאפ", href: wa.app }] },
+          { text: "מצרפים את התמונה מהקבצים (📎) ושולחים" },
+        ],
+      });
+    };
+    // טלפון: תפריט השיתוף של המכשיר, ובו וואטסאפ — התמונה מצורפת לבד (באנדרואיד גם ההודעה)
+    if (isPhone()) {
+      if (!canShareFiles(data)) { phoneFallback(); return; }
+      try { await navigator.share(data); } catch (e) { shareFailed(e, phoneFallback); }
       return;
     }
-    // מחשב: מעתיקים את התמונה, ובוואטסאפ מדביקים אותה בשיחה
+    // מחשב: אתר לא יכול לצרף קובץ לוואטסאפ בעצמו. לכן התמונה מועתקת, ובשיחה מדביקים אותה;
+    // ואם למחשב יש תפריט שיתוף (Windows, מק) — דרך אפליקציית וואטסאפ התמונה מצורפת לבד
     const copying = copyImage(f.png());
     setBusy("whatsapp");
     const copied = await copying;
     setBusy(null);
-    if (copied) {
-      setNote({
-        text: `התמונה הועתקה. פתחו בוואטסאפ את השיחה או הקבוצה, הדביקו (${pasteKeys()}) ושלחו.`,
-        links: [web],
-        extra: { label: "או הורדת התמונה", run: () => saveBlob(f.jpg, name) },
-      });
-    } else {
-      viaDownload();
-    }
+    if (!copied) saveBlob(f.jpg, name);
+    const viaApp = canShareFiles(data);
+    setNote({
+      text: copied ? "התמונה הועתקה — עכשיו שולחים אותה:" : `התמונה "${name}" ירדה למחשב — עכשיו שולחים אותה:`,
+      actions: viaApp ? [sheetAction("באפליקציית וואטסאפ במחשב — התמונה מצורפת לבד", data)] : undefined,
+      stepsTitle: viaApp ? "או ב-WhatsApp Web:" : undefined,
+      steps: [
+        {
+          text: "פותחים את וואטסאפ",
+          actions: viaApp
+            ? [{ label: "WhatsApp Web", href: wa.web, newTab: true }]
+            : [{ label: "WhatsApp Web", href: wa.web, newTab: true }, { label: "אפליקציית וואטסאפ", href: wa.app }],
+        },
+        { text: "בוחרים את השיחה או הקבוצה — ההודעה כבר כתובה" },
+        { text: copied ? `מדביקים את התמונה (${pasteKeys()}) ושולחים` : "מצרפים את התמונה שירדה (📎) ושולחים" },
+      ],
+    });
   });
 
   const email = () => withFiles("email", async f => {
     const name = pdfName;
+    const file = new File([f.pdf], name, { type: "application/pdf" });
+    const data = fileShareData(file, mailBody, subject);
     const mail = mailLinks(subject, mailBody);
-    const viaDownload = () => {
+    const phoneFallback = () => {
       saveBlob(f.pdf, name);
       setNote({
-        text: `הקובץ "${name}" ירד. פתחו מייל חדש (הנושא והטקסט כבר כתובים) וצרפו אליו את הקובץ:`,
-        links: [
-          { label: "תוכנת המייל במחשב", href: mail.app },
-          { label: "Gmail", href: mail.gmail, newTab: true },
-          { label: "Outlook באינטרנט", href: mail.outlook, newTab: true },
+        text: `הקובץ "${name}" ירד לטלפון — עכשיו שולחים אותו:`,
+        steps: [
+          { text: "פותחים מייל חדש — הנושא והטקסט כבר כתובים", actions: [{ label: "מייל חדש", href: mail.app }] },
+          { text: "מצרפים את הקובץ (📎), מוסיפים נמען ושולחים" },
         ],
       });
     };
-    // טלפון: תפריט השיתוף של המכשיר — הקובץ כבר מצורף למייל
-    const file = new File([f.pdf], name, { type: "application/pdf" });
-    if (canShareFile(file)) {
-      try { await navigator.share({ files: [file], title: subject, text: mailBody }); } catch (e) { shareFailed(e, viaDownload); }
+    // טלפון: תפריט השיתוף של המכשיר — הקובץ מצורף למייל לבד
+    if (isPhone()) {
+      if (!canShareFiles(data)) { phoneFallback(); return; }
+      try { await navigator.share(data); } catch (e) { shareFailed(e, phoneFallback); }
       return;
     }
-    viaDownload();
+    // מחשב: מייל שנפתח מאתר לא יכול לקבל קובץ מצורף. לכן תמונת הלוח מועתקת ומדביקים אותה בגוף המייל
+    // (או מצרפים את ה-PDF); ואם למחשב יש תפריט שיתוף — תוכנת המייל מקבלת את הקובץ מצורף
+    const copying = copyImage(f.png());
+    setBusy("email");
+    const copied = await copying;
+    setBusy(null);
+    if (!copied) saveBlob(f.pdf, name);
+    const viaApp = canShareFiles(data);
+    setNote({
+      text: copied ? "תמונת הלוח הועתקה — עכשיו שולחים אותה במייל:" : `הקובץ "${name}" ירד למחשב — עכשיו שולחים אותו במייל:`,
+      actions: viaApp ? [sheetAction("בתוכנת המייל במחשב — הקובץ מצורף לבד", data)] : undefined,
+      stepsTitle: viaApp ? "או במייל באינטרנט:" : undefined,
+      steps: [
+        {
+          text: "פותחים מייל חדש — הנושא והטקסט כבר כתובים",
+          actions: [
+            { label: "Gmail", href: mail.gmail, newTab: true },
+            { label: "Outlook באינטרנט", href: mail.outlook, newTab: true },
+            { label: "תוכנת המייל", href: mail.app },
+          ],
+        },
+        copied
+          ? { text: `בגוף המייל מדביקים (${pasteKeys()}) — תמונת הלוח נכנסת`, actions: [{ label: "או קובץ PDF לצירוף", run: () => saveBlob(f.pdf, name) }] }
+          : { text: "מצרפים את הקובץ שירד (📎)" },
+        { text: "מוסיפים נמען ושולחים" },
+      ],
+    });
   });
+
+  const noteAction = (a: NoteAction) => {
+    const cls = "print-btn" + (a.strong ? " print-btn-main" : "");
+    return a.href
+      ? <a key={a.label} className={cls} href={a.href} {...(a.newTab ? { target: "_blank", rel: "noopener noreferrer" } : {})}>{a.label}</a>
+      : <button key={a.label} type="button" className={cls} onClick={a.run}>{a.label}</button>;
+  };
 
   const icon = (action: Action, Icon: typeof Printer) =>
     busy === action ? <Loader2 className="print-spin" aria-hidden="true" /> : <Icon aria-hidden="true" />;
@@ -328,11 +402,16 @@ export default function PrintSheet({ data, view, title, heading, shareWhat, hide
         {!emptyText && <p className="print-tip">בחלון ההדפסה: גודל דף {paper}, לרוחב. ההדפסה, ההורדה והשליחה — בדיוק כמו שרואים כאן.</p>}
         {note && (
           <div className={"print-note" + (note.error ? " print-note-err" : "")} role="status">
-            <span className="print-note-text">{note.text}</span>
-            {note.links?.map(l => (
-              <a key={l.href} className="print-btn" href={l.href} {...(l.newTab ? { target: "_blank", rel: "noopener noreferrer" } : {})}>{l.label}</a>
-            ))}
-            {note.extra && <button type="button" className="print-btn" onClick={note.extra.run}>{note.extra.label}</button>}
+            <div className="print-note-body">
+              <p className="print-note-text">{note.text}</p>
+              {note.actions && <div className="print-note-row">{note.actions.map(noteAction)}</div>}
+              {note.stepsTitle && <p className="print-steps-title">{note.stepsTitle}</p>}
+              {note.steps && (
+                <ol className="print-steps">
+                  {note.steps.map((st, i) => <li key={i}><span>{st.text}</span>{st.actions?.map(noteAction)}</li>)}
+                </ol>
+              )}
+            </div>
             <button type="button" className="print-note-x" aria-label="סגירה" onClick={() => setNote(null)}><X aria-hidden="true" /></button>
           </div>
         )}

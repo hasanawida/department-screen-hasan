@@ -389,3 +389,17 @@ export function canvasBlob(canvas: HTMLCanvasElement, type: string, quality?: nu
     canvas.toBlob(b => (b ? resolve(b) : reject(new Error("snapshot: encode failed"))), type, quality);
   });
 }
+
+/** עותק מוקטן של הקנבס (לרוחב מקסימלי) — למשל לתמונה שמודבקת במייל, כדי שלא תהיה כבדה */
+export function shrinkCanvas(canvas: HTMLCanvasElement, maxWidth: number): HTMLCanvasElement {
+  if (canvas.width <= maxWidth) return canvas;
+  const c = document.createElement("canvas");
+  c.width = maxWidth;
+  c.height = Math.round((canvas.height * maxWidth) / canvas.width);
+  const g = c.getContext("2d");
+  if (!g) return canvas;
+  g.imageSmoothingEnabled = true;
+  g.imageSmoothingQuality = "high";
+  g.drawImage(canvas, 0, 0, c.width, c.height);
+  return c;
+}
